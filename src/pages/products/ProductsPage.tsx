@@ -7,20 +7,24 @@ import Input from '../../components/common/inputs/Input'
 import Card from '../../components/common/cards/Card'
 import DataTable from '../../components/common/tables/DataTable'
 import Modal from '../../components/common/modals/Modal'
+import Pagination from '../../components/common/Pagination'
 
 export default function ProductsPage() {
   const [search, setSearch] = useState('')
+  const [page, setPage] = useState(1)
   const [showModal, setShowModal] = useState(false)
   const [editingProduct, setEditingProduct] = useState<any>(null)
   const queryClient = useQueryClient()
 
-  const { data: products, isLoading } = useQuery({
-    queryKey: ['products', search],
+  const { data: productsRes, isLoading } = useQuery({
+    queryKey: ['products', search, page],
     queryFn: async () => {
-      const res = await api.get(`/products?search=${search}`)
-      return res.data.data
+      const res = await api.get(`/products?search=${search}&page=${page}`)
+      return res.data
     },
   })
+  const products = productsRes?.data
+  const productsMeta = productsRes?.meta || productsRes?.links ? { current_page: productsRes.current_page, last_page: productsRes.last_page, total: productsRes.total, per_page: productsRes.per_page } : null
 
   const { data: categories } = useQuery({
     queryKey: ['categories'],
@@ -88,6 +92,7 @@ export default function ProductsPage() {
           loading={isLoading}
           emptyMessage="لا توجد منتجات"
         />
+        <Pagination meta={productsMeta} onPageChange={setPage} />
       </Card>
 
       <Modal

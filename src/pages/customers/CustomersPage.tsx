@@ -8,20 +8,24 @@ import Card from '../../components/common/cards/Card'
 import DataTable from '../../components/common/tables/DataTable'
 import Modal from '../../components/common/modals/Modal'
 import Badge from '../../components/common/data-display/Badge'
+import Pagination from '../../components/common/Pagination'
 
 export default function CustomersPage() {
   const [search, setSearch] = useState('')
+  const [page, setPage] = useState(1)
   const [showModal, setShowModal] = useState(false)
   const [editingCustomer, setEditingCustomer] = useState<any>(null)
   const queryClient = useQueryClient()
 
-  const { data: customers, isLoading } = useQuery({
-    queryKey: ['customers', search],
+  const { data: customersRes, isLoading } = useQuery({
+    queryKey: ['customers', search, page],
     queryFn: async () => {
-      const res = await api.get(`/customers?search=${search}`)
-      return res.data.data
+      const res = await api.get(`/customers?search=${search}&page=${page}`)
+      return res.data
     },
   })
+  const customers = customersRes?.data
+  const customersMeta = customersRes ? { current_page: customersRes.current_page, last_page: customersRes.last_page, total: customersRes.total, per_page: customersRes.per_page } : null
 
   const deleteMutation = useMutation({
     mutationFn: async (id: number) => {
@@ -91,6 +95,7 @@ export default function CustomersPage() {
           loading={isLoading}
           emptyMessage="لا توجد عملاء"
         />
+        <Pagination meta={customersMeta} onPageChange={setPage} />
       </Card>
 
       <Modal

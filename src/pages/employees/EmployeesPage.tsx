@@ -8,20 +8,24 @@ import Card from '../../components/common/cards/Card'
 import DataTable from '../../components/common/tables/DataTable'
 import Modal from '../../components/common/modals/Modal'
 import Badge from '../../components/common/data-display/Badge'
+import Pagination from '../../components/common/Pagination'
 
 export default function EmployeesPage() {
   const [search, setSearch] = useState('')
+  const [page, setPage] = useState(1)
   const [showModal, setShowModal] = useState(false)
   const [editingEmployee, setEditingEmployee] = useState<any>(null)
   const queryClient = useQueryClient()
 
-  const { data: employees, isLoading } = useQuery({
-    queryKey: ['employees', search],
+  const { data: employeesRes, isLoading } = useQuery({
+    queryKey: ['employees', search, page],
     queryFn: async () => {
-      const res = await api.get(`/employees?search=${search}`)
-      return res.data.data
+      const res = await api.get(`/employees?search=${search}&page=${page}`)
+      return res.data
     },
   })
+  const employees = employeesRes?.data
+  const employeesMeta = employeesRes ? { current_page: employeesRes.current_page, last_page: employeesRes.last_page, total: employeesRes.total, per_page: employeesRes.per_page } : null
 
   const deleteMutation = useMutation({
     mutationFn: async (id: number) => {
@@ -85,6 +89,7 @@ export default function EmployeesPage() {
           loading={isLoading}
           emptyMessage="لا توجد موظفين"
         />
+        <Pagination meta={employeesMeta} onPageChange={setPage} />
       </Card>
 
       <Modal

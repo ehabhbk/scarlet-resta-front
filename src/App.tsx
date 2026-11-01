@@ -16,6 +16,10 @@ import EmployeesPage from './pages/employees/EmployeesPage'
 import FinancePage from './pages/finance/FinancePage'
 import ReportsPage from './pages/reports/ReportsPage'
 import SettingsPage from './pages/settings/SettingsPage'
+import RecipesPage from './pages/recipes/RecipesPage'
+import PurchasesPage from './pages/purchases/PurchasesPage'
+import UsersPage from './pages/users/UsersPage'
+import ExpensesPage from './pages/expenses/ExpensesPage'
 
 const queryClient = new QueryClient()
 
@@ -140,6 +144,42 @@ function App() {
             isAuthenticated ? (
               <MainLayout>
                 <SettingsPage />
+              </MainLayout>
+            ) : (
+              <Navigate to="/login" />
+            )
+          } />
+          <Route path="/recipes" element={
+            isAuthenticated ? (
+              <MainLayout>
+                <RecipesPage />
+              </MainLayout>
+            ) : (
+              <Navigate to="/login" />
+            )
+          } />
+          <Route path="/purchases" element={
+            isAuthenticated ? (
+              <MainLayout>
+                <PurchasesPage />
+              </MainLayout>
+            ) : (
+              <Navigate to="/login" />
+            )
+          } />
+          <Route path="/users" element={
+            isAuthenticated ? (
+              <MainLayout>
+                <UsersPage />
+              </MainLayout>
+            ) : (
+              <Navigate to="/login" />
+            )
+          } />
+          <Route path="/expenses" element={
+            isAuthenticated ? (
+              <MainLayout>
+                <ExpensesPage />
               </MainLayout>
             ) : (
               <Navigate to="/login" />

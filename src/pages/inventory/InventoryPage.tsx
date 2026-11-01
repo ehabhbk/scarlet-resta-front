@@ -8,20 +8,24 @@ import Card from '../../components/common/cards/Card'
 import DataTable from '../../components/common/tables/DataTable'
 import Modal from '../../components/common/modals/Modal'
 import Badge from '../../components/common/data-display/Badge'
+import Pagination from '../../components/common/Pagination'
 
 export default function InventoryPage() {
   const [search, setSearch] = useState('')
+  const [page, setPage] = useState(1)
   const [showModal, setShowModal] = useState(false)
   const [editingItem, setEditingItem] = useState<any>(null)
   const queryClient = useQueryClient()
 
-  const { data: items, isLoading } = useQuery({
-    queryKey: ['inventory-items', search],
+  const { data: itemsRes, isLoading } = useQuery({
+    queryKey: ['inventory-items', search, page],
     queryFn: async () => {
-      const res = await api.get(`/inventory-items?search=${search}`)
-      return res.data.data
+      const res = await api.get(`/inventory-items?search=${search}&page=${page}`)
+      return res.data
     },
   })
+  const items = itemsRes?.data
+  const itemsMeta = itemsRes ? { current_page: itemsRes.current_page, last_page: itemsRes.last_page, total: itemsRes.total, per_page: itemsRes.per_page } : null
 
   const { data: units } = useQuery({
     queryKey: ['inventory-units'],
@@ -115,6 +119,7 @@ export default function InventoryPage() {
           loading={isLoading}
           emptyMessage="لا توجد أصناف"
         />
+        <Pagination meta={itemsMeta} onPageChange={setPage} />
       </Card>
 
       <Modal

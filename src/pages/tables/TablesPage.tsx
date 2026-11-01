@@ -55,7 +55,20 @@ export default function TablesPage() {
       <Badge variant={statusColors[item.status] || 'default'}>{item.status}</Badge>
     )},
     { key: 'actions', header: 'الإجراءات', render: (item: any) => (
-      <div className="flex gap-2">
+      <div className="flex gap-2 items-center">
+        <select
+          value={item.status}
+          onChange={async (e) => {
+            await api.put(`/tables/${item.id}`, { status: e.target.value })
+            queryClient.invalidateQueries({ queryKey: ['tables'] })
+          }}
+          className="text-xs px-2 py-1 border border-gray-300 rounded"
+        >
+          <option value="available">متاح</option>
+          <option value="occupied">مشغول</option>
+          <option value="reserved">محجوز</option>
+          <option value="cleaning">تنظيف</option>
+        </select>
         <button onClick={() => { setEditingTable(item); setShowModal(true) }} className="p-1 text-blue-600 hover:bg-blue-50 rounded">
           <Edit className="w-4 h-4" />
         </button>

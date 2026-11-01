@@ -11,7 +11,7 @@ export default function MainLayout({ children }: MainLayoutProps) {
   const { sidebarOpen } = useUiStore()
   
   return (
-    <div className="flex h-screen bg-gray-50">
+    <div className="flex h-screen bg-gray-50 dark:bg-gray-950">
       <Sidebar open={sidebarOpen} />
       <div className="flex-1 flex flex-col overflow-hidden">
         <Topbar />

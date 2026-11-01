@@ -5,32 +5,49 @@ import { Download } from 'lucide-react'
 import Card from '../../components/common/cards/Card'
 import Button from '../../components/common/buttons/Button'
 
+const reportEndpoints: Record<string, string> = {
+  sales: '/reports/sales',
+  'profit-loss': '/reports/profit-loss',
+  'top-products': '/reports/top-products',
+  inventory: '/reports/inventory',
+  purchases: '/reports/purchases',
+  expenses: '/reports/expenses',
+  staff: '/reports/staff',
+  'payment-methods': '/reports/payment-methods',
+  tax: '/reports/tax',
+  shifts: '/reports/shifts',
+}
+
 export default function ReportsPage() {
   const [reportType, setReportType] = useState('sales')
   const [fromDate, setFromDate] = useState('')
   const [toDate, setToDate] = useState('')
 
-  const { data: salesReport } = useQuery({
-    queryKey: ['sales-report', fromDate, toDate],
+  const { data: reportData, isLoading } = useQuery({
+    queryKey: ['report', reportType, fromDate, toDate],
     queryFn: async () => {
-      const res = await api.get(`/reports/sales?from=${fromDate}&to=${toDate}`)
+      const endpoint = reportEndpoints[reportType]
+      const params = new URLSearchParams()
+      if (fromDate) params.set('from', fromDate)
+      if (toDate) params.set('to', toDate)
+      const res = await api.get(`${endpoint}?${params.toString()}`)
       return res.data
     },
-    enabled: reportType === 'sales',
-  })
-
-  const { data: profitLoss } = useQuery({
-    queryKey: ['profit-loss-report', fromDate, toDate],
-    queryFn: async () => {
-      const res = await api.get(`/reports/profit-loss?from=${fromDate}&to=${toDate}`)
-      return res.data
-    },
-    enabled: reportType === 'profit-loss',
   })
 
   const handleExport = async (format: 'pdf' | 'excel') => {
     window.open(`/api/reports/export/${reportType}?format=${format}&from=${fromDate}&to=${toDate}`, '_blank')
   }
+
+  const renderValue = (val: any): string => {
+    if (val === null || val === undefined) return '-'
+    if (typeof val === 'number') return val.toLocaleString()
+    if (typeof val === 'boolean') return val ? 'نعم' : 'لا'
+    if (typeof val === 'object') return JSON.stringify(val)
+    return String(val)
+  }
+
+  const entries = reportData ? Object.entries(reportData).filter(([k]) => k !== 'from' && k !== 'to') : []
 
   return (
     <div className="space-y-6">
@@ -90,43 +107,54 @@ export default function ReportsPage() {
           </Button>
         </div>
 
-        {/* Report Content */}
-        {reportType === 'sales' && salesReport && (
-          <div className="space-y-4">
-            <h3 className="text-lg font-semibold">تقرير المبيعات</h3>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="p-4 bg-gray-50 rounded-lg">
-                <p className="text-sm text-gray-500">إجمالي المبيعات</p>
-                <p className="text-2xl font-bold">{salesReport.total_sales?.toLocaleString()} ر.س</p>
-              </div>
-              <div className="p-4 bg-gray-50 rounded-lg">
-                <p className="text-sm text-gray-500">عدد الطلبات</p>
-                <p className="text-2xl font-bold">{salesReport.total_orders}</p>
-              </div>
-            </div>
-          </div>
-        )}
+        {isLoading && <p className="text-gray-500">جاري التحميل...</p>}
 
-        {reportType === 'profit-loss' && profitLoss && (
+        {!isLoading && reportData && (
           <div className="space-y-4">
-            <h3 className="text-lg font-semibold">تقرير الأرباح والخسائر</h3>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="p-4 bg-green-50 rounded-lg">
-                <p className="text-sm text-gray-500">الإيرادات</p>
-                <p className="text-2xl font-bold text-green-600">{profitLoss.revenue?.toLocaleString()} ر.س</p>
-              </div>
-              <div className="p-4 bg-red-50 rounded-lg">
-                <p className="text-sm text-gray-500">المصروفات</p>
-                <p className="text-2xl font-bold text-red-600">{profitLoss.expense?.toLocaleString()} ر.س</p>
-              </div>
-              <div className="p-4 bg-blue-50 rounded-lg">
-                <p className="text-sm text-gray-500">المشتريات</p>
-                <p className="text-2xl font-bold text-blue-600">{profitLoss.purchase?.toLocaleString()} ر.س</p>
-              </div>
-              <div className="p-4 bg-emerald-50 rounded-lg">
-                <p className="text-sm text-gray-500">صافي الربح</p>
-                <p className="text-2xl font-bold text-emerald-600">{profitLoss.profit?.toLocaleString()} ر.س</p>
-              </div>
+            {/* Render arrays as tables */}
+            {entries.map(([key, val]) => {
+              if (Array.isArray(val)) {
+                if (val.length === 0) return null
+                const cols = Object.keys(val[0])
+                return (
+                  <div key={key}>
+                    <h3 className="text-lg font-semibold mb-2">{key}</h3>
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-sm">
+                        <thead className="bg-gray-50">
+                          <tr>
+                            {cols.map((c) => (
+                              <th key={c} className="px-3 py-2 text-right font-medium text-gray-600">{c}</th>
+                            ))}
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {val.map((row: any, i: number) => (
+                            <tr key={i} className="border-b border-gray-100">
+                              {cols.map((c) => (
+                                <td key={c} className="px-3 py-2">{renderValue(row[c])}</td>
+                              ))}
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )
+              }
+              return null
+            })}
+
+            {/* Render scalar values as cards */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              {entries
+                .filter(([, v]) => !Array.isArray(v))
+                .map(([key, val]) => (
+                  <div key={key} className="p-4 bg-gray-50 rounded-lg">
+                    <p className="text-sm text-gray-500">{key}</p>
+                    <p className="text-xl font-bold">{renderValue(val)}</p>
+                  </div>
+                ))}
             </div>
           </div>
         )}

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '../../services/api'
 import { Save } from 'lucide-react'
@@ -19,17 +19,30 @@ export default function SettingsPage() {
   })
 
   const [formData, setFormData] = useState({
-    name: restaurant?.name || '',
-    phone: restaurant?.phone || '',
-    email: restaurant?.email || '',
-    address: restaurant?.address || '',
-    currency: restaurant?.currency || 'SAR',
-    tax_rate: restaurant?.tax_rate || 0.15,
+    name: '',
+    phone: '',
+    email: '',
+    address: '',
+    currency: 'SAR',
+    tax_rate: 0.15,
   })
+
+  useEffect(() => {
+    if (restaurant) {
+      setFormData({
+        name: restaurant.name || '',
+        phone: restaurant.phone || '',
+        email: restaurant.email || '',
+        address: restaurant.address || '',
+        currency: restaurant.currency || 'SAR',
+        tax_rate: Number(restaurant.tax_rate) || 0.15,
+      })
+    }
+  }, [restaurant])
 
   const updateMutation = useMutation({
     mutationFn: async (data: any) => {
-      await api.put('/restaurants/1', data)
+      await api.put('/auth/restaurant', data)
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['restaurant'] })
@@ -105,7 +118,7 @@ export default function SettingsPage() {
                 type="number"
                 step="0.01"
                 value={formData.tax_rate}
-                onChange={(e) => setFormData({ ...formData, tax_rate: e.target.value })}
+                onChange={(e) => setFormData({ ...formData, tax_rate: Number(e.target.value) })}
               />
             </div>
 
