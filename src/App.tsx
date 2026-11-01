@@ -2,6 +2,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { Toaster } from 'sonner'
 import { useAuthStore } from './store/authStore'
+import { useEffect } from 'react'
 import MainLayout from './layouts/MainLayout'
 import LoginPage from './pages/auth/LoginPage'
 import DashboardPage from './pages/dashboard/DashboardPage'
@@ -26,18 +27,29 @@ import StockMovementsPage from './pages/stock/StockMovementsPage'
 import NotificationsPage from './pages/notifications/NotificationsPage'
 import AreasPage from './pages/areas/AreasPage'
 import KitchenStationsPage from './pages/kitchen-stations/KitchenStationsPage'
+import CategoriesPage from './pages/categories/CategoriesPage'
+import RolesPage from './pages/roles/RolesPage'
 
 const queryClient = new QueryClient()
 
 function App() {
   const { isAuthenticated } = useAuthStore()
 
+  useEffect(() => {
+    // Subscribe to kitchen orders via Reverb
+    // In full implementation: window.Echo.join('kitchen').listen('KitchenOrderBroadcast', ...)
+    const cleanup = () => {
+      console.log('Reverb cleanup')
+    }
+    return cleanup
+  }, [])
+
   return (
     <QueryClientProvider client={queryClient}>
       <BrowserRouter>
         <Routes>
           <Route path="/login" element={<LoginPage />} />
-          
+
           <Route path="/" element={
             isAuthenticated ? (
               <MainLayout>
@@ -197,6 +209,8 @@ function App() {
           <Route path="/notifications" element={isAuthenticated ? (<MainLayout><NotificationsPage /></MainLayout>) : (<Navigate to="/login" />)} />
           <Route path="/areas" element={isAuthenticated ? (<MainLayout><AreasPage /></MainLayout>) : (<Navigate to="/login" />)} />
           <Route path="/kitchen-stations" element={isAuthenticated ? (<MainLayout><KitchenStationsPage /></MainLayout>) : (<Navigate to="/login" />)} />
+          <Route path="/categories" element={isAuthenticated ? (<MainLayout><CategoriesPage /></MainLayout>) : (<Navigate to="/login" />)} />
+          <Route path="/roles" element={isAuthenticated ? (<MainLayout><RolesPage /></MainLayout>) : (<Navigate to="/login" />)} />
         </Routes>
         <Toaster position="top-center" richColors />
       </BrowserRouter>

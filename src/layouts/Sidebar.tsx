@@ -19,6 +19,8 @@ import {
   Activity,
   Bell,
   MapPin,
+  Tag,
+  KeyRound,
   LogOut
 } from 'lucide-react'
 import { useAuthStore } from '../store/authStore'
@@ -55,6 +57,8 @@ export default function Sidebar({ open }: SidebarProps) {
     { icon: Bell, label: 'الإشعارات', path: '/notifications' },
     { icon: MapPin, label: 'المناطق', path: '/areas' },
     { icon: ChefHat, label: 'محطات المطبخ', path: '/kitchen-stations' },
+    { icon: Tag, label: 'التصنيفات', path: '/categories' },
+    { icon: KeyRound, label: 'الأدوار', path: '/roles' },
   ]
 
   return (

@@ -30,6 +30,7 @@ export default function POSPage() {
   const [discount, setDiscount] = useState(0)
   const [tableId, setTableId] = useState<number | null>(null)
   const [configuringProduct, setConfiguringProduct] = useState<any>(null)
+  const [lastReceipt, setLastReceipt] = useState<any>(null)
   const [selectedSizeId, setSelectedSizeId] = useState<number | null>(null)
   const [selectedModifierOptionIds, setSelectedModifierOptionIds] = useState<number[]>([])
   const queryClient = useQueryClient()
@@ -66,7 +67,8 @@ export default function POSPage() {
       const res = await api.post('/orders', orderData)
       return res.data
     },
-    onSuccess: () => {
+    onSuccess: (res) => {
+      setLastReceipt({ cart: [...cart], subtotal, tax, total, discount, paymentMethod, tableId, orderNumber: res?.order?.order_number })
       setCart([])
       setDiscount(0)
       setTableId(null)
@@ -159,6 +161,30 @@ export default function POSPage() {
   const subtotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0)
   const tax = subtotal * 0.15
   const total = subtotal - discount + tax
+
+  const handlePrint = () => {
+    if (!lastReceipt) return
+    const w = window.open('', '_blank', 'width=400,height=600')
+    if (!w) return
+    const itemsHtml = lastReceipt.cart.map((it: any) => `<tr><td>${it.name}</td><td>${it.quantity}</td><td>${(it.price * it.quantity).toFixed(2)}</td></tr>`).join('')
+    w.document.write(`
+      <html dir="rtl"><head><title>إيصال</title>
+      <style>body{font-family:Tahoma,sans-serif;padding:20px;}table{width:100%;border-collapse:collapse;}td,th{padding:4px;border-bottom:1px solid #eee;}h2{text-align:center;}</style>
+      </head><body>
+      <h2>scarlet restaurant</h2>
+      <p>رقم الطلب: ${lastReceipt.orderNumber || '-'}</p>
+      <p>التاريخ: ${new Date().toLocaleString('ar-SA')}</p>
+      <table><thead><tr><th>المنتج</th><th>الكمية</th><th>المبلغ</th></tr></thead><tbody>${itemsHtml}</tbody></table>
+      <p>المجموع الفرعي: ${lastReceipt.subtotal.toFixed(2)}</p>
+      <p>الضريبة: ${lastReceipt.tax.toFixed(2)}</p>
+      <p>الخصم: ${lastReceipt.discount.toFixed(2)}</p>
+      <h3>الإجمالي: ${lastReceipt.total.toFixed(2)} ر.س</h3>
+      <p>طريقة الدفع: ${lastReceipt.paymentMethod}</p>
+      <script>window.print();</script>
+      </body></html>
+    `)
+    w.document.close()
+  }
 
   const handleSubmitOrder = () => {
     if (cart.length === 0) return
@@ -371,7 +397,7 @@ export default function POSPage() {
         </div>
 
         {/* Submit Button */}
-        <div className="p-4">
+        <div className="p-4 space-y-2">
           <Button
             className="w-full"
             onClick={handleSubmitOrder}
@@ -380,6 +406,11 @@ export default function POSPage() {
           >
             {createOrderMutation.isPending ? 'جاري إنشاء الطلب...' : 'إنشاء الطلب'}
           </Button>
+          {lastReceipt && (
+            <Button variant="secondary" className="w-full" onClick={handlePrint}>
+              طباعة الإيصال
+            </Button>
+          )}
         </div>
       </div>
 
