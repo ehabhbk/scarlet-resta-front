@@ -20,6 +20,12 @@ import RecipesPage from './pages/recipes/RecipesPage'
 import PurchasesPage from './pages/purchases/PurchasesPage'
 import UsersPage from './pages/users/UsersPage'
 import ExpensesPage from './pages/expenses/ExpensesPage'
+import AttendancePage from './pages/attendance/AttendancePage'
+import ShiftsPage from './pages/shifts/ShiftsPage'
+import StockMovementsPage from './pages/stock/StockMovementsPage'
+import NotificationsPage from './pages/notifications/NotificationsPage'
+import AreasPage from './pages/areas/AreasPage'
+import KitchenStationsPage from './pages/kitchen-stations/KitchenStationsPage'
 
 const queryClient = new QueryClient()
 
@@ -185,6 +191,12 @@ function App() {
               <Navigate to="/login" />
             )
           } />
+          <Route path="/attendance" element={isAuthenticated ? (<MainLayout><AttendancePage /></MainLayout>) : (<Navigate to="/login" />)} />
+          <Route path="/shifts" element={isAuthenticated ? (<MainLayout><ShiftsPage /></MainLayout>) : (<Navigate to="/login" />)} />
+          <Route path="/stock-movements" element={isAuthenticated ? (<MainLayout><StockMovementsPage /></MainLayout>) : (<Navigate to="/login" />)} />
+          <Route path="/notifications" element={isAuthenticated ? (<MainLayout><NotificationsPage /></MainLayout>) : (<Navigate to="/login" />)} />
+          <Route path="/areas" element={isAuthenticated ? (<MainLayout><AreasPage /></MainLayout>) : (<Navigate to="/login" />)} />
+          <Route path="/kitchen-stations" element={isAuthenticated ? (<MainLayout><KitchenStationsPage /></MainLayout>) : (<Navigate to="/login" />)} />
         </Routes>
         <Toaster position="top-center" richColors />
       </BrowserRouter>

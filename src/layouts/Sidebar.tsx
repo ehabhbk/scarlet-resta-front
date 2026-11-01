@@ -14,6 +14,11 @@ import {
   Settings,
   Shield,
   Receipt,
+  Clock,
+  Calendar,
+  Activity,
+  Bell,
+  MapPin,
   LogOut
 } from 'lucide-react'
 import { useAuthStore } from '../store/authStore'
