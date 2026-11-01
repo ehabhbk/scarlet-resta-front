@@ -49,6 +49,12 @@ export default function Sidebar({ open }: SidebarProps) {
     { icon: Settings, label: t('settings', lang), path: '/settings' },
     { icon: Shield, label: t('users', lang), path: '/users' },
     { icon: Receipt, label: 'المصروفات', path: '/expenses' },
+    { icon: Clock, label: 'الحضور', path: '/attendance' },
+    { icon: Calendar, label: 'الورديات', path: '/shifts' },
+    { icon: Activity, label: 'حركات المخزون', path: '/stock-movements' },
+    { icon: Bell, label: 'الإشعارات', path: '/notifications' },
+    { icon: MapPin, label: 'المناطق', path: '/areas' },
+    { icon: ChefHat, label: 'محطات المطبخ', path: '/kitchen-stations' },
   ]
 
   return (

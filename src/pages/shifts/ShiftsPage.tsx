@@ -95,7 +95,7 @@ function ShiftForm({ users, onClose, onSuccess }: any) {
         <Input label="بداية" type="time" value={formData.start_time} onChange={(e) => setFormData({ ...formData, start_time: e.target.value })} required />
         <Input label="نهاية" type="time" value={formData.end_time} onChange={(e) => setFormData({ ...formData, end_time: e.target.value })} required />
       </div>
-      <Input label="النقد الافتتاحي" type="number" value={formData.opening_cash} onChange={(e) => setFormData({ ...formData, opening_cash: e.target.value })} />
+      <Input label="النقد الافتتاحي" type="number" value={formData.opening_cash} onChange={(e) => setFormData({ ...formData, opening_cash: Number(e.target.value) })} />
       <div className="flex gap-3 justify-end pt-4">
         <Button variant="secondary" onClick={onClose}>إلغاء</Button>
         <Button type="submit" loading={mutation.isPending}>حفظ</Button>

@@ -62,7 +62,7 @@ function StationForm({ onClose, onSuccess }: any) {
     <form onSubmit={handleSubmit} className="space-y-4">
       <Input label="اسم المحطة" value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} required />
       <Input label="اللون" type="color" value={formData.color} onChange={(e) => setFormData({ ...formData, color: e.target.value })} />
-      <Input label="الترتيب" type="number" value={formData.sort_order} onChange={(e) => setFormData({ ...formData, sort_order: e.target.value })} />
+      <Input label="الترتيب" type="number" value={formData.sort_order} onChange={(e) => setFormData({ ...formData, sort_order: Number(e.target.value) })} />
       <div className="flex gap-3 justify-end pt-4">
         <Button variant="secondary" onClick={onClose}>إلغاء</Button>
         <Button type="submit" loading={mutation.isPending}>حفظ</Button>
