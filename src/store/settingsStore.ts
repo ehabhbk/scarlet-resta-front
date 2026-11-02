@@ -68,7 +68,7 @@ const DEFAULT_CURRENCY = 'SAR'
 const DEFAULT_SYMBOL = symbolForCurrency(DEFAULT_CURRENCY)
 const DEFAULT_TAX_RATE = 0.15
 
-export const API_ORIGIN = (import.meta.env.VITE_API_URL || 'http://localhost:8000/api').replace(
+export const API_ORIGIN = (import.meta.env.VITE_API_URL || 'http://server/scarlet-resta-app/public/api').replace(
   /\/api\/?$/,
   ''
 )

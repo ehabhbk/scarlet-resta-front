@@ -293,8 +293,15 @@ export default function ReportsPage() {
   const formatValue = (value: unknown, key: string) => {
     if (value === null || value === undefined || value === '') return '-'
     if (typeof value === 'boolean') return value ? 'نعم' : 'لا'
-    if (typeof value === 'number' || MONEY_KEYS.has(key)) {
-      return formatMoney(value as number, symbol)
+    const numeric =
+      typeof value === 'number'
+        ? value
+        : typeof value === 'string' && /^-?\d+(\.\d+)?$/.test(value.trim())
+          ? Number(value)
+          : NaN
+    if (!Number.isNaN(numeric)) {
+      if (MONEY_KEYS.has(key)) return formatMoney(numeric, symbol)
+      return new Intl.NumberFormat('ar-EG').format(numeric)
     }
     if (typeof value === 'object') return JSON.stringify(value)
     return String(value)
