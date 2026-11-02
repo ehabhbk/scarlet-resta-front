@@ -1,12 +1,12 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuthStore } from '../../store/authStore'
-import { Utensils, Lock, Mail } from 'lucide-react'
+import { Utensils, Lock, User } from 'lucide-react'
 import Button from '../../components/common/buttons/Button'
 import Input from '../../components/common/inputs/Input'
 
 export default function LoginPage() {
-  const [email, setEmail] = useState('')
+  const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
@@ -18,7 +18,7 @@ export default function LoginPage() {
     setError('')
     setLoading(true)
     try {
-      await login(email, password)
+      await login(username, password)
       navigate('/dashboard')
     } catch (err: any) {
       setError(err.response?.data?.message || 'حدث خطأ في تسجيل الدخول')
@@ -46,12 +46,12 @@ export default function LoginPage() {
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <Input
-            label="البريد الإلكتروني"
-            type="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            placeholder="admin@scarletresta.com"
-            icon={<Mail className="w-5 h-5" />}
+            label="اسم المستخدم"
+            type="text"
+            value={username}
+            onChange={(e) => setUsername(e.target.value)}
+            placeholder="admin"
+            icon={<User className="w-5 h-5" />}
             required
           />
 

@@ -7,7 +7,8 @@ export interface Role {
 export interface User {
   id: number
   name: string
-  email: string
+  username?: string
+  email?: string
   phone?: string
   restaurant_id: number
   is_active: boolean

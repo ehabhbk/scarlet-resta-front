@@ -16,6 +16,7 @@ export interface RestaurantSettings {
   timezone?: string
   locale?: string
   logo?: string
+  favicon?: string
   primary_color?: string
 }
 
@@ -23,6 +24,11 @@ export interface CurrencyOption {
   code: string
   symbol: string
   name: string
+}
+
+export interface PaymentMethod {
+  value: string
+  label: string
 }
 
 export const CURRENCIES: CurrencyOption[] = [
@@ -38,24 +44,88 @@ export const CURRENCIES: CurrencyOption[] = [
   { code: 'EUR', symbol: '€', name: 'يورو' },
   { code: 'GBP', symbol: '£', name: 'جنيه إسترليني' },
   { code: 'TRY', symbol: '₺', name: 'ليرة تركية' },
+  { code: 'MAD', symbol: 'د.م', name: 'درهم مغربي' },
+  { code: 'TND', symbol: 'د.ت', name: 'دينار تونسي' },
+  { code: 'DZD', symbol: 'د.ج', name: 'دينار جزائري' },
+  { code: 'IQD', symbol: 'ع.د', name: 'دينار عراقي' },
+  { code: 'LBP', symbol: 'ل.ل', name: 'ليرة لبنانية' },
+  { code: 'SYP', symbol: 'ل.س', name: 'ليرة سورية' },
+  { code: 'YER', symbol: 'ر.ي', name: 'ريال يمني' },
+  { code: 'SDG', symbol: 'ج.س', name: 'جنيه سوداني' },
+  { code: 'LYD', symbol: 'د.ل', name: 'دينار ليبي' },
 ]
 
-export const symbolForCurrency = (code?: string): string =>
-  CURRENCIES.find((c) => c.code === code)?.symbol || 'ر.س'
+export const DEFAULT_PAYMENT_METHODS: PaymentMethod[] = [
+  { value: 'cash', label: 'نقدي' },
+  { value: 'card', label: 'بطاقة' },
+  { value: 'wallet', label: 'محفظة' },
+]
+
+export const symbolForCurrency = (code?: string, list: CurrencyOption[] = CURRENCIES): string =>
+  list.find((c) => c.code === code)?.symbol || 'ر.س'
 
 const DEFAULT_CURRENCY = 'SAR'
 const DEFAULT_SYMBOL = symbolForCurrency(DEFAULT_CURRENCY)
 const DEFAULT_TAX_RATE = 0.15
+
+export const API_ORIGIN = (import.meta.env.VITE_API_URL || 'http://localhost:8000/api').replace(
+  /\/api\/?$/,
+  ''
+)
+
+export function mediaUrl(path?: string | null): string {
+  if (!path) return ''
+  if (/^https?:\/\//i.test(path) || path.startsWith('data:') || path.startsWith('blob:')) {
+    return path
+  }
+  return `${API_ORIGIN}${path.startsWith('/') ? '' : '/'}${path}`
+}
+
+function mergeCurrencies(custom: CurrencyOption[]): CurrencyOption[] {
+  const map = new Map<string, CurrencyOption>()
+  for (const currency of CURRENCIES) map.set(currency.code, currency)
+  for (const currency of custom) {
+    if (!currency?.code) continue
+    map.set(currency.code, {
+      code: currency.code,
+      symbol: currency.symbol || symbolForCurrency(currency.code),
+      name: currency.name || currency.code,
+    })
+  }
+  return Array.from(map.values())
+}
+
+type SettingRow = { group: string; key: string; value: unknown; type?: string }
+
+function readJsonSetting<T>(rows: SettingRow[], group: string, key: string): T | null {
+  const row = rows.find((r) => r.group === group && r.key === key)
+  if (!row) return null
+  const raw = row.value
+  if (raw === null || raw === undefined) return null
+  if (typeof raw === 'string') {
+    try {
+      return JSON.parse(raw) as T
+    } catch {
+      return null
+    }
+  }
+  return raw as T
+}
 
 interface SettingsState {
   restaurant: RestaurantSettings | null
   currency: string
   symbol: string
   taxRate: number
+  currencies: CurrencyOption[]
+  customCurrencies: CurrencyOption[]
+  paymentMethods: PaymentMethod[]
   loaded: boolean
   loading: boolean
   load: (force?: boolean) => Promise<void>
   applyRestaurant: (restaurant: Partial<RestaurantSettings> | null | undefined) => void
+  setCustomCurrencies: (currencies: CurrencyOption[]) => void
+  setPaymentMethods: (methods: PaymentMethod[]) => void
 }
 
 export const useSettingsStore = create<SettingsState>()(
@@ -65,26 +135,55 @@ export const useSettingsStore = create<SettingsState>()(
       currency: DEFAULT_CURRENCY,
       symbol: DEFAULT_SYMBOL,
       taxRate: DEFAULT_TAX_RATE,
+      currencies: CURRENCIES,
+      customCurrencies: [],
+      paymentMethods: DEFAULT_PAYMENT_METHODS,
       loaded: false,
       loading: false,
       load: async (force = false) => {
         if (get().loading) return
         if (get().loaded && !force) return
         set({ loading: true })
-        try {
-          const res = await api.get('/auth/restaurant')
-          get().applyRestaurant(res.data?.restaurant)
-        } catch {
-          // Keep the last known settings (or defaults) when the API is unavailable.
-        } finally {
-          set({ loading: false, loaded: true })
+
+        const [restaurantResult, settingsResult] = await Promise.allSettled([
+          api.get('/auth/restaurant'),
+          api.get('/settings'),
+        ])
+
+        if (restaurantResult.status === 'fulfilled') {
+          get().applyRestaurant(restaurantResult.value.data?.restaurant)
         }
+
+        if (settingsResult.status === 'fulfilled') {
+          const rows = (settingsResult.value.data?.settings || []) as SettingRow[]
+          const custom = readJsonSetting<CurrencyOption[]>(rows, 'currency', 'custom_currencies')
+          if (Array.isArray(custom)) {
+            const cleaned = custom.filter((c) => c && c.code)
+            set({
+              customCurrencies: cleaned,
+              currencies: mergeCurrencies(cleaned),
+            })
+          }
+          const methods = readJsonSetting<PaymentMethod[]>(rows, 'pos', 'payment_methods')
+          if (Array.isArray(methods) && methods.length > 0) {
+            set({
+              paymentMethods: methods
+                .filter((m) => m && m.value)
+                .map((m) => ({ value: m.value, label: m.label || m.value })),
+            })
+          }
+        }
+
+        set({ loading: false, loaded: true })
       },
       applyRestaurant: (restaurant) => {
         if (!restaurant) return
         const current = get()
         const currency = restaurant.currency || current.currency
-        const symbol = restaurant.symbol || symbolForCurrency(currency) || current.symbol
+        const symbol =
+          restaurant.symbol ||
+          symbolForCurrency(currency, current.currencies) ||
+          current.symbol
         const taxRate =
           restaurant.tax_rate !== undefined && restaurant.tax_rate !== null
             ? Number(restaurant.tax_rate)
@@ -96,6 +195,23 @@ export const useSettingsStore = create<SettingsState>()(
           taxRate: Number.isFinite(taxRate) ? taxRate : current.taxRate,
         })
       },
+      setCustomCurrencies: (custom) => {
+        const cleaned = custom.filter((c) => c && c.code)
+        const merged = mergeCurrencies(cleaned)
+        const current = get()
+        const stillExists = merged.some((c) => c.code === current.currency)
+        const currency = stillExists ? current.currency : 'SAR'
+        const symbol = stillExists
+          ? symbolForCurrency(currency, merged)
+          : symbolForCurrency('SAR', merged)
+        set({
+          customCurrencies: cleaned,
+          currencies: merged,
+          currency,
+          symbol,
+        })
+      },
+      setPaymentMethods: (methods) => set({ paymentMethods: methods }),
     }),
     {
       name: 'restaurant-settings',
@@ -104,6 +220,9 @@ export const useSettingsStore = create<SettingsState>()(
         currency: state.currency,
         symbol: state.symbol,
         taxRate: state.taxRate,
+        currencies: state.currencies,
+        customCurrencies: state.customCurrencies,
+        paymentMethods: state.paymentMethods,
         loaded: state.loaded,
       }),
     }

@@ -4,7 +4,7 @@ import type { User, AuthState } from '@/types'
 import api from '@/services/api'
 
 export const useAuthStore = create<AuthState & {
-  login: (email: string, password: string) => Promise<void>
+  login: (username: string, password: string) => Promise<void>
   logout: () => void
   setUser: (user: User) => void
 }>()(
@@ -15,9 +15,9 @@ export const useAuthStore = create<AuthState & {
         token: null,
         isAuthenticated: false,
         isLoading: false,
-        login: async (email: string, password: string) => {
+        login: async (username: string, password: string) => {
           set({ isLoading: true })
-          const res = await api.post('/auth/login', { email, password })
+          const res = await api.post('/auth/login', { username, password })
           localStorage.setItem('token', res.data.token)
           localStorage.setItem('user', JSON.stringify(res.data.user))
           set({
