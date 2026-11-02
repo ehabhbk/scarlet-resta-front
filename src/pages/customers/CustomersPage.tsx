@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '../../services/api'
+import { useSettingsStore, formatMoney } from '../../store/settingsStore'
 import { Plus, Search, Edit, Trash2, Phone } from 'lucide-react'
 import Button from '../../components/common/buttons/Button'
 import Input from '../../components/common/inputs/Input'
@@ -11,6 +12,7 @@ import Badge from '../../components/common/data-display/Badge'
 import Pagination from '../../components/common/Pagination'
 
 export default function CustomersPage() {
+  const { symbol } = useSettingsStore()
   const [search, setSearch] = useState('')
   const [page, setPage] = useState(1)
   const [showModal, setShowModal] = useState(false)
@@ -55,7 +57,7 @@ export default function CustomersPage() {
       <Badge variant={typeColors[item.customer_type] || 'default'}>{item.customer_type}</Badge>
     )},
     { key: 'total_orders', header: 'الطلبات' },
-    { key: 'total_spent', header: 'إجمالي الشراء', render: (item: any) => `${item.total_spent} ر.س` },
+    { key: 'total_spent', header: 'إجمالي الشراء', render: (item: any) => formatMoney(item.total_spent, symbol) },
     { key: 'loyalty_points', header: 'النقاط' },
     { key: 'actions', header: 'الإجراءات', render: (item: any) => (
       <div className="flex gap-2">

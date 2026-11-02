@@ -1,11 +1,13 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { api } from '../../services/api'
+import { useSettingsStore, formatMoney } from '../../store/settingsStore'
 import { DollarSign, TrendingUp, TrendingDown, CreditCard } from 'lucide-react'
 import Card from '../../components/common/cards/Card'
 import StatCard from '../../components/common/data-display/StatCard'
 
 export default function FinancePage() {
+  const { symbol } = useSettingsStore()
   const [period, setPeriod] = useState('month')
 
   const { data: profitLoss } = useQuery({
@@ -43,25 +45,25 @@ export default function FinancePage() {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <StatCard
           label="الإيرادات"
-          value={`${profitLoss?.revenue?.toLocaleString() || 0} ر.س`}
+          value={formatMoney(profitLoss?.revenue, symbol)}
           icon={<TrendingUp className="w-6 h-6 text-white" />}
           color="bg-green-500"
         />
         <StatCard
           label="المصروفات"
-          value={`${profitLoss?.expense?.toLocaleString() || 0} ر.س`}
+          value={formatMoney(profitLoss?.expense, symbol)}
           icon={<TrendingDown className="w-6 h-6 text-white" />}
           color="bg-red-500"
         />
         <StatCard
           label="المشتريات"
-          value={`${profitLoss?.purchase?.toLocaleString() || 0} ر.س`}
+          value={formatMoney(profitLoss?.purchase, symbol)}
           icon={<CreditCard className="w-6 h-6 text-white" />}
           color="bg-blue-500"
         />
         <StatCard
           label="صافي الربح"
-          value={`${profitLoss?.profit?.toLocaleString() || 0} ر.س`}
+          value={formatMoney(profitLoss?.profit, symbol)}
           icon={<DollarSign className="w-6 h-6 text-white" />}
           color="bg-emerald-500"
         />
@@ -78,8 +80,7 @@ export default function FinancePage() {
                  method.payment_method === 'wallet' ? 'محفظة' : method.payment_method}
               </span>
               <div className="text-right">
-                <p className="font-bold">{method.total?.toLocaleString()} ر.س</p>
-                <p className="text-xs text-gray-500">{method.count} عملية</p>
+                <p className="font-bold">{formatMoney(method.total, symbol)}عملية</p>
               </div>
             </div>
           ))}

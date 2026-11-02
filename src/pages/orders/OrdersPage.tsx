@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '../../services/api'
+import { useSettingsStore, formatMoney } from '../../store/settingsStore'
 import { Search, Eye, XCircle } from 'lucide-react'
 import Input from '../../components/common/inputs/Input'
 import Card from '../../components/common/cards/Card'
@@ -10,6 +11,7 @@ import Badge from '../../components/common/data-display/Badge'
 import Pagination from '../../components/common/Pagination'
 
 export default function OrdersPage() {
+  const { symbol } = useSettingsStore()
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('')
   const [page, setPage] = useState(1)
@@ -78,7 +80,7 @@ export default function OrdersPage() {
         {item.status}
       </Badge>
     )},
-    { key: 'total_amount', header: 'المبلغ', render: (item: any) => `${item.total_amount} ر.س` },
+    { key: 'total_amount', header: 'المبلغ', render: (item: any) => formatMoney(item.total_amount, symbol) },
     { key: 'payment_status', header: 'الدفع', render: (item: any) => (
       <Badge variant={item.payment_status === 'paid' ? 'success' : 'warning'}>
         {item.payment_status}
@@ -155,7 +157,7 @@ export default function OrdersPage() {
               </div>
               <div>
                 <p className="text-sm text-gray-500">المبلغ الإجمالي</p>
-                <p className="font-bold">{selectedOrder.total_amount} ر.س</p>
+                <p className="font-bold">{formatMoney(selectedOrder.total_amount, symbol)}</p>
               </div>
             </div>
             
@@ -165,7 +167,7 @@ export default function OrdersPage() {
                 {selectedOrder.items?.map((item: any) => (
                   <div key={item.id} className="flex justify-between p-2 bg-gray-50 rounded">
                     <span>{item.product?.name} x{item.quantity}</span>
-                    <span>{item.total_price} ر.س</span>
+                    <span>{formatMoney(item.total_price, symbol)}</span>
                   </div>
                 ))}
               </div>

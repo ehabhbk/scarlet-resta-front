@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '../../services/api'
+import { useSettingsStore, formatMoney } from '../../store/settingsStore'
 import { Plus, Search, Edit, Trash2, AlertTriangle } from 'lucide-react'
 import Button from '../../components/common/buttons/Button'
 import Input from '../../components/common/inputs/Input'
@@ -11,6 +12,7 @@ import Badge from '../../components/common/data-display/Badge'
 import Pagination from '../../components/common/Pagination'
 
 export default function InventoryPage() {
+  const { symbol } = useSettingsStore()
   const [search, setSearch] = useState('')
   const [page, setPage] = useState(1)
   const [showModal, setShowModal] = useState(false)
@@ -62,7 +64,7 @@ export default function InventoryPage() {
       </span>
     )},
     { key: 'min_stock', header: 'الحد الأدنى' },
-    { key: 'cost_per_unit', header: 'التكلفة/وحدة', render: (item: any) => `${item.cost_per_unit} ر.س` },
+    { key: 'cost_per_unit', header: 'التكلفة/وحدة', render: (item: any) => formatMoney(item.cost_per_unit, symbol) },
     { key: 'status', header: 'الحالة', render: (item: any) => (
       item.current_stock <= item.min_stock ? (
         <Badge variant="danger">منخفض</Badge>

@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '../../services/api'
+import { useSettingsStore, formatMoney } from '../../store/settingsStore'
 import { Plus, Search, Edit, Trash2 } from 'lucide-react'
 import Button from '../../components/common/buttons/Button'
 import Input from '../../components/common/inputs/Input'
@@ -9,6 +10,7 @@ import DataTable from '../../components/common/tables/DataTable'
 import Modal from '../../components/common/modals/Modal'
 
 export default function RecipesPage() {
+  const { symbol } = useSettingsStore()
   const [search, setSearch] = useState('')
   const [showModal, setShowModal] = useState(false)
   const [editing, setEditing] = useState<any>(null)
@@ -39,7 +41,7 @@ export default function RecipesPage() {
     { key: 'name', header: 'اسم الوصفة' },
     { key: 'product', header: 'المنتج', render: (item: any) => item.product?.name || '-' },
     { key: 'yield_qty', header: 'الكمية المنتجة' },
-    { key: 'total_cost', header: 'التكلفة', render: (item: any) => `${item.total_cost} ر.س` },
+    { key: 'total_cost', header: 'التكلفة', render: (item: any) => formatMoney(item.total_cost, symbol) },
     { key: 'is_active', header: 'الحالة', render: (item: any) => item.is_active ? 'نشط' : 'معطل' },
     { key: 'actions', header: 'الإجراءات', render: (item: any) => (
       <div className="flex gap-2">

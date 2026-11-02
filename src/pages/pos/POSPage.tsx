@@ -91,6 +91,7 @@ export default function POSPage() {
   const [customerPhone, setCustomerPhone] = useState('')
   const [showShiftModal, setShowShiftModal] = useState(false)
   const [showCloseModal, setShowCloseModal] = useState(false)
+  const [showOrdersModal, setShowOrdersModal] = useState(false)
   const [actualCash, setActualCash] = useState(0)
   const [shiftForm, setShiftForm] = useState({
     name: 'وردية اليوم',
@@ -126,6 +127,59 @@ export default function POSPage() {
   })
 
   const openShift = shiftData?.shift
+
+  const { data: ordersData, refetch: refetchOrders } = useQuery({
+    queryKey: ['pos-orders'],
+    queryFn: async () => {
+      const res = await api.get('/orders?per_page=20')
+      return res.data.data || res.data
+    },
+    enabled: showOrdersModal,
+  })
+
+  const { user: authUser } = useAuthStore()
+  const { data: rolesData } = useQuery({
+    queryKey: ['admin-roles'],
+    queryFn: async () => {
+      const res = await api.get('/admin/roles')
+      return res.data.roles || res.data.data || res.data
+    },
+    enabled: showOrdersModal,
+  })
+
+  const userPermissions = (() => {
+    const roleName = authUser?.roles?.[0]?.name
+    const role = (Array.isArray(rolesData) ? rolesData : []).find((r: any) => r.name === roleName)
+    return (role?.permissions || []).map((p: any) => p.name)
+  })()
+
+  const canCancel = userPermissions.includes('cancel_orders') || ['Super Admin', 'Admin'].includes(authUser?.roles?.[0]?.name || '')
+  const canRefund = userPermissions.includes('delete_orders') || userPermissions.includes('edit_orders') || ['Super Admin', 'Admin'].includes(authUser?.roles?.[0]?.name || '')
+
+  const cancelOrderMutation = useMutation({
+    mutationFn: async (id: number) => {
+      await api.post(`/orders/${id}/cancel`, { reason: 'إلغاء من نقطة البيع' })
+    },
+    onSuccess: () => {
+      refetchOrders()
+      queryClient.invalidateQueries({ queryKey: ['shifts-current'] })
+      toast.success('تم إلغاء الطلب')
+    },
+    onError: (e: any) => toast.error(e?.response?.data?.message || 'تعذر إلغاء الطلب'),
+  })
+
+  const refundOrderMutation = useMutation({
+    mutationFn: async (id: number) => {
+      await api.post(`/orders/${id}/refund`, { reason: 'استرجاع من نقطة البيع' })
+    },
+    onSuccess: () => {
+      refetchOrders()
+      queryClient.invalidateQueries({ queryKey: ['shifts-current'] })
+      toast.success('تم استرجاع الدفع')
+    },
+    onError: (e: any) => toast.error(e?.response?.data?.message || 'تعذر استرجاع الدفع'),
+  })
+
   const shiftRevenue = {
     total: Number(shiftData?.revenue?.total) || 0,
     byPayment: (shiftData?.revenue?.by_payment_method || {}) as Record<string, number>,
@@ -153,14 +207,7 @@ export default function POSPage() {
   const cashRevenue = Number(shiftRevenue.byPayment.cash) || 0
   const expectedCash = Number(openShift?.opening_cash || 0) + cashRevenue
 
-  useEffect(() => {
-    if (!shiftsLoading && !openShift) {
-      setShowShiftModal(true)
-    } else if (openShift) {
-      setShowShiftModal(false)
-    }
-  }, [shiftsLoading, openShift])
-
+  // Shift modal is opened manually via the "فتح وردية" button.
   const openShiftMutation = useMutation({
     mutationFn: async (data: { name: string; opening_cash: number }) => {
       const res = await api.post('/shifts/open', {
@@ -472,7 +519,7 @@ export default function POSPage() {
   }
 
   return (
-    <div className="h-full min-h-[calc(100vh-8rem)] flex flex-col -m-6 bg-gray-50 dark:bg-gray-950">
+    <div className="h-[calc(100vh-8rem)] flex flex-col -m-6 bg-gray-50 dark:bg-gray-950 overflow-hidden">
       <div className="bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800 px-4 py-3">
         <div className="flex flex-wrap items-center justify-between gap-3 mb-2">
           <div className="flex flex-wrap items-center gap-3">
@@ -515,6 +562,9 @@ export default function POSPage() {
                 </Button>
               </>
             )}
+            <Button variant="secondary" size="sm" onClick={() => setShowOrdersModal(true)}>
+              الطلبات
+            </Button>
             <Button variant="secondary" size="sm" onClick={() => setShowShiftModal(true)}>
               فتح وردية جديدة
             </Button>
@@ -643,7 +693,7 @@ export default function POSPage() {
           </div>
         </div>
 
-        <div className="w-full max-w-sm bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-800 flex flex-col">
+        <div className="w-full max-w-sm bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-800 flex flex-col min-h-0">
           <div className="p-4 border-b border-gray-200 dark:border-gray-800">
             <h2 className="text-lg font-semibold flex items-center gap-2 text-gray-900 dark:text-gray-100">
               <ShoppingCart className="w-5 h-5" />
@@ -687,7 +737,7 @@ export default function POSPage() {
             </select>
           </div>
 
-          <div className="flex-1 overflow-y-auto p-4 space-y-3">
+          <div className="flex-1 min-h-0 overflow-y-auto p-4 space-y-3">
             {cart.length === 0 ? (
               <div className="text-center text-gray-500 py-8">
                 <ShoppingCart className="w-12 h-12 mx-auto mb-2 text-gray-300" />
@@ -914,7 +964,7 @@ export default function POSPage() {
 
       <Modal
         isOpen={showShiftModal}
-        onClose={() => (openShift ? setShowShiftModal(false) : null)}
+        onClose={() => setShowShiftModal(false)}
         title="فتح وردية جديدة"
       >
         <div className="space-y-4">
@@ -985,6 +1035,36 @@ export default function POSPage() {
               إغلاق الوردية
             </Button>
           </div>
+        </div>
+      </Modal>
+
+      <Modal isOpen={showOrdersModal} onClose={() => setShowOrdersModal(false)} title="طلبات نقطة البيع">
+        <div className="space-y-3 max-h-[60vh] overflow-y-auto">
+          {(Array.isArray(ordersData) ? ordersData : []).length === 0 && (
+            <p className="text-center py-6 text-gray-500">لا توجد طلبات</p>
+          )}
+          {(Array.isArray(ordersData) ? ordersData : []).map((order: any) => (
+            <div key={order.id} className="p-3 border border-gray-200 dark:border-gray-700 rounded-lg flex flex-wrap items-center justify-between gap-2">
+              <div>
+                <p className="font-semibold text-gray-900 dark:text-gray-100">{order.order_number}</p>
+                <p className="text-xs text-gray-500">
+                  {order.status} • {formatMoney(order.total_amount, currencySymbol)} • {order.payment_status}
+                </p>
+              </div>
+              <div className="flex gap-2">
+                {canCancel && order.status !== 'cancelled' && order.status !== 'completed' && (
+                  <Button size="sm" variant="danger" onClick={() => cancelOrderMutation.mutate(order.id)} loading={cancelOrderMutation.isPending}>
+                    إلغاء
+                  </Button>
+                )}
+                {canRefund && order.payment_status === 'paid' && (
+                  <Button size="sm" variant="secondary" onClick={() => refundOrderMutation.mutate(order.id)} loading={refundOrderMutation.isPending}>
+                    استرجاع
+                  </Button>
+                )}
+              </div>
+            </div>
+          ))}
         </div>
       </Modal>
     </div>

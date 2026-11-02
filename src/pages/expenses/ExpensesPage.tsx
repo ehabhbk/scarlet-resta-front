@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '../../services/api'
+import { useSettingsStore, formatMoney } from '../../store/settingsStore'
 import { Plus, Trash2 } from 'lucide-react'
 import Button from '../../components/common/buttons/Button'
 import Input from '../../components/common/inputs/Input'
@@ -10,6 +11,7 @@ import Modal from '../../components/common/modals/Modal'
 import Pagination from '../../components/common/Pagination'
 
 export default function ExpensesPage() {
+  const { symbol } = useSettingsStore()
   const [showModal, setShowModal] = useState(false)
   const [page, setPage] = useState(1)
   const queryClient = useQueryClient()
@@ -31,7 +33,7 @@ export default function ExpensesPage() {
 
   const columns = [
     { key: 'category', header: 'الفئة' },
-    { key: 'amount', header: 'المبلغ', render: (e: any) => `${e.amount} ر.س` },
+    { key: 'amount', header: 'المبلغ', render: (e: any) => formatMoney(e.amount, symbol) },
     { key: 'expense_date', header: 'التاريخ' },
     { key: 'description', header: 'الوصف' },
     { key: 'is_approved', header: 'معتمد', render: (e: any) => e.is_approved ? 'نعم' : 'لا' },

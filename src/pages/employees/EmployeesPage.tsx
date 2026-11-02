@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '../../services/api'
+import { useSettingsStore, formatMoney } from '../../store/settingsStore'
 import { Plus, Search, Edit, Trash2 } from 'lucide-react'
 import Button from '../../components/common/buttons/Button'
 import Input from '../../components/common/inputs/Input'
@@ -11,6 +12,7 @@ import Badge from '../../components/common/data-display/Badge'
 import Pagination from '../../components/common/Pagination'
 
 export default function EmployeesPage() {
+  const { symbol } = useSettingsStore()
   const [search, setSearch] = useState('')
   const [page, setPage] = useState(1)
   const [showModal, setShowModal] = useState(false)
@@ -47,7 +49,7 @@ export default function EmployeesPage() {
     { key: 'name', header: 'اسم الموظف' },
     { key: 'job_title', header: 'الوظيفة' },
     { key: 'phone', header: 'الهاتف' },
-    { key: 'salary', header: 'الراتب', render: (item: any) => `${item.salary} ر.س` },
+    { key: 'salary', header: 'الراتب', render: (item: any) => formatMoney(item.salary, symbol) },
     { key: 'status', header: 'الحالة', render: (item: any) => (
       <Badge variant={statusColors[item.status] || 'default'}>{item.status}</Badge>
     )},

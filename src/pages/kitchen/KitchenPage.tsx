@@ -83,6 +83,7 @@ export default function KitchenPage() {
   const allItems = orders.flatMap((order: any) => order.items || [])
   const counters = {
     orders: orders.length,
+    received: orders.filter((order: any) => ['pending', 'confirmed'].includes(order.status)).length,
     pending: allItems.filter((item: any) => ['pending', 'confirmed'].includes(item.kitchen_status)).length,
     preparing: allItems.filter((item: any) => item.kitchen_status === 'preparing').length,
     ready: allItems.filter((item: any) => item.kitchen_status === 'ready').length,
@@ -114,7 +115,16 @@ export default function KitchenPage() {
         </div>
       </div>
 
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
+        <Card padding="sm">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-gray-500 dark:text-gray-400">طلبات مستلمة</p>
+              <p className="text-2xl font-bold text-indigo-600">{counters.received}</p>
+            </div>
+            <Utensils className="w-6 h-6 text-indigo-500" />
+          </div>
+        </Card>
         <Card padding="sm">
           <div className="flex items-center justify-between">
             <div>

@@ -8,19 +8,12 @@ import {
   Package,
   BookOpen,
   Truck,
-  Users,
-  DollarSign,
-  BarChart3,
-  Settings,
-  Shield,
   Receipt,
-  Clock,
   Calendar,
   Activity,
   Bell,
   MapPin,
   Tag,
-  KeyRound,
 } from 'lucide-react'
 import { useLangStore } from '../store/langStore'
 import { useSettingsStore, mediaUrl } from '../store/settingsStore'
@@ -89,27 +82,6 @@ export default function Sidebar({ open }: SidebarProps) {
         { label: 'حركات المخزون', path: '/stock-movements', icon: Activity },
         { label: 'المشتريات', path: '/purchases', icon: Truck },
       ],
-    },
-    { icon: Users, label: t('customers', lang), path: '/customers' },
-    {
-      icon: Users,
-      label: 'الموظفون',
-      path: '/employees',
-      children: [{ label: 'الحضور', path: '/attendance', icon: Clock }],
-    },
-    {
-      icon: DollarSign,
-      label: t('finance', lang),
-      path: '/finance',
-      children: [{ label: 'المصروفات', path: '/expenses', icon: Receipt }],
-    },
-    { icon: BarChart3, label: t('reports', lang), path: '/reports' },
-    { icon: Settings, label: t('settings', lang), path: '/settings' },
-    {
-      icon: Shield,
-      label: t('users', lang),
-      path: '/users',
-      children: [{ label: 'الأدوار', path: '/roles', icon: KeyRound }],
     },
   ]
 

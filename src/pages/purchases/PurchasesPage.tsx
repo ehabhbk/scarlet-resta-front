@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '../../services/api'
+import { useSettingsStore, formatMoney } from '../../store/settingsStore'
 import { Plus } from 'lucide-react'
 import Button from '../../components/common/buttons/Button'
 import Input from '../../components/common/inputs/Input'
@@ -10,6 +11,7 @@ import Modal from '../../components/common/modals/Modal'
 import Badge from '../../components/common/data-display/Badge'
 
 export default function PurchasesPage() {
+  const { symbol } = useSettingsStore()
   const [showModal, setShowModal] = useState(false)
   const queryClient = useQueryClient()
 
@@ -41,7 +43,7 @@ export default function PurchasesPage() {
     { key: 'purchase_number', header: 'رقم الطلب' },
     { key: 'supplier', header: 'المورد', render: (p: any) => p.supplier?.name || '-' },
     { key: 'status', header: 'الحالة', render: (p: any) => <Badge variant={p.status === 'received' ? 'success' : 'warning'}>{p.status}</Badge> },
-    { key: 'total_amount', header: 'المبلغ', render: (p: any) => `${p.total_amount} ر.س` },
+    { key: 'total_amount', header: 'المبلغ', render: (p: any) => formatMoney(p.total_amount, symbol) },
     { key: 'payment_status', header: 'الدفع' },
     { key: 'order_date', header: 'التاريخ' },
   ]

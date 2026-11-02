@@ -16,6 +16,7 @@ import {
   Trash2,
   Upload,
   X,
+  Shield,
 } from 'lucide-react'
 import { api } from '../../services/api'
 import {
@@ -28,6 +29,7 @@ import {
 import Card from '../../components/common/cards/Card'
 import Button from '../../components/common/buttons/Button'
 import Input from '../../components/common/inputs/Input'
+import Modal from '../../components/common/modals/Modal'
 
 type FieldType = 'text' | 'number' | 'boolean' | 'select' | 'textarea'
 
@@ -90,6 +92,7 @@ const TABS = [
   { id: 'printing', label: 'الطباعة', icon: Printer },
   { id: 'pos', label: 'نقطة البيع', icon: ShoppingCart },
   { id: 'users', label: 'المستخدمون', icon: Users },
+  { id: 'roles', label: 'الأدوار والصلاحيات', icon: Shield },
   { id: 'tables', label: 'الطاولات', icon: Table },
 ] as const
 
@@ -863,6 +866,169 @@ export default function SettingsPage() {
           </div>
         </Card>
       )}
+
+      {activeTab === 'roles' && <RolesPermissionsPanel />}
+    </div>
+  )
+}
+
+function RolesPermissionsPanel() {
+  const queryClient = useQueryClient()
+  const [newRoleName, setNewRoleName] = useState('')
+  const [editingRole, setEditingRole] = useState<any>(null)
+  const [selectedPerms, setSelectedPerms] = useState<string[]>([])
+
+  const { data: roles } = useQuery({
+    queryKey: ['admin-roles'],
+    queryFn: async () => {
+      const res = await api.get('/admin/roles')
+      return res.data.roles || []
+    },
+  })
+
+  const { data: permissions } = useQuery({
+    queryKey: ['admin-permissions'],
+    queryFn: async () => {
+      const res = await api.get('/admin/permissions')
+      return res.data.permissions || []
+    },
+  })
+
+  const createRole = useMutation({
+    mutationFn: async (name: string) => {
+      await api.post('/admin/roles', { name, permissions: [] })
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin-roles'] })
+      setNewRoleName('')
+      toast.success('تم إضافة الدور')
+    },
+    onError: (e: any) => toast.error(e?.response?.data?.message || 'تعذر إضافة الدور'),
+  })
+
+  const updateRole = useMutation({
+    mutationFn: async ({ id, permissions }: { id: number; permissions: string[] }) => {
+      await api.put(`/admin/roles/${id}`, { permissions })
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin-roles'] })
+      setEditingRole(null)
+      toast.success('تم تحديث صلاحيات الدور')
+    },
+    onError: (e: any) => toast.error(e?.response?.data?.message || 'تعذر تحديث الدور'),
+  })
+
+  const deleteRole = useMutation({
+    mutationFn: async (id: number) => {
+      await api.delete(`/admin/roles/${id}`)
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin-roles'] })
+      toast.success('تم حذف الدور')
+    },
+    onError: (e: any) => toast.error(e?.response?.data?.message || 'تعذر حذف الدور'),
+  })
+
+  const roleList = Array.isArray(roles) ? roles : []
+  const permList = Array.isArray(permissions) ? permissions : []
+
+  const openEdit = (role: any) => {
+    setEditingRole(role)
+    setSelectedPerms((role.permissions || []).map((p: any) => p.name))
+  }
+
+  const togglePerm = (name: string) => {
+    setSelectedPerms((prev) =>
+      prev.includes(name) ? prev.filter((p) => p !== name) : [...prev, name]
+    )
+  }
+
+  return (
+    <div className="space-y-6">
+      <Card>
+        <h2 className="text-lg font-semibold dark:text-gray-100 mb-4">إضافة دور جديد</h2>
+        <div className="flex gap-2">
+          <Input
+            placeholder="اسم الدور"
+            value={newRoleName}
+            onChange={(e) => setNewRoleName(e.target.value)}
+          />
+          <Button
+            onClick={() => newRoleName.trim() && createRole.mutate(newRoleName.trim())}
+            loading={createRole.isPending}
+            disabled={!newRoleName.trim()}
+          >
+            <Plus className="w-4 h-4" /> إضافة
+          </Button>
+        </div>
+      </Card>
+
+      <Card>
+        <h2 className="text-lg font-semibold dark:text-gray-100 mb-4">الأدوار والصلاحيات</h2>
+        <div className="space-y-3">
+          {roleList.map((role: any) => (
+            <div key={role.id} className="p-4 border border-gray-200 dark:border-gray-700 rounded-lg">
+              <div className="flex items-center justify-between gap-3 mb-2">
+                <div>
+                  <p className="font-semibold text-gray-900 dark:text-gray-100">{role.name}</p>
+                  <p className="text-xs text-gray-500">{(role.permissions || []).length} صلاحية</p>
+                </div>
+                <div className="flex gap-2">
+                  <Button size="sm" variant="secondary" onClick={() => openEdit(role)}>
+                    <Pencil className="w-4 h-4" /> تعديل الصلاحيات
+                  </Button>
+                  {role.name !== 'Super Admin' && (
+                    <Button
+                      size="sm"
+                      variant="danger"
+                      onClick={() => {
+                        if (window.confirm(`حذف الدور ${role.name}؟`)) deleteRole.mutate(role.id)
+                      }}
+                      loading={deleteRole.isPending}
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </Button>
+                  )}
+                </div>
+              </div>
+            </div>
+          ))}
+          {roleList.length === 0 && (
+            <p className="text-center py-6 text-gray-500">لا توجد أدوار</p>
+          )}
+        </div>
+      </Card>
+
+      <Modal isOpen={!!editingRole} onClose={() => setEditingRole(null)} title={`صلاحيات: ${editingRole?.name}`}>
+        {editingRole && (
+          <div className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-2 max-h-96 overflow-y-auto">
+              {permList.map((p: any) => (
+                <label key={p.id} className="flex items-center gap-2 p-2 border border-gray-200 dark:border-gray-700 rounded-lg cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800">
+                  <input
+                    type="checkbox"
+                    checked={selectedPerms.includes(p.name)}
+                    onChange={() => togglePerm(p.name)}
+                    className="rounded border-gray-300"
+                  />
+                  <span className="text-sm text-gray-700 dark:text-gray-200">{p.name}</span>
+                </label>
+              ))}
+            </div>
+            <div className="flex gap-3 justify-end pt-4">
+              <Button variant="secondary" onClick={() => setEditingRole(null)}>
+                إلغاء
+              </Button>
+              <Button
+                onClick={() => updateRole.mutate({ id: editingRole.id, permissions: selectedPerms })}
+                loading={updateRole.isPending}
+              >
+                حفظ
+              </Button>
+            </div>
+          </div>
+        )}
+      </Modal>
     </div>
   )
 }
