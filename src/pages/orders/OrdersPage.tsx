@@ -9,6 +9,7 @@ import DataTable from '../../components/common/tables/DataTable'
 import Modal from '../../components/common/modals/Modal'
 import Badge from '../../components/common/data-display/Badge'
 import Pagination from '../../components/common/Pagination'
+import { mediaUrl } from '../../store/settingsStore'
 
 export default function OrdersPage() {
   const { symbol } = useSettingsStore()
@@ -165,9 +166,14 @@ export default function OrdersPage() {
               <h3 className="font-semibold mb-2">المنتجات</h3>
               <div className="space-y-2">
                 {selectedOrder.items?.map((item: any) => (
-                  <div key={item.id} className="flex justify-between p-2 bg-gray-50 rounded">
-                    <span>{item.product?.name} x{item.quantity}</span>
-                    <span>{formatMoney(item.total_price, symbol)}</span>
+                  <div key={item.id} className="flex items-center justify-between gap-3 p-2 bg-gray-50 rounded">
+                    <div className="flex min-w-0 items-center gap-3">
+                      {item.product?.image && (
+                        <img src={mediaUrl(item.product.image)} alt="" className="h-10 w-10 shrink-0 rounded object-cover" />
+                      )}
+                      <span className="truncate">{item.product?.name} × {item.quantity}</span>
+                    </div>
+                    <span className="shrink-0">{formatMoney(item.total_price, symbol)}</span>
                   </div>
                 ))}
               </div>

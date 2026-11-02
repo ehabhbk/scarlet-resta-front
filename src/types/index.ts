@@ -10,6 +10,8 @@ export interface User {
   username?: string
   email?: string
   phone?: string
+  image?: string
+  avatar?: string
   restaurant_id: number
   is_active: boolean
   roles: Role[]

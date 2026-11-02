@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { api } from '../../services/api'
@@ -9,6 +9,7 @@ import Card from '../../components/common/cards/Card'
 import DataTable from '../../components/common/tables/DataTable'
 import Modal from '../../components/common/modals/Modal'
 import Badge from '../../components/common/data-display/Badge'
+import { mediaUrl } from '../../store/settingsStore'
 
 export default function UsersPage() {
   const [showModal, setShowModal] = useState(false)
@@ -63,9 +64,13 @@ export default function UsersPage() {
       header: 'الاسم',
       render: (u: any) => (
         <div className="flex items-center gap-2">
-          <span className="w-8 h-8 rounded-full bg-primary/10 text-primary flex items-center justify-center">
-            <UserRound className="w-4 h-4" />
-          </span>
+          {(u.image || u.avatar) ? (
+            <img src={mediaUrl(u.image || u.avatar)} alt="" className="h-8 w-8 rounded-full object-cover" />
+          ) : (
+            <span className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10 text-primary">
+              <UserRound className="h-4 w-4" />
+            </span>
+          )}
           <span className="font-medium">{u.name}</span>
         </div>
       ),
@@ -199,10 +204,29 @@ function UserForm({ roles, onClose, onSuccess }: any) {
     role: '',
     is_active: true,
   })
+  const [imageFile, setImageFile] = useState<File | null>(null)
+  const [imagePreview, setImagePreview] = useState('')
+
+  useEffect(() => {
+    return () => {
+      if (imagePreview.startsWith('blob:')) URL.revokeObjectURL(imagePreview)
+    }
+  }, [imagePreview])
 
   const mutation = useMutation({
     mutationFn: async (data: any) => {
-      await api.post('/admin/users', data)
+      if (imageFile) {
+        const formData = new FormData()
+        Object.entries(data).forEach(([key, value]) =>
+          formData.append(key, key === 'is_active' ? (value ? '1' : '0') : String(value))
+        )
+        formData.append('image_file', imageFile)
+        await api.post('/admin/users', formData, {
+          headers: { 'Content-Type': 'multipart/form-data' },
+        })
+      } else {
+        await api.post('/admin/users', data)
+      }
     },
     onSuccess: () => {
       toast.success('تم إضافة المستخدم')
@@ -235,6 +259,20 @@ function UserForm({ roles, onClose, onSuccess }: any) {
         onChange={(e) => setFormData({ ...formData, name: e.target.value })}
         required
       />
+      <div>
+        <label className="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-200">صورة المستخدم</label>
+        {imagePreview && <img src={imagePreview} alt="معاينة صورة المستخدم" className="mb-3 h-20 w-20 rounded-full object-cover" />}
+        <input
+          type="file"
+          accept="image/*"
+          onChange={(e) => {
+            const file = e.target.files?.[0] || null
+            setImageFile(file)
+            setImagePreview(file ? URL.createObjectURL(file) : '')
+          }}
+          className="block w-full text-sm"
+        />
+      </div>
       <Input
         label="اسم المستخدم"
         value={formData.username}
@@ -299,10 +337,32 @@ function EditUserForm({ user, roles, onClose, onSuccess }: any) {
     role: (user.roles && user.roles[0]?.name) || '',
     is_active: user.is_active ?? true,
   })
+  const [imageFile, setImageFile] = useState<File | null>(null)
+  const [imagePreview, setImagePreview] = useState(
+    user.image || user.avatar ? mediaUrl(user.image || user.avatar) : ''
+  )
+
+  useEffect(() => {
+    return () => {
+      if (imagePreview.startsWith('blob:')) URL.revokeObjectURL(imagePreview)
+    }
+  }, [imagePreview])
 
   const mutation = useMutation({
     mutationFn: async (data: any) => {
-      await api.put(`/admin/users/${user.id}`, data)
+      if (imageFile) {
+        const formData = new FormData()
+        Object.entries(data).forEach(([key, value]) =>
+          formData.append(key, key === 'is_active' ? (value ? '1' : '0') : String(value))
+        )
+        formData.append('_method', 'PUT')
+        formData.append('image_file', imageFile)
+        await api.post(`/admin/users/${user.id}`, formData, {
+          headers: { 'Content-Type': 'multipart/form-data' },
+        })
+      } else {
+        await api.put(`/admin/users/${user.id}`, data)
+      }
     },
     onSuccess: () => {
       toast.success('تم تحديث المستخدم')
@@ -339,6 +399,20 @@ function EditUserForm({ user, roles, onClose, onSuccess }: any) {
         onChange={(e) => setFormData({ ...formData, name: e.target.value })}
         required
       />
+      <div>
+        <label className="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-200">صورة المستخدم</label>
+        {imagePreview && <img src={imagePreview} alt="معاينة صورة المستخدم" className="mb-3 h-20 w-20 rounded-full object-cover" />}
+        <input
+          type="file"
+          accept="image/*"
+          onChange={(e) => {
+            const file = e.target.files?.[0] || null
+            setImageFile(file)
+            setImagePreview(file ? URL.createObjectURL(file) : mediaUrl(user.image || user.avatar))
+          }}
+          className="block w-full text-sm"
+        />
+      </div>
       <Input
         label="اسم المستخدم"
         value={formData.username}

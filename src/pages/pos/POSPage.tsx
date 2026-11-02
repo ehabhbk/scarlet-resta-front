@@ -19,6 +19,9 @@ import {
   Printer,
   X,
   RefreshCw,
+  Eye,
+  Pencil,
+  RotateCcw,
 } from 'lucide-react'
 import Button from '../../components/common/buttons/Button'
 import Modal from '../../components/common/modals/Modal'
@@ -34,6 +37,7 @@ interface CartModifier {
 interface CartItem {
   product_id: number
   name: string
+  image?: string
   price: number
   quantity: number
   size_id?: number
@@ -92,6 +96,10 @@ export default function POSPage() {
   const [showShiftModal, setShowShiftModal] = useState(false)
   const [showCloseModal, setShowCloseModal] = useState(false)
   const [showOrdersModal, setShowOrdersModal] = useState(false)
+  const [selectedOrder, setSelectedOrder] = useState<any>(null)
+  const [editingOrder, setEditingOrder] = useState<any>(null)
+  const [orderDraftItems, setOrderDraftItems] = useState<any[]>([])
+  const [orderEditPaymentMethod, setOrderEditPaymentMethod] = useState('cash')
   const [actualCash, setActualCash] = useState(0)
   const [shiftForm, setShiftForm] = useState({
     name: 'وردية اليوم',
@@ -128,11 +136,54 @@ export default function POSPage() {
 
   const openShift = shiftData?.shift
 
-  const { data: ordersData, refetch: refetchOrders } = useQuery({
-    queryKey: ['pos-orders'],
+  const { data: ordersData, isLoading: ordersLoading, isError: ordersError, refetch: refetchOrders } = useQuery({
+    queryKey: ['pos-orders', openShift?.id],
     queryFn: async () => {
-      const res = await api.get('/orders?per_page=20')
-      return res.data.data || res.data
+      if (!openShift?.id) return []
+      const allOrders: any[] = []
+      let page = 1
+      let lastPage: number
+      do {
+        const res = await api.get('/orders', {
+          params: { shift_id: openShift.id, per_page: 100, page },
+        })
+        const payload = res.data
+        const pageOrders = Array.isArray(payload?.data)
+          ? payload.data
+          : Array.isArray(payload)
+            ? payload
+            : []
+        allOrders.push(...pageOrders)
+        const meta = payload?.meta || payload
+        lastPage = Number(meta?.last_page) || 1
+        page = (Number(meta?.current_page) || page) + 1
+      } while (page <= lastPage)
+      return allOrders
+    },
+    enabled: showOrdersModal && !!openShift?.id,
+  })
+
+  const { data: selectedOrderDetails, isLoading: orderDetailsLoading, isError: orderDetailsError } = useQuery({
+    queryKey: ['pos-order', selectedOrder?.id],
+    queryFn: async () => {
+      const res = await api.get(`/orders/${selectedOrder.id}`)
+      return res.data?.order || res.data?.data?.order || res.data?.data || res.data
+    },
+    enabled: !!selectedOrder?.id,
+  })
+
+  const { data: orderProducts, isLoading: orderProductsLoading, isError: orderProductsError } = useQuery({
+    queryKey: ['pos-order-products'],
+    queryFn: async () => {
+      const res = await api.get('/products/available')
+      const payload = res.data
+      return Array.isArray(payload?.products)
+          ? payload.products
+          : Array.isArray(payload?.data)
+            ? payload.data
+          : Array.isArray(payload)
+            ? payload
+            : []
     },
     enabled: showOrdersModal,
   })
@@ -155,6 +206,8 @@ export default function POSPage() {
 
   const canCancel = userPermissions.includes('cancel_orders') || ['Super Admin', 'Admin'].includes(authUser?.roles?.[0]?.name || '')
   const canRefund = userPermissions.includes('delete_orders') || userPermissions.includes('edit_orders') || ['Super Admin', 'Admin'].includes(authUser?.roles?.[0]?.name || '')
+  const canEditOrders = userPermissions.includes('edit_orders') || ['Super Admin', 'Admin'].includes(authUser?.roles?.[0]?.name || '')
+  const canDeleteOrders = userPermissions.includes('delete_orders') || ['Super Admin', 'Admin'].includes(authUser?.roles?.[0]?.name || '')
 
   const cancelOrderMutation = useMutation({
     mutationFn: async (id: number) => {
@@ -179,6 +232,98 @@ export default function POSPage() {
     },
     onError: (e: any) => toast.error(e?.response?.data?.message || 'تعذر استرجاع الدفع'),
   })
+
+  const deleteOrderMutation = useMutation({
+    mutationFn: async (id: number) => {
+      await api.delete(`/orders/${id}`)
+    },
+    onSuccess: () => {
+      refetchOrders()
+      queryClient.invalidateQueries({ queryKey: ['orders'] })
+      queryClient.invalidateQueries({ queryKey: ['shifts-current'] })
+      toast.success('تم حذف الطلب')
+    },
+    onError: (e: any) => toast.error(e?.response?.data?.message || 'تعذر حذف الطلب'),
+  })
+
+  const updateOrderMutation = useMutation({
+    mutationFn: async () => {
+      if (!editingOrder) throw new Error('لا يوجد طلب محدد للتعديل')
+      const previousTotal = Number(editingOrder.total_amount) || 0
+      const previousPaid = Number(editingOrder.amount_paid) || 0
+      const items = orderDraftItems.map((item) => ({
+        product_id: Number(item.product_id),
+        quantity: Number(item.quantity),
+        size_id: item.size_id || undefined,
+        modifier_options: item.modifier_options || [],
+      }))
+      await api.put(`/orders/${editingOrder.id}`, { items })
+      const refreshed = await api.get(`/orders/${editingOrder.id}`)
+      const updatedOrder =
+        refreshed.data?.order || refreshed.data?.data?.order || refreshed.data?.data || refreshed.data
+      const updatedTotal = Number(updatedOrder?.total_amount)
+      if (!Number.isFinite(updatedTotal)) {
+        throw new Error('تم تعديل الطلب ولكن تعذر تحديد إجماليه الجديد لتسوية فرق المبلغ')
+      }
+      const updatedPaid = Number(updatedOrder?.amount_paid)
+      const difference = Number((updatedTotal - previousTotal).toFixed(2))
+      if (difference > 0) {
+        await api.post(`/orders/${editingOrder.id}/payment`, {
+          amount: difference,
+          method: orderEditPaymentMethod,
+        })
+      }
+      const refundedAmount = Number.isFinite(updatedPaid)
+        ? Math.max(0, Number((previousPaid - updatedPaid).toFixed(2)))
+        : Math.max(0, Number((previousPaid - updatedTotal).toFixed(2)))
+      return { difference, refundedAmount }
+    },
+    onSuccess: ({ difference, refundedAmount }) => {
+      refetchOrders()
+      queryClient.invalidateQueries({ queryKey: ['orders'] })
+      queryClient.invalidateQueries({ queryKey: ['shifts-current'] })
+      setEditingOrder(null)
+      setSelectedOrder(null)
+      toast.success(
+        difference > 0
+          ? `تم تعديل الطلب وتحصيل فرق ${formatMoney(difference, currencySymbol)}`
+          : refundedAmount > 0
+            ? `تم تعديل الطلب واسترداد فرق ${formatMoney(refundedAmount, currencySymbol)}`
+            : 'تم تعديل الطلب'
+      )
+    },
+    onError: (e: any) => {
+      refetchOrders()
+      queryClient.invalidateQueries({ queryKey: ['shifts-current'] })
+      toast.error(e?.response?.data?.message || e?.message || 'تعذر تعديل الطلب أو تسوية فرق المبلغ')
+    },
+  })
+
+  const openOrderEditor = (order: any) => {
+    const items = order.items || order.order_items || []
+    setOrderDraftItems(items.map((item: any, index: number) => ({
+      key: `${item.id || item.product_id}-${index}`,
+      product_id: item.product_id || item.product?.id || '',
+      quantity: Number(item.quantity) || 1,
+      size_id: item.size_id || item.size?.id || '',
+      modifier_options: (item.modifier_options || item.modifierOptions || item.modifiers || []).map((option: any) => ({
+        modifier_id: option.modifier_id || option.modifier?.id,
+        modifier_option_id: option.modifier_option_id || option.id,
+      })),
+    })))
+    setOrderEditPaymentMethod(paymentMethod)
+    setEditingOrder(order)
+  }
+
+  const loadOrderForEditing = async (order: any) => {
+    try {
+      const res = await api.get(`/orders/${order.id}`)
+      const details = res.data?.order || res.data?.data?.order || res.data?.data || res.data
+      openOrderEditor(details)
+    } catch (error: any) {
+      toast.error(error?.response?.data?.message || 'تعذر تحميل تفاصيل الطلب للتعديل')
+    }
+  }
 
   const shiftRevenue = {
     total: Number(shiftData?.revenue?.total) || 0,
@@ -358,6 +503,7 @@ export default function POSPage() {
     const cartItem: CartItem = {
       product_id: product.id,
       name: product.name + nameSuffix,
+      image: product.image,
       price,
       quantity: 1,
       size_id: sizeId || undefined,
@@ -485,6 +631,7 @@ export default function POSPage() {
     }
 
     const orderData = {
+      shift_id: openShift.id,
       type: tableId ? 'dine_in' : 'takeaway',
       table_id: tableId,
       customer_name: customerName.trim() || undefined,
@@ -605,8 +752,8 @@ export default function POSPage() {
         )}
       </div>
 
-      <div className="flex-1 flex overflow-hidden">
-        <div className="flex-1 flex flex-col p-4 min-w-0">
+      <div className="flex-1 flex flex-col md:flex-row min-h-0 overflow-hidden">
+        <div className="flex-1 flex flex-col p-4 min-w-0 min-h-0">
           <div className="mb-4">
             <div className="relative">
               <Search className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
@@ -693,12 +840,14 @@ export default function POSPage() {
           </div>
         </div>
 
-        <div className="w-full max-w-sm bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-800 flex flex-col min-h-0">
+        <div className="w-full h-[48%] md:h-auto md:w-[26rem] md:max-w-[40%] md:flex-none bg-white dark:bg-gray-900 border-t md:border-t-0 md:border-r border-gray-200 dark:border-gray-800 flex flex-col min-h-0 overflow-y-auto md:overflow-hidden">
           <div className="p-4 border-b border-gray-200 dark:border-gray-800">
             <h2 className="text-lg font-semibold flex items-center gap-2 text-gray-900 dark:text-gray-100">
               <ShoppingCart className="w-5 h-5" />
               سلة المشتريات
-              <span className="text-sm font-normal text-gray-500">({cart.length})</span>
+              <span className="text-sm font-normal text-gray-500">
+                ({cart.reduce((count, item) => count + item.quantity, 0)})
+              </span>
             </h2>
           </div>
 
@@ -749,6 +898,9 @@ export default function POSPage() {
                   key={index}
                   className="flex items-center gap-3 p-3 bg-gray-50 dark:bg-gray-800/60 rounded-lg"
                 >
+                  {item.image ? (
+                    <img src={mediaUrl(item.image)} alt="" className="h-12 w-12 shrink-0 rounded-lg object-cover" />
+                  ) : null}
                   <div className="flex-1 min-w-0">
                     <p className="font-medium text-sm truncate text-gray-900 dark:text-gray-100">
                       {item.name}
@@ -1038,34 +1190,248 @@ export default function POSPage() {
         </div>
       </Modal>
 
-      <Modal isOpen={showOrdersModal} onClose={() => setShowOrdersModal(false)} title="طلبات نقطة البيع">
-        <div className="space-y-3 max-h-[60vh] overflow-y-auto">
-          {(Array.isArray(ordersData) ? ordersData : []).length === 0 && (
-            <p className="text-center py-6 text-gray-500">لا توجد طلبات</p>
+      <Modal
+        isOpen={showOrdersModal && !selectedOrder}
+        onClose={() => setShowOrdersModal(false)}
+        title={`طلبات الوردية${openShift?.name ? `: ${openShift.name}` : ''}`}
+        size="xl"
+      >
+        <div className="max-h-[70vh] space-y-3 overflow-y-auto">
+          {!openShift && <p className="py-6 text-center text-gray-500">افتح وردية لعرض طلباتها</p>}
+          {openShift && ordersLoading && <p className="py-6 text-center text-gray-500">جاري تحميل طلبات الوردية...</p>}
+          {openShift && ordersError && <p className="py-6 text-center text-red-600">تعذر تحميل طلبات الوردية</p>}
+          {openShift && !ordersLoading && !ordersError && (ordersData || []).length === 0 && (
+            <p className="py-6 text-center text-gray-500">لا توجد طلبات في هذه الوردية</p>
           )}
-          {(Array.isArray(ordersData) ? ordersData : []).map((order: any) => (
-            <div key={order.id} className="p-3 border border-gray-200 dark:border-gray-700 rounded-lg flex flex-wrap items-center justify-between gap-2">
-              <div>
-                <p className="font-semibold text-gray-900 dark:text-gray-100">{order.order_number}</p>
-                <p className="text-xs text-gray-500">
-                  {order.status} • {formatMoney(order.total_amount, currencySymbol)} • {order.payment_status}
-                </p>
+          {(ordersData || []).map((order: any) => {
+            const items = order.items || order.order_items || []
+            return (
+              <div key={order.id} className="rounded-lg border border-gray-200 p-3 dark:border-gray-700">
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <button className="text-right" onClick={() => setSelectedOrder(order)}>
+                    <p className="font-semibold text-gray-900 dark:text-gray-100">{order.order_number}</p>
+                    <p className="text-xs text-gray-500">
+                      {order.status} • {formatMoney(order.total_amount, currencySymbol)} • {order.payment_status}
+                    </p>
+                    <p className="text-xs text-gray-500">
+                      {order.created_at ? new Date(order.created_at).toLocaleString('ar-EG') : ''}
+                    </p>
+                  </button>
+                  <div className="flex flex-wrap gap-2">
+                    <Button size="sm" variant="secondary" onClick={() => setSelectedOrder(order)}>
+                      <Eye className="h-4 w-4" /> التفاصيل
+                    </Button>
+                    {canEditOrders && order.status !== 'cancelled' && (
+                      <Button size="sm" variant="secondary" onClick={() => loadOrderForEditing(order)}>
+                        <Pencil className="h-4 w-4" /> تعديل
+                      </Button>
+                    )}
+                    {canCancel && !['cancelled', 'completed'].includes(order.status) && (
+                      <Button size="sm" variant="danger" onClick={() => cancelOrderMutation.mutate(order.id)} loading={cancelOrderMutation.isPending}>
+                        إلغاء
+                      </Button>
+                    )}
+                    {canRefund && ['paid', 'partial'].includes(order.payment_status) && (
+                      <Button size="sm" variant="secondary" onClick={() => refundOrderMutation.mutate(order.id)} loading={refundOrderMutation.isPending}>
+                        <RotateCcw className="h-4 w-4" /> استرداد
+                      </Button>
+                    )}
+                    {canDeleteOrders && order.status !== 'completed' && Number(order.amount_paid || 0) <= 0 && (
+                      <Button
+                        size="sm"
+                        variant="danger"
+                        onClick={() => {
+                          if (window.confirm(`هل تريد حذف الطلب ${order.order_number}؟`)) {
+                            deleteOrderMutation.mutate(order.id)
+                          }
+                        }}
+                        loading={deleteOrderMutation.isPending}
+                      >
+                        <Trash2 className="h-4 w-4" /> حذف
+                      </Button>
+                    )}
+                  </div>
+                </div>
+                {items.length > 0 && (
+                  <div className="mt-3 space-y-2 border-t border-gray-100 pt-3 dark:border-gray-800">
+                    {items.map((item: any, index: number) => (
+                      <div key={item.id || `${order.id}-${index}`} className="flex items-center justify-between gap-3 text-sm">
+                        <span className="flex min-w-0 items-center gap-2 truncate">
+                          {item.product?.image && <img src={mediaUrl(item.product.image)} alt="" className="h-8 w-8 shrink-0 rounded object-cover" />}
+                          {item.product?.name || item.name || 'منتج'} × {item.quantity}
+                        </span>
+                        <span className="shrink-0">{formatMoney(item.total_price ?? item.subtotal ?? 0, currencySymbol)}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
-              <div className="flex gap-2">
-                {canCancel && order.status !== 'cancelled' && order.status !== 'completed' && (
-                  <Button size="sm" variant="danger" onClick={() => cancelOrderMutation.mutate(order.id)} loading={cancelOrderMutation.isPending}>
-                    إلغاء
-                  </Button>
+            )
+          })}
+        </div>
+      </Modal>
+
+      <Modal
+        isOpen={!!selectedOrder && !editingOrder}
+        onClose={() => setSelectedOrder(null)}
+        title={`تفاصيل الطلب ${(selectedOrderDetails || selectedOrder)?.order_number || ''}`}
+        size="lg"
+      >
+        {selectedOrder && (() => {
+          const order = selectedOrderDetails || selectedOrder
+          const items = order.items || order.order_items || []
+          return (
+            <div className="space-y-4">
+              {orderDetailsLoading && <p className="text-sm text-gray-500">جاري تحميل تفاصيل الطلب...</p>}
+              {orderDetailsError && <p className="text-sm text-red-600">تعذر تحميل التفاصيل الكاملة للطلب</p>}
+              <div className="grid grid-cols-2 gap-3 text-sm">
+                <p>الحالة: <strong>{order.status}</strong></p>
+                <p>الدفع: <strong>{order.payment_status}</strong></p>
+                <p>طريقة الدفع: <strong>{order.payment_method || '-'}</strong></p>
+                <p>النوع: <strong>{order.type || '-'}</strong></p>
+                <p>الإجمالي: <strong>{formatMoney(order.total_amount, currencySymbol)}</strong></p>
+                <p>المدفوع: <strong>{formatMoney(order.amount_paid, currencySymbol)}</strong></p>
+                <p>التاريخ: <strong>{order.created_at ? new Date(order.created_at).toLocaleString('ar-EG') : '-'}</strong></p>
+                {order.customer?.name && <p>العميل: <strong>{order.customer.name}</strong></p>}
+                {order.customer?.phone && <p>الجوال: <strong>{order.customer.phone}</strong></p>}
+                {order.table?.name && <p>الطاولة: <strong>{order.table.name}</strong></p>}
+                {order.cashier?.name && <p>الكاشير: <strong>{order.cashier.name}</strong></p>}
+                {order.notes && <p className="col-span-2">ملاحظات: <strong>{order.notes}</strong></p>}
+              </div>
+              <div className="flex flex-wrap gap-4 border-y border-gray-100 py-3 text-sm dark:border-gray-800">
+                <span>المجموع: {formatMoney(order.subtotal, currencySymbol)}</span>
+                <span>الضريبة: {formatMoney(order.tax_amount, currencySymbol)}</span>
+                <span>الخصم: {formatMoney(order.discount_amount, currencySymbol)}</span>
+              </div>
+              <div>
+                <h3 className="mb-2 font-semibold">المنتجات</h3>
+                {items.length === 0 ? (
+                  <p className="text-sm text-gray-500">لا توجد تفاصيل منتجات في بيانات الطلب</p>
+                ) : (
+                  <div className="space-y-2">
+                    {items.map((item: any, index: number) => {
+                      const product = item.product || (orderProducts || []).find((p: any) => p.id === item.product_id)
+                      return (
+                        <div key={item.id || `${order.id}-detail-${index}`} className="flex items-center gap-3 rounded-lg bg-gray-50 p-3 dark:bg-gray-800">
+                          {product?.image ? (
+                            <img src={mediaUrl(product.image)} alt="" className="h-12 w-12 rounded-lg object-cover" />
+                          ) : (
+                            <span className="flex h-12 w-12 items-center justify-center rounded-lg bg-gray-200 text-gray-500 dark:bg-gray-700">
+                              <ShoppingCart className="h-5 w-5" />
+                            </span>
+                          )}
+                          <div className="min-w-0 flex-1">
+                            <p className="font-medium">{product?.name || item.name || 'منتج'} × {item.quantity}</p>
+                            {item.modifiers?.length > 0 && (
+                              <p className="text-xs text-gray-500">
+                                {item.modifiers.map((modifier: any) =>
+                                  [modifier.modifier, modifier.option].filter(Boolean).join(': ') || modifier.name
+                                ).join('، ')}
+                              </p>
+                            )}
+                          </div>
+                          <span className="shrink-0">{formatMoney(item.total_price ?? item.subtotal ?? 0, currencySymbol)}</span>
+                        </div>
+                      )
+                    })}
+                  </div>
                 )}
-                {canRefund && order.payment_status === 'paid' && (
-                  <Button size="sm" variant="secondary" onClick={() => refundOrderMutation.mutate(order.id)} loading={refundOrderMutation.isPending}>
-                    استرجاع
-                  </Button>
+              </div>
+              <div className="flex justify-end gap-2">
+                {canEditOrders && order.status !== 'cancelled' && (
+                  <Button onClick={() => loadOrderForEditing(order)}><Pencil className="h-4 w-4" /> تعديل الطلب</Button>
                 )}
+                <Button variant="secondary" onClick={() => setSelectedOrder(null)}>إغلاق</Button>
               </div>
             </div>
-          ))}
-        </div>
+          )
+        })()}
+      </Modal>
+
+      <Modal
+        isOpen={!!editingOrder}
+        onClose={() => setEditingOrder(null)}
+        title={`تعديل الطلب ${editingOrder?.order_number || ''}`}
+        size="lg"
+      >
+        {editingOrder && (
+          <div className="space-y-4">
+            <p className="text-sm text-gray-500">
+              أضف المنتجات أو استبدلها؛ سيعيد الخادم حساب الإجمالي وسيتم تحصيل أو استرداد الفرق.
+            </p>
+            {orderProductsLoading && <p className="text-sm text-gray-500">جاري تحميل المنتجات...</p>}
+            {orderProductsError && <p className="text-sm text-red-600">تعذر تحميل المنتجات اللازمة للتعديل</p>}
+            <div className="max-h-[45vh] space-y-3 overflow-y-auto">
+              {orderDraftItems.map((item, index) => (
+                <div key={item.key} className="grid grid-cols-[minmax(0,1fr)_6rem_auto] items-center gap-2">
+                  <select
+                    value={item.product_id}
+                    onChange={(e) => setOrderDraftItems((current) => current.map((line, lineIndex) =>
+                      lineIndex === index
+                        ? { ...line, product_id: Number(e.target.value), size_id: '', modifier_options: [] }
+                        : line
+                    ))}
+                    className="min-w-0 rounded-lg border border-gray-300 bg-white px-3 py-2 dark:border-gray-700 dark:bg-gray-900"
+                  >
+                    <option value="">اختر منتجاً</option>
+                    {(orderProducts || []).map((product: any) => (
+                      <option key={product.id} value={product.id}>{product.name} — {formatMoney(product.sale_price, currencySymbol)}</option>
+                    ))}
+                  </select>
+                  <input
+                    type="number"
+                    min="1"
+                    value={item.quantity}
+                    onChange={(e) => setOrderDraftItems((current) => current.map((line, lineIndex) =>
+                      lineIndex === index ? { ...line, quantity: Math.max(1, Number(e.target.value) || 1) } : line
+                    ))}
+                    className="w-full rounded-lg border border-gray-300 px-3 py-2 dark:border-gray-700 dark:bg-gray-900"
+                    aria-label="الكمية"
+                  />
+                  <button
+                    onClick={() => setOrderDraftItems((current) => current.filter((_, lineIndex) => lineIndex !== index))}
+                    className="rounded-lg p-2 text-red-600 hover:bg-red-50"
+                    aria-label="حذف المنتج من الطلب"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </button>
+                </div>
+              ))}
+            </div>
+            <Button
+              variant="secondary"
+              onClick={() => setOrderDraftItems((current) => [...current, {
+                key: `new-${Date.now()}`,
+                product_id: '',
+                quantity: 1,
+                size_id: '',
+                modifier_options: [],
+              }])}
+            >
+              <Plus className="h-4 w-4" /> إضافة منتج
+            </Button>
+            <div>
+              <label className="mb-1 block text-sm font-medium">طريقة دفع الفرق عند زيادة الإجمالي</label>
+              <select
+                value={orderEditPaymentMethod}
+                onChange={(e) => setOrderEditPaymentMethod(e.target.value)}
+                className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 dark:border-gray-700 dark:bg-gray-900"
+              >
+                {paymentMethods.map((method) => <option key={method.value} value={method.value}>{method.label}</option>)}
+              </select>
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button variant="secondary" onClick={() => setEditingOrder(null)}>إلغاء</Button>
+              <Button
+                onClick={() => updateOrderMutation.mutate()}
+                loading={updateOrderMutation.isPending}
+                disabled={orderDraftItems.length === 0 || orderDraftItems.some((item) => !item.product_id || item.quantity < 1)}
+              >
+                حفظ وتسوية الفرق
+              </Button>
+            </div>
+          </div>
+        )}
       </Modal>
     </div>
   )
