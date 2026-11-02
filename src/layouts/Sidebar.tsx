@@ -1,16 +1,16 @@
 import { Link, useLocation } from 'react-router-dom'
-import { 
-  LayoutDashboard, 
-  Utensils, 
-  ShoppingCart, 
-  Table, 
-  ChefHat, 
-  Package, 
+import {
+  LayoutDashboard,
+  Utensils,
+  ShoppingCart,
+  Table,
+  ChefHat,
+  Package,
   BookOpen,
   Truck,
-  Users, 
-  DollarSign, 
-  BarChart3, 
+  Users,
+  DollarSign,
+  BarChart3,
   Settings,
   Shield,
   Receipt,
@@ -21,7 +21,7 @@ import {
   MapPin,
   Tag,
   KeyRound,
-  LogOut
+  LogOut,
 } from 'lucide-react'
 import { useAuthStore } from '../store/authStore'
 import { useLangStore } from '../store/langStore'
@@ -31,34 +31,87 @@ interface SidebarProps {
   open: boolean
 }
 
+interface NavChild {
+  label: string
+  path: string
+  icon: typeof LayoutDashboard
+}
+
+interface NavItem {
+  icon: typeof LayoutDashboard
+  label: string
+  path: string
+  children?: NavChild[]
+}
+
 export default function Sidebar({ open }: SidebarProps) {
   const location = useLocation()
   const { logout } = useAuthStore()
   const { lang } = useLangStore()
-  
-  const menuItems = [
-    { icon: LayoutDashboard, label: t('dashboard', lang), path: '/dashboard' },
-    { icon: Utensils, label: t('products', lang), path: '/products' },
+
+  const menuItems: NavItem[] = [
+    {
+      icon: LayoutDashboard,
+      label: t('dashboard', lang),
+      path: '/dashboard',
+      children: [{ label: 'الإشعارات', path: '/notifications', icon: Bell }],
+    },
     { icon: ShoppingCart, label: t('pos', lang), path: '/pos' },
-    { icon: Table, label: t('tables', lang), path: '/tables' },
+    {
+      icon: Utensils,
+      label: t('products', lang),
+      path: '/products',
+      children: [
+        { label: 'التصنيفات', path: '/categories', icon: Tag },
+        { label: 'الوصفات', path: '/recipes', icon: BookOpen },
+      ],
+    },
+    {
+      icon: Receipt,
+      label: 'الطلبات',
+      path: '/orders',
+      children: [{ label: 'الورديات', path: '/shifts', icon: Calendar }],
+    },
+    {
+      icon: Table,
+      label: t('tables', lang),
+      path: '/tables',
+      children: [
+        { label: 'المناطق', path: '/areas', icon: MapPin },
+        { label: 'محطات المطبخ', path: '/kitchen-stations', icon: ChefHat },
+      ],
+    },
     { icon: ChefHat, label: t('kitchen', lang), path: '/kitchen' },
-    { icon: Package, label: t('inventory', lang), path: '/inventory' },
-    { icon: BookOpen, label: t('recipes', lang), path: '/recipes' },
-    { icon: Truck, label: t('purchases', lang), path: '/purchases' },
+    {
+      icon: Package,
+      label: t('inventory', lang),
+      path: '/inventory',
+      children: [
+        { label: 'حركات المخزون', path: '/stock-movements', icon: Activity },
+        { label: 'المشتريات', path: '/purchases', icon: Truck },
+      ],
+    },
     { icon: Users, label: t('customers', lang), path: '/customers' },
-    { icon: DollarSign, label: t('finance', lang), path: '/finance' },
+    {
+      icon: Users,
+      label: 'الموظفون',
+      path: '/employees',
+      children: [{ label: 'الحضور', path: '/attendance', icon: Clock }],
+    },
+    {
+      icon: DollarSign,
+      label: t('finance', lang),
+      path: '/finance',
+      children: [{ label: 'المصروفات', path: '/expenses', icon: Receipt }],
+    },
     { icon: BarChart3, label: t('reports', lang), path: '/reports' },
     { icon: Settings, label: t('settings', lang), path: '/settings' },
-    { icon: Shield, label: t('users', lang), path: '/users' },
-    { icon: Receipt, label: 'المصروفات', path: '/expenses' },
-    { icon: Clock, label: 'الحضور', path: '/attendance' },
-    { icon: Calendar, label: 'الورديات', path: '/shifts' },
-    { icon: Activity, label: 'حركات المخزون', path: '/stock-movements' },
-    { icon: Bell, label: 'الإشعارات', path: '/notifications' },
-    { icon: MapPin, label: 'المناطق', path: '/areas' },
-    { icon: ChefHat, label: 'محطات المطبخ', path: '/kitchen-stations' },
-    { icon: Tag, label: 'التصنيفات', path: '/categories' },
-    { icon: KeyRound, label: 'الأدوار', path: '/roles' },
+    {
+      icon: Shield,
+      label: t('users', lang),
+      path: '/users',
+      children: [{ label: 'الأدوار', path: '/roles', icon: KeyRound }],
+    },
   ]
 
   return (
@@ -76,28 +129,55 @@ export default function Sidebar({ open }: SidebarProps) {
           )}
         </div>
       </div>
-      
-      <nav className="flex-1 p-4 space-y-2">
+
+      <nav className="flex-1 p-4 space-y-2 overflow-y-auto">
         {menuItems.map((item) => {
           const Icon = item.icon
           const isActive = location.pathname === item.path
+          const isSectionActive =
+            isActive || (item.children || []).some((child) => location.pathname === child.path)
+
           return (
-            <Link
-              key={item.path}
-              to={item.path}
-              className={`flex items-center gap-3 px-3 py-2 rounded-lg transition-colors ${
-                isActive 
-                  ? 'bg-primary text-white' 
-                  : 'text-gray-600 hover:bg-gray-100'
-              }`}
-            >
-              <Icon className="w-5 h-5" />
-              {open && <span className="font-medium">{item.label}</span>}
-            </Link>
+            <div key={item.path}>
+              <Link
+                to={item.path}
+                className={`flex items-center gap-3 px-3 py-2 rounded-lg transition-colors ${
+                  isSectionActive
+                    ? 'bg-primary text-white'
+                    : 'text-gray-600 hover:bg-gray-100'
+                }`}
+              >
+                <Icon className="w-5 h-5" />
+                {open && <span className="font-medium">{item.label}</span>}
+              </Link>
+
+              {open && isSectionActive && item.children && (
+                <div className="mt-1 mr-4 space-y-1 border-r-2 border-primary/20 pr-3">
+                  {item.children.map((child) => {
+                    const ChildIcon = child.icon
+                    const childActive = location.pathname === child.path
+                    return (
+                      <Link
+                        key={child.path}
+                        to={child.path}
+                        className={`flex items-center gap-2 px-2 py-1.5 rounded-md text-sm transition-colors ${
+                          childActive
+                            ? 'text-primary bg-primary/5 font-medium'
+                            : 'text-gray-500 hover:text-gray-800 hover:bg-gray-50'
+                        }`}
+                      >
+                        <ChildIcon className="w-4 h-4" />
+                        <span>{child.label}</span>
+                      </Link>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
           )
         })}
       </nav>
-      
+
       <div className="p-4 border-t border-gray-200">
         <button
           onClick={logout}

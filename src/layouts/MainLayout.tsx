@@ -1,6 +1,8 @@
+import { useEffect } from 'react'
 import Sidebar from './Sidebar'
 import Topbar from './Topbar'
 import { useUiStore } from '../store/uiStore'
+import { useSettingsStore } from '../store/settingsStore'
 import type { ReactNode } from 'react'
 
 interface MainLayoutProps {
@@ -9,7 +11,12 @@ interface MainLayoutProps {
 
 export default function MainLayout({ children }: MainLayoutProps) {
   const { sidebarOpen } = useUiStore()
-  
+  const loadSettings = useSettingsStore((state) => state.load)
+
+  useEffect(() => {
+    void loadSettings()
+  }, [loadSettings])
+
   return (
     <div className="flex h-screen bg-gray-50 dark:bg-gray-950">
       <Sidebar open={sidebarOpen} />
