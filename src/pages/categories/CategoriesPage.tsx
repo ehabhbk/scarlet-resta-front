@@ -7,8 +7,13 @@ import Input from '../../components/common/inputs/Input'
 import Card from '../../components/common/cards/Card'
 import DataTable from '../../components/common/tables/DataTable'
 import Modal from '../../components/common/modals/Modal'
+import { useAuthStore } from '../../store/authStore'
 
 export default function CategoriesPage() {
+  const permissions = useAuthStore((state) => state.user?.permissions || [])
+  const canCreate = permissions.includes('create_categories')
+  const canEdit = permissions.includes('edit_categories')
+  const canDelete = permissions.includes('delete_categories')
   const [showModal, setShowModal] = useState(false)
   const [editing, setEditing] = useState<any>(null)
   const queryClient = useQueryClient()
@@ -31,26 +36,26 @@ export default function CategoriesPage() {
     { key: 'color', header: 'اللون', render: (c: any) => <span className="inline-block w-4 h-4 rounded" style={{ background: c.color }} /> },
     { key: 'sort_order', header: 'الترتيب' },
     { key: 'is_active', header: 'الحالة', render: (c: any) => c.is_active ? 'نشط' : 'معطل' },
-    { key: 'actions', header: 'الإجراءات', render: (c: any) => (
+    ...(canEdit || canDelete ? [{ key: 'actions', header: 'الإجراءات', render: (c: any) => (
       <div className="flex gap-2">
-        <button onClick={() => { setEditing(c); setShowModal(true) }} className="p-1 text-blue-600 hover:bg-blue-50 rounded"><Edit className="w-4 h-4" /></button>
-        <button onClick={() => deleteMutation.mutate(c.id)} className="p-1 text-red-600 hover:bg-red-50 rounded"><Trash2 className="w-4 h-4" /></button>
+        {canEdit && <button onClick={() => { setEditing(c); setShowModal(true) }} className="p-1 text-blue-600 hover:bg-blue-50 rounded"><Edit className="w-4 h-4" /></button>}
+        {canDelete && <button onClick={() => deleteMutation.mutate(c.id)} className="p-1 text-red-600 hover:bg-red-50 rounded"><Trash2 className="w-4 h-4" /></button>}
       </div>
-    )},
+    )}] : []),
   ]
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold text-gray-900">التصنيفات</h1>
-        <Button onClick={() => { setEditing(null); setShowModal(true) }}><Plus className="w-4 h-4" /> إضافة تصنيف</Button>
+        {canCreate && <Button onClick={() => { setEditing(null); setShowModal(true) }}><Plus className="w-4 h-4" /> إضافة تصنيف</Button>}
       </div>
       <Card>
         <DataTable data={categories || []} columns={columns} loading={isLoading} emptyMessage="لا توجد تصنيفات" />
       </Card>
-      <Modal isOpen={showModal} onClose={() => setShowModal(false)} title={editing ? 'تعديل تصنيف' : 'إضافة تصنيف'}>
+      {(canCreate || canEdit) && <Modal isOpen={showModal} onClose={() => setShowModal(false)} title={editing ? 'تعديل تصنيف' : 'إضافة تصنيف'}>
         <CategoryForm category={editing} onClose={() => setShowModal(false)} onSuccess={() => { setShowModal(false); queryClient.invalidateQueries({ queryKey: ['categories'] }) }} />
-      </Modal>
+      </Modal>}
     </div>
   )
 }

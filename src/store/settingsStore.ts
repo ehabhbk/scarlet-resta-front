@@ -56,12 +56,6 @@ export const CURRENCIES: CurrencyOption[] = [
   { code: 'LYD', symbol: 'د.ل', name: 'دينار ليبي' },
 ]
 
-export const DEFAULT_PAYMENT_METHODS: PaymentMethod[] = [
-  { value: 'cash', label: 'نقدي' },
-  { value: 'card', label: 'بطاقة' },
-  { value: 'wallet', label: 'محفظة' },
-]
-
 export const symbolForCurrency = (code?: string, list: CurrencyOption[] = CURRENCIES): string =>
   list.find((c) => c.code === code)?.symbol || 'ر.س'
 
@@ -121,6 +115,7 @@ interface SettingsState {
   currencies: CurrencyOption[]
   customCurrencies: CurrencyOption[]
   paymentMethods: PaymentMethod[]
+  settingsError: string | null
   loaded: boolean
   loading: boolean
   load: (force?: boolean) => Promise<void>
@@ -138,7 +133,8 @@ export const useSettingsStore = create<SettingsState>()(
       taxRate: DEFAULT_TAX_RATE,
       currencies: CURRENCIES,
       customCurrencies: [],
-      paymentMethods: DEFAULT_PAYMENT_METHODS,
+      paymentMethods: [],
+      settingsError: null,
       loaded: false,
       loading: false,
       load: async (force = false) => {
@@ -170,12 +166,25 @@ export const useSettingsStore = create<SettingsState>()(
             set({
               paymentMethods: methods
                 .filter((m) => m && m.value)
-                .map((m) => ({ value: m.value, label: m.label || m.value })),
+                .map((m) => ({ value: m.value, label: m.label || m.value, account_id: m.account_id })),
             })
+          } else {
+            set({ paymentMethods: [] })
           }
+        } else {
+          set({ paymentMethods: [] })
         }
 
-        set({ loading: false, loaded: true })
+        const errors = [restaurantResult, settingsResult]
+          .filter((result) => result.status === 'rejected')
+          .map((result) => result.reason)
+        set({
+          loading: false,
+          loaded: errors.length === 0,
+          settingsError: errors.length
+            ? 'تعذر تحميل بيانات المطعم أو الإعدادات من الخادم.'
+            : null,
+        })
       },
       applyRestaurant: (restaurant) => {
         if (!restaurant) return
@@ -212,7 +221,7 @@ export const useSettingsStore = create<SettingsState>()(
           symbol,
         })
       },
-      setPaymentMethods: (methods) => set({ paymentMethods: methods }),
+      setPaymentMethods: (methods) => set({ paymentMethods: methods, settingsError: null }),
     }),
     {
       name: 'restaurant-settings',
@@ -223,8 +232,14 @@ export const useSettingsStore = create<SettingsState>()(
         taxRate: state.taxRate,
         currencies: state.currencies,
         customCurrencies: state.customCurrencies,
-        paymentMethods: state.paymentMethods,
-        loaded: state.loaded,
+      }),
+      merge: (persistedState, currentState) => ({
+        ...currentState,
+        ...(persistedState as Partial<SettingsState>),
+        paymentMethods: [],
+        loaded: false,
+        loading: false,
+        settingsError: null,
       }),
     }
   )

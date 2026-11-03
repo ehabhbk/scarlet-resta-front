@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { api } from '../../services/api'
+import { useAuthStore } from '../../store/authStore'
 import {
   ChefHat,
   CheckCircle,
@@ -46,6 +47,7 @@ const elapsedMinutes = (createdAt: string) => {
 
 export default function KitchenPage() {
   const queryClient = useQueryClient()
+  const canUpdateKitchen = useAuthStore((state) => state.user?.permissions?.includes('update_kitchen_order') || false)
   const [lastUpdated, setLastUpdated] = useState<Date>(new Date())
 
   const { data: kitchenOrders, isLoading, isFetching, refetch } = useQuery({
@@ -281,7 +283,7 @@ export default function KitchenPage() {
                         </p>
                       )}
 
-                      <div className="flex gap-2">
+                      {canUpdateKitchen && <div className="flex gap-2">
                         {['pending', 'confirmed'].includes(item.kitchen_status) && (
                           <Button
                             size="sm"
@@ -311,12 +313,12 @@ export default function KitchenPage() {
                             جاهز للتقديم
                           </span>
                         )}
-                      </div>
+                      </div>}
                     </div>
                   ))}
                 </div>
 
-                {allReady ? (
+                {allReady && canUpdateKitchen ? (
                   <div className="pt-2 border-t border-gray-100 dark:border-gray-800">
                     <Button
                       className="w-full"

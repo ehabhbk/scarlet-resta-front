@@ -88,7 +88,7 @@ export default function POSPage() {
 
   const [selectedCategory, setSelectedCategory] = useState<number | null>(null)
   const [cart, setCart] = useState<CartItem[]>([])
-  const [paymentMethod, setPaymentMethod] = useState('cash')
+  const [paymentMethod, setPaymentMethod] = useState('')
   const [splitPayment, setSplitPayment] = useState(false)
   const [splitPayments, setSplitPayments] = useState<{ method: string; amount: number }[]>([])
   const [discount, setDiscount] = useState(0)
@@ -106,9 +106,11 @@ export default function POSPage() {
   const [selectedOrder, setSelectedOrder] = useState<any>(null)
   const [editingOrder, setEditingOrder] = useState<any>(null)
   const [orderDraftItems, setOrderDraftItems] = useState<any[]>([])
-  const [orderEditPaymentMethod, setOrderEditPaymentMethod] = useState('cash')
+  const [orderEditPaymentMethod, setOrderEditPaymentMethod] = useState('')
   const [actualCash, setActualCash] = useState(0)
   const [openingCash, setOpeningCash] = useState(0)
+  const [shiftEmployeeIds, setShiftEmployeeIds] = useState<number[]>([])
+  const [employeePaymentMethods, setEmployeePaymentMethods] = useState<Record<number, string>>({})
   const [shiftNow, setShiftNow] = useState(new Date())
   const [refundOrderTarget, setRefundOrderTarget] = useState<any>(null)
   const [refundAmount, setRefundAmount] = useState(0)
@@ -119,6 +121,7 @@ export default function POSPage() {
     taxRate,
     restaurant: restaurantData,
     paymentMethods,
+    settingsError,
   } = useSettingsStore()
   const loadSettings = useSettingsStore((s) => s.load)
 
@@ -131,11 +134,18 @@ export default function POSPage() {
   }, [loadSettings])
 
   useEffect(() => {
-    if (paymentMethods.length === 0) return
+    if (paymentMethods.length === 0) {
+      setPaymentMethod('')
+      setOrderEditPaymentMethod('')
+      return
+    }
     if (!paymentMethods.some((method) => method.value === paymentMethod)) {
       setPaymentMethod(paymentMethods[0].value)
     }
-  }, [paymentMethods, paymentMethod])
+    if (!paymentMethods.some((method) => method.value === orderEditPaymentMethod)) {
+      setOrderEditPaymentMethod(paymentMethods[0].value)
+    }
+  }, [paymentMethods, paymentMethod, orderEditPaymentMethod])
 
   const { data: shiftData, isLoading: shiftsLoading } = useQuery({
     queryKey: ['shifts-current'],
@@ -147,6 +157,24 @@ export default function POSPage() {
   })
 
   const openShift = shiftData?.shift
+  const can = (permission: string) => user?.permissions?.includes(permission) ?? false
+  const shiftEmployees = shiftData?.wage_disbursement_due && openShift?.employees?.length
+    ? openShift.employees
+    : shiftData?.wage_disbursement_due && openShift?.employee
+      ? [openShift.employee]
+      : []
+
+  const {
+    data: shiftOptions,
+    isLoading: shiftOptionsLoading,
+    isError: shiftOptionsError,
+    refetch: refetchShiftOptions,
+  } = useQuery({
+    queryKey: ['shift-options'],
+    queryFn: async () => (await api.get('/shifts/options')).data,
+    enabled: showShiftModal,
+  })
+  const eligibleShiftEmployees = shiftOptions?.employees || []
 
   const { data: latestShiftData } = useQuery({
     queryKey: ['shifts-latest'],
@@ -401,27 +429,24 @@ export default function POSPage() {
       label: method.label,
       amount: Number(shiftRevenue.byPayment[method.value]) || 0,
     }))
-    const extra = Object.entries(shiftRevenue.byPayment)
-      .filter(([method]) => !paymentMethods.some((item) => item.value === method))
-      .map(([method, amount]) => ({
-        value: method,
-        label: method,
-        amount: Number(amount) || 0,
-      }))
-    return [...known, ...extra].filter((method) => method.amount !== 0 || known.length <= 3)
+    return known.filter((method) => method.amount !== 0 || known.length <= 3)
   }, [paymentMethods, shiftRevenue.byPayment])
 
 
 
-  const cashRevenue = Number(shiftRevenue.byPayment.cash) || 0
+  const cashMethod = paymentMethods.find((method) => ['cash', 'نقد', 'نقدي', 'cashbox'].includes(method.value.toLowerCase()))?.value
+  const cashRevenue = cashMethod ? Number(shiftRevenue.byPayment[cashMethod]) || 0 : 0
   const expectedCash = Number(openShift?.opening_cash || 0) + cashRevenue
 
   // Shift modal is opened manually via the "فتح وردية" button.
   const openShiftMutation = useMutation({
-    mutationFn: async (cash: number) => {
+    mutationFn: async ({ cash, employeeIds }: {
+      cash: number
+      employeeIds: number[]
+    }) => {
       const now = new Date()
       const res = await api.post('/shifts/open', {
-        user_id: user?.id,
+        employee_ids: employeeIds,
         name: `وردية ${now.toLocaleDateString('ar-EG')} ${now.toTimeString().slice(0, 5)}`,
         shift_date: now.toISOString().split('T')[0],
         start_time: now.toTimeString().slice(0, 5),
@@ -431,11 +456,35 @@ export default function POSPage() {
       })
       return res.data
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['shifts-current'] })
-      queryClient.invalidateQueries({ queryKey: ['shifts-latest'] })
+    onSuccess: async (res) => {
+      let currentShiftData
+      try {
+        const currentResponse = await api.get('/shifts/current')
+        currentShiftData = currentResponse.data
+        queryClient.setQueryData(['shifts-current'], currentShiftData)
+      } catch (error: any) {
+        await queryClient.invalidateQueries({ queryKey: ['shifts-current'] })
+        toast.error(error?.response?.data?.message || 'تم إرسال طلب فتح الوردية لكن تعذر التحقق من حالتها.')
+        return
+      }
+
+      await queryClient.invalidateQueries({ queryKey: ['shifts-latest'] })
+
+      if (!currentShiftData?.shift) {
+        if (!res?.shift) {
+          setShowShiftModal(false)
+          setOpeningCash(0)
+          setShiftEmployeeIds([])
+          toast.success('تم فتح الوردية الجماعية. سجّل الدخول بحساب كاشير لبدء وردية جهازه.')
+        } else {
+          toast.error('تم إرسال طلب فتح الوردية لكن لم تظهر كوردية مفتوحة؛ أعد المحاولة أو حدّث الصفحة.')
+        }
+        return
+      }
+
       setShowShiftModal(false)
       setOpeningCash(0)
+      setShiftEmployeeIds([])
       toast.success('تم فتح الوردية بنجاح')
     },
     onError: (error: any) => {
@@ -443,23 +492,50 @@ export default function POSPage() {
     },
   })
 
+  const handleOpenShift = async () => {
+    if (can('manage_shift_employees') && shiftOptionsError) {
+      const result = await refetchShiftOptions()
+      if (result.isError) {
+        toast.error('تعذر تحميل قائمة الموظفين؛ أعد المحاولة قبل فتح الوردية.')
+      } else {
+        toast.error('تم تحميل قائمة الموظفين؛ تحقق من اختيار الموظفين ثم افتح الوردية.')
+      }
+      return
+    }
+
+    openShiftMutation.mutate({
+      cash: openingCash,
+      employeeIds: shiftEmployeeIds,
+    })
+  }
+
   const handleShiftButton = () => {
     if (openShift) {
       setActualCash(expectedCash)
+      setEmployeePaymentMethods(
+        Object.fromEntries(
+          shiftEmployees.map((employee: any) => [
+            employee.id,
+            employee.pivot?.payment_method || paymentMethods[0]?.value || '',
+          ])
+        )
+      )
       setShowCloseModal(true)
       return
     }
     setOpeningCash(0)
+    setShiftEmployeeIds([])
     setShiftNow(new Date())
     setShowShiftModal(true)
   }
 
   const closeShiftMutation = useMutation({
-    mutationFn: async (cash: number) => {
+    mutationFn: async ({ cash, employeePayments }: { cash: number; employeePayments: { employee_id: number; payment_method: string }[] }) => {
       if (!openShift?.id) return
       const res = await api.put(`/shifts/${openShift.id}`, {
         status: 'closed',
         actual_cash: cash,
+        employee_payments: employeePayments,
       })
       return res.data
     },
@@ -469,7 +545,7 @@ export default function POSPage() {
       toast.success('تم إغلاق الوردية')
     },
     onError: (error: any) => {
-      toast.error(error?.response?.data?.message || 'تعذر إغلاق الوردية')
+      toast.error(error?.response?.data?.message || error?.message || 'تعذر إغلاق الوردية')
     },
   })
 
@@ -641,7 +717,7 @@ export default function POSPage() {
       tax: Number(order.tax_amount) || 0,
       total: Number(order.total_amount) || 0,
       discount: Number(order.discount_amount) || 0,
-      paymentMethod: order.payment_method || 'cash',
+      paymentMethod: order.payment_method || paymentMethods[0]?.value || '',
       paymentLabel: (order.payments || []).length
         ? (order.payments as any[]).map((p: any) => `${p.method || p.method_name || ''} ${Number(p.amount).toFixed(2)}`).join(' + ')
         : order.payment_method || '-',
@@ -793,8 +869,12 @@ export default function POSPage() {
 
   const handleSubmitOrder = () => {
     if (cart.length === 0) return
-    if (!openShift) {
-      setShowShiftModal(true)
+    if (!can('create_orders')) {
+      toast.error('لا تملك صلاحية إنشاء الطلبات')
+      return
+    }
+    if (paymentMethods.length === 0 || !paymentMethod) {
+      toast.error('لا توجد طرق دفع مهيأة من الإعدادات')
       return
     }
 
@@ -814,7 +894,7 @@ export default function POSPage() {
     }
 
     const orderData = {
-      shift_id: openShift.id,
+      shift_id: openShift?.id,
       type: tableId ? 'dine_in' : 'takeaway',
       table_id: tableId,
       customer_name: customerName.trim() || undefined,
@@ -850,6 +930,19 @@ export default function POSPage() {
 
   return (
     <div className="h-[calc(100vh-8rem)] flex flex-col -m-6 bg-gray-50 dark:bg-gray-950 overflow-hidden">
+      {settingsError && (
+        <div className="border-b border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">{settingsError}</div>
+      )}
+      {!settingsError && paymentMethods.length === 0 && (
+        <div className="border-b border-amber-200 bg-amber-50 px-4 py-2 text-sm text-amber-800">
+          لا توجد طرق دفع مهيأة. أضف طرق الدفع واربطها بحسابات الأصول من الإعدادات قبل تسجيل الطلبات.
+        </div>
+      )}
+      {!can('create_orders') && (
+        <div className="border-b border-amber-200 bg-amber-50 px-4 py-2 text-sm text-amber-800">
+          لديك صلاحية عرض نقطة البيع فقط، ولا تملك صلاحية إنشاء الطلبات.
+        </div>
+      )}
       <div className="bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800 px-4 py-3">
         <div className="flex flex-wrap items-center justify-between gap-3 mb-2">
           <div className="flex flex-wrap items-center gap-3">
@@ -876,7 +969,7 @@ export default function POSPage() {
             )}
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            {openShift && (
+            {can('view_pos') && (
               <Button
                 variant="secondary"
                 size="sm"
@@ -888,31 +981,35 @@ export default function POSPage() {
                 تحديث الإيراد
               </Button>
             )}
-            <Button variant="secondary" size="sm" onClick={() => setShowOrdersModal(true)}>
-              الطلبات
-            </Button>
-            <button
-              type="button"
-              onClick={handleShiftButton}
-              className={`inline-flex items-center justify-center gap-2 rounded-lg px-3 py-1.5 text-sm font-medium text-white transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 ${
-                openShift
-                  ? 'bg-red-600 hover:bg-red-700 focus:ring-red-500'
-                  : 'bg-green-600 hover:bg-green-700 focus:ring-green-500'
-              }`}
-            >
-              {openShift ? <Lock className="w-4 h-4" /> : <Unlock className="w-4 h-4" />}
-              {openShift ? 'إغلاق الوردية' : 'فتح وردية'}
-            </button>
+            {can('view_orders') && (
+              <Button variant="secondary" size="sm" onClick={() => setShowOrdersModal(true)}>
+                الطلبات
+              </Button>
+            )}
+            {((openShift && can('close_shift')) || (!openShift && can('open_shift'))) && (
+              <button
+                type="button"
+                onClick={handleShiftButton}
+                className={`inline-flex items-center justify-center gap-2 rounded-lg px-3 py-1.5 text-sm font-medium text-white transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 ${
+                  openShift
+                    ? 'bg-red-600 hover:bg-red-700 focus:ring-red-500'
+                    : 'bg-green-600 hover:bg-green-700 focus:ring-green-500'
+                }`}
+              >
+                {openShift ? <Lock className="w-4 h-4" /> : <Unlock className="w-4 h-4" />}
+                {openShift ? 'إغلاق الوردية' : 'فتح وردية'}
+              </button>
+            )}
           </div>
         </div>
 
-        {openShift && (
+        {can('view_pos') && (
           <div className="bg-gradient-to-l from-primary/10 to-accent/10 dark:from-primary/20 dark:to-accent/20 border border-primary/20 rounded-xl p-3">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div className="flex items-center gap-2">
                 <DollarSign className="w-5 h-5 text-primary" />
                 <span className="font-semibold text-gray-900 dark:text-gray-100">
-                  إيرادات الوردية
+                  {openShift ? 'إيرادات الوردية' : 'إيرادات اليوم'}
                 </span>
                 <span className="text-xs text-gray-500 dark:text-gray-400">
                   ({shiftData?.orders_count || 0} طلب)
@@ -996,7 +1093,7 @@ export default function POSPage() {
                   <button
                     key={product.id}
                     onClick={() => openConfigurator(product)}
-                    disabled={!product.is_available || !openShift}
+                    disabled={!product.is_available || !can('create_orders')}
                     className="bg-white dark:bg-gray-900 rounded-xl p-4 shadow-sm border border-gray-100 dark:border-gray-800 hover:shadow-md hover:border-primary transition-all disabled:opacity-50 disabled:cursor-not-allowed text-right"
                   >
                     <div className="aspect-square bg-gray-100 dark:bg-gray-800 rounded-lg mb-3 flex items-center justify-center overflow-hidden">
@@ -1247,7 +1344,7 @@ export default function POSPage() {
                 <Button
                   size="sm"
                   variant="secondary"
-                  onClick={() => setSplitPayments((prev) => [...prev, { method: paymentMethods[0]?.value || 'cash', amount: 0 }])}
+                  onClick={() => setSplitPayments((prev) => [...prev, { method: paymentMethods[0]?.value || '', amount: 0 }])}
                 >
                   <Plus className="h-4 w-4" /> إضافة طريقة دفع
                 </Button>
@@ -1262,14 +1359,12 @@ export default function POSPage() {
             <Button
               className="w-full"
               onClick={handleSubmitOrder}
-              disabled={cart.length === 0 || createOrderMutation.isPending || !openShift}
+              disabled={cart.length === 0 || createOrderMutation.isPending || !can('create_orders')}
               loading={createOrderMutation.isPending}
             >
-              {!openShift
-                ? 'يجب فتح وردية أولاً'
-                : createOrderMutation.isPending
-                  ? 'جاري إنشاء الطلب...'
-                  : 'إنشاء الطلب وطباعة الإيصال'}
+              {createOrderMutation.isPending
+                ? 'جاري إنشاء الطلب...'
+                : 'إنشاء الطلب وطباعة الإيصال'}
             </Button>
 
           </div>
@@ -1374,6 +1469,13 @@ export default function POSPage() {
         title="فتح وردية جديدة"
       >
         <div className="space-y-4">
+          {shiftOptionsLoading && <p className="text-sm text-gray-500">جارٍ تحميل بيانات الوردية...</p>}
+          {shiftOptionsError && (
+            <div className="flex items-center justify-between gap-2 text-sm text-red-600">
+              <span>تعذر تحميل الكاشيرين والموظفين من الخادم.</span>
+              <button type="button" className="underline" onClick={() => void refetchShiftOptions()}>إعادة المحاولة</button>
+            </div>
+          )}
           <div className="grid grid-cols-2 gap-3 text-sm">
             <div className="rounded-lg bg-gray-50 p-3 dark:bg-gray-800">
               <p className="text-gray-500">رقم الوردية</p>
@@ -1404,13 +1506,45 @@ export default function POSPage() {
             value={openingCash}
             onChange={(e) => setOpeningCash(Number(e.target.value) || 0)}
           />
+          {shiftOptions?.permissions?.manage_shift_employees && eligibleShiftEmployees.length > 0 && (
+            <fieldset className="space-y-2 rounded-lg border border-gray-200 p-3 dark:border-gray-700">
+              <legend className="px-1 text-sm font-medium text-gray-700 dark:text-gray-200">الموظفون العاملون في هذه الوردية</legend>
+              {eligibleShiftEmployees.map((employee: any) => (
+                <label key={employee.id} className="flex items-center gap-2 rounded-lg p-2 text-sm hover:bg-gray-50 dark:hover:bg-gray-800">
+                  <input
+                    type="checkbox"
+                    checked={shiftEmployeeIds.includes(Number(employee.id))}
+                    onChange={(event) => setShiftEmployeeIds((current) => event.target.checked
+                      ? [...current, Number(employee.id)]
+                      : current.filter((id) => id !== Number(employee.id)))}
+                  />
+                  <span>{employee.name}</span>
+                  <span className="ms-auto text-gray-500">
+                    {employee.pay_type === 'daily'
+                      ? `يومية ${formatMoney(employee.pay_rate, currencySymbol)}`
+                      : `نسبة ${employee.pay_rate}% من إجمالي إيراد الوردية`}
+                  </span>
+                </label>
+              ))}
+            </fieldset>
+          )}
+          {shiftOptions?.permissions?.manage_shift_employees && eligibleShiftEmployees.length === 0 && !shiftOptionsLoading && !shiftOptionsError && (
+            <p className="text-sm text-gray-500">لا يوجد موظفون يوميون أو بنظام النسبة متاحون للاختيار.</p>
+          )}
+          {shiftOptionsError && (
+            <p className="text-sm text-amber-700">تعذر تحميل قائمة الموظفين؛ أعد المحاولة قبل فتح الوردية.</p>
+          )}
+          {eligibleShiftEmployees.length > 0 && !shiftOptions?.permissions?.manage_shift_employees && (
+            <p className="text-sm text-gray-500">لا تملك صلاحية تحديد موظفي الورديات.</p>
+          )}
           <div className="flex justify-end gap-3 pt-4">
             <Button variant="secondary" onClick={() => setShowShiftModal(false)}>
               إلغاء
             </Button>
             <Button
-              onClick={() => openShiftMutation.mutate(openingCash)}
+              onClick={() => void handleOpenShift()}
               loading={openShiftMutation.isPending}
+              disabled={openShiftMutation.isPending || shiftOptionsLoading}
               className="bg-green-600 hover:bg-green-700"
             >
               فتح الوردية
@@ -1421,21 +1555,63 @@ export default function POSPage() {
 
       <Modal isOpen={showCloseModal} onClose={() => setShowCloseModal(false)} title="إغلاق الوردية">
         <div className="space-y-4">
+          {shiftEmployees.map((employee: any) => (
+            <div key={employee.id} className="grid grid-cols-2 items-center gap-3 rounded-lg border border-gray-200 p-3 dark:border-gray-700">
+              <div>
+                <p className="font-medium">{employee.name}</p>
+                <p className="text-xs text-gray-500">
+                  {employee.pay_type === 'daily'
+                    ? `يومية ${formatMoney(employee.pay_rate, currencySymbol)}`
+                    : `نسبة ${employee.pay_rate}% = ${formatMoney(shiftRevenue.total * Number(employee.pay_rate) / 100, currencySymbol)}`}
+                </p>
+              </div>
+              {can('pay_employee_wages') ? <select
+                aria-label={`طريقة دفع أجر ${employee.name}`}
+                value={employeePaymentMethods[employee.id] || ''}
+                onChange={(event) => setEmployeePaymentMethods((current) => ({ ...current, [employee.id]: event.target.value }))}
+                className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-900"
+                required
+              >
+                <option value="">اختر طريقة دفع الأجر</option>
+                {paymentMethods.map((method) => (
+                  <option key={method.value} value={method.value}>
+                    {method.label}{method.account_id ? '' : ' (الحساب غير مربوط)'}
+                  </option>
+                ))}
+              </select> : <p className="text-sm text-gray-500">طريقة الدفع يحددها مستخدم مخوّل بإدارة أجور الموظفين.</p>}
+            </div>
+          ))}
+          {can('view_pos') && <div className="rounded-lg border border-blue-100 bg-blue-50 p-3 text-sm dark:border-blue-900 dark:bg-blue-950/30">
+            <p className="font-semibold text-blue-900 dark:text-blue-200">
+              حساب التوريد: {user?.vault_account?.name || 'الخزنة الفرعية للكاشير'}
+            </p>
+            <div className="mt-2 space-y-1 text-blue-800 dark:text-blue-300">
+              {revenueBreakdown.filter((method) => method.amount !== 0).map((method) => {
+                const accountId = paymentMethods.find((item) => item.value === method.value)?.account_id
+                return (
+                  <p key={method.value} className="flex justify-between gap-3">
+                    <span>{method.label}{accountId ? ` ← حساب #${accountId}` : ' ← الحساب غير مربوط'}</span>
+                    <span>{formatMoney(method.amount, currencySymbol)}</span>
+                  </p>
+                )
+              })}
+            </div>
+          </div>}
           <div className="grid grid-cols-2 gap-3 text-sm">
             <div className="p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
               <p className="text-gray-500">النقد الافتتاحي</p>
               <p className="font-semibold">{formatMoney(openShift?.opening_cash || 0, currencySymbol)}</p>
             </div>
-            <div className="p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
+            {can('view_pos') && <div className="p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
               <p className="text-gray-500">مبيعات نقدية</p>
               <p className="font-semibold">{formatMoney(cashRevenue, currencySymbol)}</p>
-            </div>
-            <div className="p-3 bg-gray-50 dark:bg-gray-800 rounded-lg col-span-2">
+            </div>}
+            {can('view_pos') && <div className="p-3 bg-gray-50 dark:bg-gray-800 rounded-lg col-span-2">
               <p className="text-gray-500">النقد المتوقع في الدرج</p>
               <p className="font-bold text-primary text-lg">
                 {formatMoney(expectedCash, currencySymbol)}
               </p>
-            </div>
+            </div>}
           </div>
           <Input
             label="النقد الفعلي في الدرج"
@@ -1450,7 +1626,18 @@ export default function POSPage() {
             </Button>
             <Button
               variant="danger"
-              onClick={() => closeShiftMutation.mutate(actualCash)}
+              disabled={shiftEmployees.length > 0 && (
+                !can('pay_employee_wages')
+                || paymentMethods.length === 0
+                || shiftEmployees.some((employee: any) => !employeePaymentMethods[employee.id])
+              )}
+              onClick={() => closeShiftMutation.mutate({
+                cash: actualCash,
+                employeePayments: shiftEmployees.map((employee: any) => ({
+                  employee_id: Number(employee.id),
+                  payment_method: employeePaymentMethods[employee.id] || '',
+                })),
+              })}
               loading={closeShiftMutation.isPending}
             >
               إغلاق الوردية

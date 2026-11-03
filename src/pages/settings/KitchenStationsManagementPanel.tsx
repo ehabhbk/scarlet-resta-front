@@ -6,9 +6,11 @@ import Button from '../../components/common/buttons/Button'
 import Input from '../../components/common/inputs/Input'
 import Card from '../../components/common/cards/Card'
 import Modal from '../../components/common/modals/Modal'
+import { useAuthStore } from '../../store/authStore'
 
 export default function KitchenStationsManagementPanel() {
   const queryClient = useQueryClient()
+  const canManageStations = useAuthStore((state) => state.user?.permissions?.includes('update_kitchen_order') || false)
   const [showModal, setShowModal] = useState(false)
   const [editing, setEditing] = useState<any>(null)
   const [name, setName] = useState('')
@@ -58,7 +60,7 @@ export default function KitchenStationsManagementPanel() {
             <h2 className="text-lg font-semibold dark:text-gray-100">إدارة محطات المطبخ</h2>
             <p className="text-sm text-gray-500 dark:text-gray-400">إضافة أو تعديل أو حذف محطات المطبخ.</p>
           </div>
-          <Button onClick={openNew}><Plus className="w-4 h-4" /> إضافة محطة</Button>
+          {canManageStations && <Button onClick={openNew}><Plus className="w-4 h-4" /> إضافة محطة</Button>}
         </div>
       </Card>
       <Card>
@@ -73,15 +75,15 @@ export default function KitchenStationsManagementPanel() {
                 </span>
                 <p className="font-medium text-gray-900 dark:text-gray-100">{s.name}</p>
               </div>
-              <div className="flex gap-2">
+              {canManageStations && <div className="flex gap-2">
                 <button onClick={() => openEdit(s)} className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg" title="تعديل"><Pencil className="w-4 h-4" /></button>
                 <button onClick={() => { if (window.confirm(`حذف ${s.name}؟`)) deleteMutation.mutate(s.id) }} className="p-2 text-red-600 hover:bg-red-50 rounded-lg" title="حذف"><Trash2 className="w-4 h-4" /></button>
-              </div>
+              </div>}
             </div>
           ))}
         </div>
       </Card>
-      <Modal isOpen={showModal} onClose={() => setShowModal(false)} title={editing ? 'تعديل محطة' : 'إضافة محطة'}>
+      {canManageStations && <Modal isOpen={showModal} onClose={() => setShowModal(false)} title={editing ? 'تعديل محطة' : 'إضافة محطة'}>
         <form onSubmit={(e) => { e.preventDefault(); saveMutation.mutate({ name, color, sort_order: sortOrder }) }} className="space-y-4">
           <Input label="اسم المحطة" value={name} onChange={(e) => setName(e.target.value)} required />
           <Input label="اللون (hex)" value={color} onChange={(e) => setColor(e.target.value)} />
@@ -91,7 +93,7 @@ export default function KitchenStationsManagementPanel() {
             <Button type="submit" loading={saveMutation.isPending}>{editing ? 'تحديث' : 'إضافة'}</Button>
           </div>
         </form>
-      </Modal>
+      </Modal>}
     </div>
   )
 }

@@ -10,9 +10,14 @@ import DataTable from '../../components/common/tables/DataTable'
 import Modal from '../../components/common/modals/Modal'
 import Pagination from '../../components/common/Pagination'
 import { useSettingsStore, formatMoney, mediaUrl } from '../../store/settingsStore'
+import { useAuthStore } from '../../store/authStore'
 
 export default function ProductsPage() {
   const { symbol } = useSettingsStore()
+  const permissions = useAuthStore((state) => state.user?.permissions || [])
+  const canCreate = permissions.includes('create_products')
+  const canEdit = permissions.includes('edit_products')
+  const canDelete = permissions.includes('delete_products')
   const [search, setSearch] = useState('')
   const [page, setPage] = useState(1)
   const [showModal, setShowModal] = useState(false)
@@ -96,34 +101,42 @@ export default function ProductsPage() {
         </div>
       ),
     },
-    {
+    ...(canEdit || canDelete ? [{
       key: 'actions',
       header: 'الإجراءات',
       render: (item: any) => (
         <div className="flex gap-2">
-          <button onClick={() => setManagingProduct(item)} className="p-1 text-purple-600 hover:bg-purple-50 rounded" title="إدارة الأحجام والإضافات">
-            <Settings className="w-4 h-4" />
-          </button>
-          <button onClick={() => { setEditingProduct(item); setShowModal(true) }} className="p-1 text-blue-600 hover:bg-blue-50 rounded" title="تعديل">
-            <Edit className="w-4 h-4" />
-          </button>
-          <button onClick={() => {
-            if (window.confirm(`هل تريد حذف المنتج ${item.name}؟`)) deleteMutation.mutate(item.id)
-          }} className="p-1 text-red-600 hover:bg-red-50 rounded" title="حذف">
-            <Trash2 className="w-4 h-4" />
-          </button>
+          {canEdit && (
+            <>
+              <button onClick={() => setManagingProduct(item)} className="p-1 text-purple-600 hover:bg-purple-50 rounded" title="إدارة الأحجام والإضافات">
+                <Settings className="w-4 h-4" />
+              </button>
+              <button onClick={() => { setEditingProduct(item); setShowModal(true) }} className="p-1 text-blue-600 hover:bg-blue-50 rounded" title="تعديل">
+                <Edit className="w-4 h-4" />
+              </button>
+            </>
+          )}
+          {canDelete && (
+            <button onClick={() => {
+              if (window.confirm(`هل تريد حذف المنتج ${item.name}؟`)) deleteMutation.mutate(item.id)
+            }} className="p-1 text-red-600 hover:bg-red-50 rounded" title="حذف">
+              <Trash2 className="w-4 h-4" />
+            </button>
+          )}
         </div>
       ),
-    },
+    }] : []),
   ]
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold text-gray-900">المنتجات</h1>
-        <Button onClick={() => { setEditingProduct(null); setShowModal(true) }}>
-          <Plus className="w-4 h-4" /> إضافة منتج
-        </Button>
+        {canCreate && (
+          <Button onClick={() => { setEditingProduct(null); setShowModal(true) }}>
+            <Plus className="w-4 h-4" /> إضافة منتج
+          </Button>
+        )}
       </div>
       <Card>
         <div className="mb-4">
@@ -137,7 +150,7 @@ export default function ProductsPage() {
         <DataTable data={products} columns={columns} loading={isLoading} emptyMessage="لا توجد منتجات" />
         <Pagination meta={productsMeta} onPageChange={setPage} />
       </Card>
-      <Modal
+      {(canCreate || canEdit) && <Modal
         isOpen={showModal}
         onClose={() => setShowModal(false)}
         title={editingProduct ? 'تعديل منتج' : 'إضافة منتج'}
@@ -151,15 +164,15 @@ export default function ProductsPage() {
             queryClient.invalidateQueries({ queryKey: ['products'] })
           }}
         />
-      </Modal>
-      <Modal
+      </Modal>}
+      {canEdit && <Modal
         isOpen={!!managingProduct}
         onClose={() => setManagingProduct(null)}
         title={`الأحجام والإضافات: ${managingProduct?.name || ''}`}
         size="lg"
       >
         {managingProduct && <ProductModifiersManager product={managingProduct} symbol={symbol} />}
-      </Modal>
+      </Modal>}
     </div>
   )
 }

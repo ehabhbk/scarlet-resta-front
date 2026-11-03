@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '../../services/api'
 import { useSettingsStore, formatMoney } from '../../store/settingsStore'
+import { useAuthStore } from '../../store/authStore'
 import { Plus, Search, Edit, Trash2, DollarSign } from 'lucide-react'
 import Button from '../../components/common/buttons/Button'
 import Input from '../../components/common/inputs/Input'
@@ -12,7 +13,8 @@ import Badge from '../../components/common/data-display/Badge'
 import Pagination from '../../components/common/Pagination'
 
 export default function EmployeesPage() {
-  const { symbol } = useSettingsStore()
+  const { symbol, paymentMethods } = useSettingsStore()
+  const canPayEmployeeWages = useAuthStore((state) => state.user?.permissions?.includes('pay_employee_wages') ?? false)
   const [search, setSearch] = useState('')
   const [page, setPage] = useState(1)
   const [showModal, setShowModal] = useState(false)
@@ -34,7 +36,12 @@ export default function EmployeesPage() {
       return res.data?.accounts || []
     },
   })
+  const { data: usersResponse } = useQuery({
+    queryKey: ['users-all'],
+    queryFn: async () => (await api.get('/admin/users?per_page=100')).data,
+  })
   const employees = employeesRes?.data
+  const users = usersResponse?.data || []
   const employeesMeta = employeesRes ? { current_page: employeesRes.current_page, last_page: employeesRes.last_page, total: employeesRes.total, per_page: employeesRes.per_page } : null
 
   const deleteMutation = useMutation({
@@ -48,7 +55,12 @@ export default function EmployeesPage() {
 
   const paySalaryMutation = useMutation({
     mutationFn: async (id: number) => {
-      const res = await api.post(`/employees/${id}/pay-salary`)
+      if (!paymentMethods[0]?.value) {
+        throw new Error('لا توجد طريقة دفع مهيأة في الإعدادات')
+      }
+      const res = await api.post(`/employees/${id}/pay-salary`, {
+        payment_method: paymentMethods[0].value,
+      })
       return res.data
     },
     onSuccess: (data) => {
@@ -57,7 +69,10 @@ export default function EmployeesPage() {
       queryClient.invalidateQueries({ queryKey: ['chart-of-accounts'] })
       alert(data?.message || 'تم دفع الراتب')
     },
-    onError: (e: any) => alert(e?.response?.data?.message || 'تعذر دفع الراتب'),
+    onError: (e: any) => {
+      const firstError = Object.values(e?.response?.data?.errors || {})[0]
+      alert((Array.isArray(firstError) ? firstError[0] : firstError) || e?.response?.data?.message || 'تعذر دفع الراتب')
+    },
   })
 
   const statusColors: Record<string, 'success' | 'warning' | 'danger'> = {
@@ -72,12 +87,13 @@ export default function EmployeesPage() {
     { key: 'job_title', header: 'الوظيفة' },
     { key: 'phone', header: 'الهاتف' },
     { key: 'salary', header: 'الراتب', render: (item: any) => formatMoney(item.salary, symbol) },
+    { key: 'pay_account', header: 'حساب الأجر', render: (item: any) => item.pay_account?.name || item.user?.pay_account?.name || '-' },
     { key: 'status', header: 'الحالة', render: (item: any) => (
       <Badge variant={statusColors[item.status] || 'default'}>{item.status}</Badge>
     )},
     { key: 'actions', header: 'الإجراءات', render: (item: any) => (
       <div className="flex gap-2">
-        {item.pay_type === 'monthly' && (
+        {canPayEmployeeWages && item.pay_type === 'monthly' && (
           <button onClick={() => paySalaryMutation.mutate(item.id)} className="p-1 text-green-600 hover:bg-green-50 rounded" title="دفع الراتب">
             <DollarSign className="w-4 h-4" />
           </button>
@@ -128,7 +144,8 @@ export default function EmployeesPage() {
       >
         <EmployeeForm
           employee={editingEmployee}
-          accounts={accountsList || []}
+          accounts={(accountsList || []).filter((account: any) => account.type === 'expense' && account.is_active)}
+          users={users}
           onClose={() => setShowModal(false)}
           onSuccess={() => {
             setShowModal(false)
@@ -140,8 +157,9 @@ export default function EmployeesPage() {
   )
 }
 
-function EmployeeForm({ employee, accounts, onClose, onSuccess }: any) {
+function EmployeeForm({ employee, accounts, users, onClose, onSuccess }: any) {
   const [formData, setFormData] = useState({
+    user_id: employee?.user_id || '',
     employee_id: employee?.employee_id || '',
     name: employee?.name || '',
     job_title: employee?.job_title || '',
@@ -152,7 +170,7 @@ function EmployeeForm({ employee, accounts, onClose, onSuccess }: any) {
     pay_type: employee?.pay_type || 'monthly',
     pay_rate: employee?.pay_rate || 0,
     pay_day: employee?.pay_day || 1,
-    pay_account_id: employee?.pay_account_id || '',
+    pay_account_id: employee?.pay_account_id || employee?.user?.pay_account_id || '',
     pay_auto: employee?.pay_auto ?? true,
     status: employee?.status || 'active',
   })
@@ -196,6 +214,20 @@ function EmployeeForm({ employee, accounts, onClose, onSuccess }: any) {
         onChange={(e) => setFormData({ ...formData, job_title: e.target.value })}
         required
       />
+
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-2">حساب المستخدم المرتبط</label>
+        <select
+          value={formData.user_id}
+          onChange={(e) => setFormData({ ...formData, user_id: e.target.value ? Number(e.target.value) : '' })}
+          className="w-full px-4 py-2 border border-gray-300 rounded-lg"
+        >
+          <option value="">بدون مستخدم</option>
+          {users.map((user: any) => (
+            <option key={user.id} value={user.id}>{user.name} (@{user.username})</option>
+          ))}
+        </select>
+      </div>
       
       <div className="grid grid-cols-2 gap-4">
         <Input
@@ -269,20 +301,20 @@ function EmployeeForm({ employee, accounts, onClose, onSuccess }: any) {
       )}
 
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">حساب الربط (المصروف)</label>
+        <label className="block text-sm font-medium text-gray-700 mb-2">حساب مصروف الأجر ({formData.pay_type === 'monthly' ? 'راتب' : formData.pay_type === 'daily' ? 'يومية' : 'نسبة'})</label>
         <select
           value={formData.pay_account_id}
           onChange={(e) => setFormData({ ...formData, pay_account_id: e.target.value ? Number(e.target.value) : '' })}
           className="w-full px-4 py-2 border border-gray-300 rounded-lg"
         >
-          <option value="">بدون ربط</option>
+          <option value="">الحساب الافتراضي</option>
           {(accounts || []).map((a: any) => (
             <option key={a.id} value={a.id}>{a.code} - {a.name}</option>
           ))}
         </select>
       </div>
 
-      <div>
+      {(formData.pay_type === 'daily' || formData.pay_type === 'percentage') && <div>
         <label className="flex items-center gap-2 text-sm">
           <input
             type="checkbox"
@@ -291,7 +323,7 @@ function EmployeeForm({ employee, accounts, onClose, onSuccess }: any) {
           />
           ترحيل تلقائي عند إغلاق الوردية (لليومية/النسبة)
         </label>
-      </div>
+      </div>}
 
       <div>
         <label className="block text-sm font-medium text-gray-700 mb-2">الحالة</label>

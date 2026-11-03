@@ -1,10 +1,11 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { FileSpreadsheet, Loader2, Printer, RefreshCw } from 'lucide-react'
 import { api } from '../../services/api'
 import Card from '../../components/common/cards/Card'
 import Button from '../../components/common/buttons/Button'
 import { useSettingsStore, formatMoney } from '../../store/settingsStore'
+import { useAuthStore } from '../../store/authStore'
 
 interface ReportDefinition {
   id: string
@@ -149,10 +150,8 @@ const COLUMNS: Record<string, { key: string; label: string }[]> = {
     { key: 'user_name', label: 'الكاشير' },
     { key: 'time_range', label: 'الوقت' },
     { key: 'status_label', label: 'الحالة' },
-    { key: 'opening_cash', label: 'النقد الافتتاحي' },
-    { key: 'expected_cash', label: 'المتوقع' },
-    { key: 'actual_cash', label: 'الفعلي' },
-    { key: 'difference', label: 'الفرق' },
+    { key: 'orders_count', label: 'عدد الطلبات' },
+    { key: 'total', label: 'إيراد الكاشير' },
   ],
 }
 
@@ -218,11 +217,36 @@ export default function ReportsPage() {
   const [fromDate, setFromDate] = useState(defaultFrom)
   const [toDate, setToDate] = useState(() => toInputDate(new Date()))
   const { symbol, paymentMethods, load } = useSettingsStore()
+  const permissions = useAuthStore((state) => state.user?.permissions || [])
+  const reportPermissions: Record<string, string[]> = {
+    'profit-loss': ['view_finance'],
+    inventory: ['view_inventory'],
+    purchases: ['view_purchases'],
+    expenses: ['view_finance'],
+    staff: ['view_employees'],
+    shifts: ['view_all_shifts', 'close_shift'],
+  }
+  const visibleReports = REPORTS.filter((item) => {
+    const required = reportPermissions[item.id]
+    return required ? required.some((permission) => permissions.includes(permission)) : permissions.includes('view_reports')
+  })
+  const canViewShiftReports = permissions.includes('view_all_shifts') || permissions.includes('close_shift')
+  const canExport = permissions.includes('export_reports')
 
-  const report = REPORTS.find((item) => item.id === reportType) || REPORTS[0]
+  const report = visibleReports.find((item) => item.id === reportType) || visibleReports[0] || REPORTS[0]
 
-  const [mode, setMode] = useState<'reports' | 'shift'>('reports')
+  const [mode, setMode] = useState<'reports' | 'shift'>(() =>
+    visibleReports.length > 0 ? 'reports' : 'shift'
+  )
   const [selectedShiftId, setSelectedShiftId] = useState<number | null>(null)
+
+  useEffect(() => {
+    if (visibleReports.length === 0 && canViewShiftReports) {
+      setMode('shift')
+    } else if (visibleReports.length > 0 && !canViewShiftReports) {
+      setMode('reports')
+    }
+  }, [visibleReports.length, canViewShiftReports])
 
   const { data: shiftsData } = useQuery({
     queryKey: ['shifts-list-report'],
@@ -242,26 +266,21 @@ export default function ReportsPage() {
     enabled: mode === 'shift' && !!selectedShiftId,
   })
 
-  const { data: shiftOrdersData } = useQuery({
-    queryKey: ['shift-orders-report', selectedShiftId],
+  const { data: shiftRevenueData } = useQuery({
+    queryKey: ['shift-revenue-report', selectedShiftId],
     queryFn: async () => {
-      const res = await api.get('/orders', { params: { shift_id: selectedShiftId, per_page: 100 } })
-      const payload = res.data
-      return Array.isArray(payload?.data) ? payload.data : Array.isArray(payload) ? payload : []
+      const res = await api.get(`/shifts/${selectedShiftId}/revenue`)
+      return res.data
     },
     enabled: mode === 'shift' && !!selectedShiftId,
   })
 
-  const shiftOrders = shiftOrdersData || []
-  const shiftTotal = shiftOrders.reduce((s: number, o: any) => s + (Number(o.total_amount) || 0), 0)
-  const shiftByPayment = shiftOrders.reduce((acc: Record<string, number>, o: any) => {
-    const m = o.payment_method || 'cash'
-    acc[m] = (acc[m] || 0) + (Number(o.total_amount) || 0)
-    return acc
-  }, {})
+  const shiftTotal = Number(shiftRevenueData?.total) || 0
+  const shiftByPayment = shiftRevenueData?.by_payment_method || {}
+  const shiftCashiers = Array.isArray(shiftRevenueData?.cashiers) ? shiftRevenueData.cashiers : []
 
   const { data: reportData, isLoading, isFetching, refetch } = useQuery({
-    queryKey: ['report', reportType, fromDate, toDate],
+    queryKey: ['report', report.id, fromDate, toDate],
     queryFn: async () => {
       void load()
       const params = new URLSearchParams()
@@ -270,6 +289,7 @@ export default function ReportsPage() {
       const res = await api.get(`${report.endpoint}?${params.toString()}`)
       return res.data
     },
+    enabled: mode === 'reports' && visibleReports.length > 0,
   })
 
   const paymentLabel = (value: string) =>
@@ -459,16 +479,14 @@ export default function ReportsPage() {
   }
 
   const handlePrintShift = () => {
-    if (!shiftDetail || shiftOrders.length === 0) return
+    if (!shiftDetail || !shiftRevenueData) return
     const win = window.open('', '_blank', 'width=900,height=700')
     if (!win) return
-    const rowsHtml = shiftOrders
-      .map(
-        (o: any) =>
-          `<tr><td>${escapeHtml(o.order_number)}</td><td>${escapeHtml(
-            o.created_at ? new Date(o.created_at).toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' }) : '-'
-          )}</td><td>${escapeHtml(paymentLabel(o.payment_method))}</td><td>${Number(o.total_amount).toFixed(2)}</td></tr>`
-      )
+    const cashierRowsHtml = shiftCashiers
+      .map((cashier: any) => `
+        <tr><td>${escapeHtml(cashier.user_name || cashier.user?.name || '-')}</td>
+        <td>${Number(cashier.orders_count || 0)}</td><td>${Number(cashier.total || 0).toFixed(2)}</td></tr>
+      `)
       .join('')
     const paymentHtml = Object.entries(shiftByPayment)
       .map(([m, amt]) => `<tr><td>${escapeHtml(paymentLabel(m))}</td><td>${Number(amt).toFixed(2)}</td></tr>`)
@@ -490,11 +508,12 @@ export default function ReportsPage() {
         <p class="muted">الكاشير: ${escapeHtml(shiftDetail?.user?.name || '-')}</p>
         <p class="muted">التاريخ: ${escapeHtml(shiftDetail?.shift_date || '-')}</p>
         <p class="muted">وقت الفتح: ${escapeHtml(shiftDetail?.start_time ? String(shiftDetail.start_time).slice(0,5) : '-')}</p>
+        <h2>الإيراد حسب الكاشير</h2>
+        <table><thead><tr><th>الكاشير</th><th>عدد الطلبات</th><th>الإيراد</th></tr></thead><tbody>${cashierRowsHtml}
+        <tr><th colspan="2">الإجمالي</th><th>${shiftTotal.toFixed(2)}</th></tr></tbody></table>
         <h2>الإيرادات حسب طريقة الدفع</h2>
         <table><thead><tr><th>طريقة الدفع</th><th>المبلغ</th></tr></thead><tbody>${paymentHtml}</tbody></table>
         <h2>إجمالي الوردية: ${shiftTotal.toFixed(2)}</h2>
-        <h2>تفاصيل الطلبات</h2>
-        <table><thead><tr><th>رقم الطلب</th><th>الوقت</th><th>طريقة الدفع</th><th>المبلغ</th></tr></thead><tbody>${rowsHtml}</tbody></table>
         <p class="muted" style="margin-top:24px;">تم إنشاء التقرير في ${escapeHtml(new Date().toLocaleString('ar-EG'))}</p>
         <script>window.onload = function(){ window.print(); };</script>
       </body></html>
@@ -511,15 +530,21 @@ export default function ReportsPage() {
             تقارير تشغيلية ومالية مبنية على بيانات النظام الفعلية
           </p>
         </div>
-        <Button variant="secondary" onClick={() => refetch()} loading={isFetching}>
-          <RefreshCw className="w-4 h-4" />
-          تحديث البيانات
-        </Button>
+        {mode === 'reports' && (
+          <Button variant="secondary" onClick={() => refetch()} loading={isFetching}>
+            <RefreshCw className="w-4 h-4" />
+            تحديث البيانات
+          </Button>
+        )}
       </div>
 
       <div className="flex gap-2 border-b border-gray-200 dark:border-gray-700">
-        <button onClick={() => setMode('reports')} className={`px-4 py-2 border-b-2 font-medium ${mode === 'reports' ? 'border-primary text-primary' : 'border-transparent text-gray-500'}`}>التقارير</button>
-        <button onClick={() => setMode('shift')} className={`px-4 py-2 border-b-2 font-medium ${mode === 'shift' ? 'border-primary text-primary' : 'border-transparent text-gray-500'}`}>تقرير وردية</button>
+        {visibleReports.length > 0 && (
+          <button onClick={() => setMode('reports')} className={`px-4 py-2 border-b-2 font-medium ${mode === 'reports' ? 'border-primary text-primary' : 'border-transparent text-gray-500'}`}>التقارير</button>
+        )}
+        {canViewShiftReports && (
+          <button onClick={() => setMode('shift')} className={`px-4 py-2 border-b-2 font-medium ${mode === 'shift' ? 'border-primary text-primary' : 'border-transparent text-gray-500'}`}>تقرير وردية</button>
+        )}
       </div>
 
       {mode === 'shift' && (
@@ -544,8 +569,8 @@ export default function ReportsPage() {
               <div className="space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <Card padding="sm">
-                    <p className="text-sm text-gray-500">الكاشير</p>
-                    <p className="text-lg font-bold">{shiftDetail?.user?.name || '-'}</p>
+                    <p className="text-sm text-gray-500">عدد الكاشيرين</p>
+                    <p className="text-lg font-bold">{shiftCashiers.length}</p>
                   </Card>
                   <Card padding="sm">
                     <p className="text-sm text-gray-500">إجمالي الوردية</p>
@@ -553,8 +578,35 @@ export default function ReportsPage() {
                   </Card>
                   <Card padding="sm">
                     <p className="text-sm text-gray-500">عدد الطلبات</p>
-                    <p className="text-lg font-bold">{shiftOrders.length}</p>
+                    <p className="text-lg font-bold">{Number(shiftRevenueData?.orders_count || 0)}</p>
                   </Card>
+                </div>
+                <div>
+                  <h2 className="text-lg font-semibold mb-2">الإيراد حسب الكاشير</h2>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead className="bg-gray-50 dark:bg-gray-800">
+                        <tr>
+                          <th className="px-3 py-2 text-right">الكاشير</th>
+                          <th className="px-3 py-2 text-right">عدد الطلبات</th>
+                          <th className="px-3 py-2 text-right">الإيراد</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {shiftCashiers.map((cashier: any) => (
+                          <tr key={cashier.shift_id} className="border-b border-gray-100 dark:border-gray-800">
+                            <td className="px-3 py-2">{cashier.user_name || cashier.user?.name || '-'}</td>
+                            <td className="px-3 py-2">{Number(cashier.orders_count || 0)}</td>
+                            <td className="px-3 py-2">{formatMoney(Number(cashier.total || 0), symbol)}</td>
+                          </tr>
+                        ))}
+                        <tr className="font-semibold bg-gray-50 dark:bg-gray-800">
+                          <td className="px-3 py-2" colSpan={2}>الإجمالي</td>
+                          <td className="px-3 py-2">{formatMoney(shiftTotal, symbol)}</td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
                 </div>
                 <div>
                   <h2 className="text-lg font-semibold mb-2">الإيرادات حسب طريقة الدفع</h2>
@@ -569,31 +621,6 @@ export default function ReportsPage() {
                       ))}
                     </tbody>
                   </table>
-                </div>
-                <div>
-                  <h2 className="text-lg font-semibold mb-2">تفاصيل الطلبات</h2>
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-sm">
-                      <thead className="bg-gray-50 dark:bg-gray-800">
-                        <tr>
-                          <th className="px-3 py-2 text-right">رقم الطلب</th>
-                          <th className="px-3 py-2 text-right">الوقت</th>
-                          <th className="px-3 py-2 text-right">طريقة الدفع</th>
-                          <th className="px-3 py-2 text-right">المبلغ</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {shiftOrders.map((o: any) => (
-                          <tr key={o.id} className="border-b border-gray-100 dark:border-gray-800">
-                            <td className="px-3 py-2">{o.order_number}</td>
-                            <td className="px-3 py-2">{o.created_at ? new Date(o.created_at).toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' }) : '-'}</td>
-                            <td className="px-3 py-2">{paymentLabel(o.payment_method)}</td>
-                            <td className="px-3 py-2">{Number(o.total_amount).toFixed(2)}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
                 </div>
                 <div className="flex gap-2">
                   <Button variant="outline" onClick={handlePrintShift}>
@@ -616,11 +643,11 @@ export default function ReportsPage() {
               نوع التقرير
             </label>
             <select
-              value={reportType}
+              value={report.id}
               onChange={(e) => setReportType(e.target.value)}
               className="w-full px-4 py-2 border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100"
             >
-              {REPORTS.map((item) => (
+              {visibleReports.map((item) => (
                 <option key={item.id} value={item.id}>
                   {item.label}
                 </option>
@@ -654,10 +681,12 @@ export default function ReportsPage() {
         <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
           <p className="text-sm text-gray-500 dark:text-gray-400">{report.description}</p>
           <div className="flex gap-2">
-            <Button variant="outline" onClick={handleExportCsv}>
-              <FileSpreadsheet className="w-4 h-4" />
-              تصدير CSV / Excel
-            </Button>
+            {canExport && (
+              <Button variant="outline" onClick={handleExportCsv}>
+                <FileSpreadsheet className="w-4 h-4" />
+                تصدير CSV / Excel
+              </Button>
+            )}
             <Button variant="outline" onClick={handlePrint}>
               <Printer className="w-4 h-4" />
               طباعة / PDF
@@ -734,6 +763,26 @@ export default function ReportsPage() {
                         </tr>
                       ))}
                     </tbody>
+                    {section.key === 'shifts' && (
+                      <tfoot>
+                        <tr className="bg-gray-50 font-semibold dark:bg-gray-800">
+                          {section.columns.map((column, index) => (
+                            <td key={column.key} className="px-3 py-2.5">
+                              {index === 0
+                                ? 'الإجمالي'
+                                : column.key === 'total'
+                                  ? formatMoney(
+                                      section.rows.reduce((sum, row) => sum + (Number(row.total) || 0), 0),
+                                      symbol
+                                    )
+                                  : column.key === 'orders_count'
+                                    ? section.rows.reduce((sum, row) => sum + (Number(row.orders_count) || 0), 0)
+                                    : ''}
+                            </td>
+                          ))}
+                        </tr>
+                      </tfoot>
+                    )}
                   </table>
                 </div>
               )}

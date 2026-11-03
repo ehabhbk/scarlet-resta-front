@@ -6,9 +6,14 @@ import Button from '../../components/common/buttons/Button'
 import Input from '../../components/common/inputs/Input'
 import Card from '../../components/common/cards/Card'
 import Modal from '../../components/common/modals/Modal'
+import { useAuthStore } from '../../store/authStore'
 
 export default function AreasManagementPanel() {
   const queryClient = useQueryClient()
+  const permissions = useAuthStore((state) => state.user?.permissions || [])
+  const canCreate = permissions.includes('create_tables')
+  const canEdit = permissions.includes('edit_tables')
+  const canDelete = permissions.includes('delete_tables')
   const [showModal, setShowModal] = useState(false)
   const [editing, setEditing] = useState<any>(null)
   const [name, setName] = useState('')
@@ -54,7 +59,7 @@ export default function AreasManagementPanel() {
             <h2 className="text-lg font-semibold dark:text-gray-100">إدارة المناطق</h2>
             <p className="text-sm text-gray-500 dark:text-gray-400">إضافة أو تعديل أو حذف مناطق المطعم.</p>
           </div>
-          <Button onClick={openNew}><Plus className="w-4 h-4" /> إضافة منطقة</Button>
+          {canCreate && <Button onClick={openNew}><Plus className="w-4 h-4" /> إضافة منطقة</Button>}
         </div>
       </Card>
       <Card>
@@ -67,15 +72,15 @@ export default function AreasManagementPanel() {
                 <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 text-primary"><MapPin className="h-5 w-5" /></span>
                 <p className="font-medium text-gray-900 dark:text-gray-100">{area.name}</p>
               </div>
-              <div className="flex gap-2">
-                <button onClick={() => openEdit(area)} className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg" title="تعديل"><Pencil className="w-4 h-4" /></button>
-                <button onClick={() => { if (window.confirm(`حذف ${area.name}؟`)) deleteMutation.mutate(area.id) }} className="p-2 text-red-600 hover:bg-red-50 rounded-lg" title="حذف"><Trash2 className="w-4 h-4" /></button>
-              </div>
+              {(canEdit || canDelete) && <div className="flex gap-2">
+                {canEdit && <button onClick={() => openEdit(area)} className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg" title="تعديل"><Pencil className="w-4 h-4" /></button>}
+                {canDelete && <button onClick={() => { if (window.confirm(`حذف ${area.name}؟`)) deleteMutation.mutate(area.id) }} className="p-2 text-red-600 hover:bg-red-50 rounded-lg" title="حذف"><Trash2 className="w-4 h-4" /></button>}
+              </div>}
             </div>
           ))}
         </div>
       </Card>
-      <Modal isOpen={showModal} onClose={() => setShowModal(false)} title={editing ? 'تعديل منطقة' : 'إضافة منطقة'}>
+      {(canCreate || canEdit) && <Modal isOpen={showModal} onClose={() => setShowModal(false)} title={editing ? 'تعديل منطقة' : 'إضافة منطقة'}>
         <form onSubmit={(e) => { e.preventDefault(); saveMutation.mutate({ name }) }} className="space-y-4">
           <Input label="اسم المنطقة" value={name} onChange={(e) => setName(e.target.value)} required />
           <div className="flex gap-3 justify-end pt-4">
@@ -83,7 +88,7 @@ export default function AreasManagementPanel() {
             <Button type="submit" loading={saveMutation.isPending}>{editing ? 'تحديث' : 'إضافة'}</Button>
           </div>
         </form>
-      </Modal>
+      </Modal>}
     </div>
   )
 }

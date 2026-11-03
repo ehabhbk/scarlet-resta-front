@@ -7,6 +7,7 @@ import Modal from '../../components/common/modals/Modal'
 import Badge from '../../components/common/data-display/Badge'
 import { formatMoney } from '../../store/settingsStore'
 import { useSettingsStore } from '../../store/settingsStore'
+import { useAuthStore } from '../../store/authStore'
 
 interface TableItem {
   id: number
@@ -121,6 +122,7 @@ function TableVisual({ table, onClick }: { table: TableItem; onClick: () => void
 
 export default function TablesPage() {
   const { symbol } = useSettingsStore()
+  const canReleaseTable = useAuthStore((state) => state.user?.permissions?.includes('edit_tables') || false)
   const queryClient = useQueryClient()
   const [selectedTable, setSelectedTable] = useState<TableItem | null>(null)
 
@@ -242,16 +244,18 @@ export default function TablesPage() {
             ))}
           </div>
         )}
-        <div className="flex justify-end pt-2">
-          <button
-            type="button"
-            onClick={() => selectedTable && releaseMutation.mutate(selectedTable.id)}
-            disabled={releaseMutation.isPending}
-            className="rounded-lg bg-green-600 px-4 py-2 text-sm font-medium text-white hover:bg-green-700 disabled:opacity-60"
-          >
-            {releaseMutation.isPending ? 'جاري التفريغ...' : 'تفريغ الطاولة'}
-          </button>
-        </div>
+        {canReleaseTable && (
+          <div className="flex justify-end pt-2">
+            <button
+              type="button"
+              onClick={() => selectedTable && releaseMutation.mutate(selectedTable.id)}
+              disabled={releaseMutation.isPending}
+              className="rounded-lg bg-green-600 px-4 py-2 text-sm font-medium text-white hover:bg-green-700 disabled:opacity-60"
+            >
+              {releaseMutation.isPending ? 'جاري التفريغ...' : 'تفريغ الطاولة'}
+            </button>
+          </div>
+        )}
       </Modal>
     </div>
   )

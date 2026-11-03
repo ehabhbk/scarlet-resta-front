@@ -3,6 +3,9 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { Toaster } from 'sonner'
 import { useAuthStore } from './store/authStore'
 import { useEffect } from 'react'
+import { toast } from 'sonner'
+import api from './services/api'
+import { useSettingsStore } from './store/settingsStore'
 import MainLayout from './layouts/MainLayout'
 import LoginPage from './pages/auth/LoginPage'
 import DashboardPage from './pages/dashboard/DashboardPage'
@@ -39,6 +42,33 @@ const queryClient = new QueryClient()
 
 function App() {
   const { isAuthenticated } = useAuthStore()
+  const setUser = useAuthStore((state) => state.setUser)
+  const logout = useAuthStore((state) => state.logout)
+  const loadSettings = useSettingsStore((state) => state.load)
+
+  useEffect(() => {
+    if (!isAuthenticated) return
+    let active = true
+    api.get('/auth/me')
+      .then((response) => {
+        if (active && response.data?.user) setUser(response.data.user)
+      })
+      .catch((error: any) => {
+        if (!active) return
+        if (error?.response?.status === 401) {
+          logout()
+          return
+        }
+        toast.error(error?.response?.data?.message || 'تعذر تحديث صلاحيات المستخدم')
+      })
+    return () => {
+      active = false
+    }
+  }, [isAuthenticated, logout, setUser])
+
+  useEffect(() => {
+    if (isAuthenticated) void loadSettings(true)
+  }, [isAuthenticated, loadSettings])
 
   useEffect(() => {
     // Subscribe to kitchen orders via Reverb

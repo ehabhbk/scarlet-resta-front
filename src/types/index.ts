@@ -14,6 +14,22 @@ export interface User {
   avatar?: string
   restaurant_id: number
   is_active: boolean
+  permissions?: string[]
+  pay_account_id?: number | null
+  vault_account_id?: number | null
+  pay_account?: {
+    id: number
+    code: string
+    name: string
+    type?: string
+  }
+  vault_account?: {
+    id: number
+    code: string
+    name: string
+    type?: string
+    parent_id?: number | null
+  }
   roles: Role[]
   restaurant?: {
     id: number

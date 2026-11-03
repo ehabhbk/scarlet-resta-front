@@ -7,10 +7,21 @@ import Input from '../../components/common/inputs/Input'
 import Card from '../../components/common/cards/Card'
 import DataTable from '../../components/common/tables/DataTable'
 import Modal from '../../components/common/modals/Modal'
+import { useAuthStore } from '../../store/authStore'
+
+interface PermissionOption {
+  id: number
+  name: string
+  group: string
+  label: string
+}
 
 export default function RolesPage() {
   const [showModal, setShowModal] = useState(false)
   const queryClient = useQueryClient()
+  const userPermissions = useAuthStore((state) => state.user?.permissions || [])
+  const canCreateRole = userPermissions.includes('create_roles')
+  const canDeleteRole = userPermissions.includes('delete_roles')
 
   const { data: roles, isLoading } = useQuery({
     queryKey: ['admin-roles'],
@@ -36,29 +47,42 @@ export default function RolesPage() {
   const columns = [
     { key: 'name', header: 'اسم الدور' },
     { key: 'permissions', header: 'الصلاحيات', render: (r: any) => (r.permissions || []).length },
-    { key: 'actions', header: 'الإجراءات', render: (r: any) => (
+    ...(canDeleteRole ? [{ key: 'actions', header: 'الإجراءات', render: (r: any) => (
       <button onClick={() => deleteMutation.mutate(r.id)} className="p-1 text-red-600 hover:bg-red-50 rounded"><Trash2 className="w-4 h-4" /></button>
-    )},
+    )}] : []),
   ]
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold text-gray-900">الأدوار والصلاحيات</h1>
-        <Button onClick={() => setShowModal(true)}><Plus className="w-4 h-4" /> إضافة دور</Button>
+        {canCreateRole && <Button onClick={() => setShowModal(true)}><Plus className="w-4 h-4" /> إضافة دور</Button>}
       </div>
       <Card>
         <DataTable data={roles || []} columns={columns} loading={isLoading} emptyMessage="لا توجد أدوار" />
       </Card>
-      <Modal isOpen={showModal} onClose={() => setShowModal(false)} title="إضافة دور" size="lg">
+      {canCreateRole && <Modal isOpen={showModal} onClose={() => setShowModal(false)} title="إضافة دور" size="lg">
         <RoleForm permissions={permissions || []} onClose={() => setShowModal(false)} onSuccess={() => { setShowModal(false); queryClient.invalidateQueries({ queryKey: ['admin-roles'] }) }} />
-      </Modal>
+      </Modal>}
     </div>
   )
 }
 
-function RoleForm({ permissions, onClose, onSuccess }: any) {
+function RoleForm({
+  permissions,
+  onClose,
+  onSuccess,
+}: {
+  permissions: PermissionOption[]
+  onClose: () => void
+  onSuccess: () => void
+}) {
   const [formData, setFormData] = useState({ name: '', selected: [] as string[] })
+  const groupedPermissions = permissions.reduce<Record<string, PermissionOption[]>>((groups, permission) => {
+    const group = permission.group || 'صلاحيات إضافية'
+    groups[group] = [...(groups[group] || []), permission]
+    return groups
+  }, {})
   const mutation = useMutation({
     mutationFn: async (data: any) => { await api.post('/admin/roles', data) },
     onSuccess,
@@ -78,12 +102,23 @@ function RoleForm({ permissions, onClose, onSuccess }: any) {
       <Input label="اسم الدور" value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} required />
       <div>
         <label className="block text-sm font-medium text-gray-700 mb-2">الصلاحيات</label>
-        <div className="max-h-60 overflow-y-auto space-y-1 border border-gray-200 rounded-lg p-2">
-          {permissions.map((p: any) => (
-            <label key={p.id} className="flex items-center gap-2 text-sm">
-              <input type="checkbox" checked={formData.selected.includes(p.name)} onChange={() => toggle(p.name)} />
-              {p.name}
-            </label>
+        <div className="max-h-[28rem] overflow-y-auto space-y-4 border border-gray-200 rounded-lg p-3">
+          {Object.entries(groupedPermissions).map(([group, groupPermissions]) => (
+            <section key={group}>
+              <h3 className="mb-2 border-b border-gray-100 pb-1 text-sm font-semibold text-gray-800">{group}</h3>
+              <div className="grid gap-2 sm:grid-cols-2">
+                {groupPermissions.map((permission) => (
+                  <label key={permission.id} className="flex items-center gap-2 text-sm">
+                    <input
+                      type="checkbox"
+                      checked={formData.selected.includes(permission.name)}
+                      onChange={() => toggle(permission.name)}
+                    />
+                    {permission.label || 'صلاحية مخصصة'}
+                  </label>
+                ))}
+              </div>
+            </section>
           ))}
         </div>
       </div>

@@ -34,6 +34,7 @@ import AreasManagementPanel from './AreasManagementPanel'
 import KitchenStationsManagementPanel from './KitchenStationsManagementPanel'
 import Input from '../../components/common/inputs/Input'
 import Modal from '../../components/common/modals/Modal'
+import { useAuthStore } from '../../store/authStore'
 
 type FieldType = 'text' | 'number' | 'boolean' | 'select' | 'textarea'
 
@@ -134,6 +135,13 @@ const EMPTY_CURRENCY: CurrencyOption = { code: '', symbol: '', name: '' }
 const EMPTY_PAYMENT: PaymentMethod = { value: '', label: '' }
 
 export default function SettingsPage() {
+  const permissions = useAuthStore((state) => state.user?.permissions || [])
+  const visibleTabs = TABS.filter((tab) => {
+    if (tab.id === 'roles') return permissions.includes('view_roles')
+    if (tab.id === 'tables') return ['view_tables', 'create_tables', 'edit_tables', 'delete_tables'].some((permission) => permissions.includes(permission))
+    if (tab.id === 'kitchen') return permissions.includes('view_kitchen') || permissions.includes('update_kitchen_order')
+    return true
+  })
   const [activeTab, setActiveTab] = useState<TabId>('general')
   const [form, setForm] = useState<RestaurantForm>(EMPTY_FORM)
   const [kv, setKv] = useState<Record<string, string>>({})
@@ -141,12 +149,18 @@ export default function SettingsPage() {
   const [currencyDraft, setCurrencyDraft] = useState<CurrencyOption>(EMPTY_CURRENCY)
   const [editingCurrency, setEditingCurrency] = useState<string | null>(null)
   const [paymentDraft, setPaymentDraft] = useState<PaymentMethod>(EMPTY_PAYMENT)
-  const { data: accountsList } = useQuery({
+  const { data: accountsList, isLoading: accountsLoading, isError: accountsError, refetch: refetchAccounts } = useQuery({
     queryKey: ['settings-accounts'],
     queryFn: async () => {
       const res = await api.get('/accounts')
-      return res.data?.accounts || []
+      if (!Array.isArray(res.data?.accounts)) {
+        throw new Error('استجابة الحسابات غير صالحة')
+      }
+      return res.data.accounts
     },
+    enabled: activeTab === 'payments',
+    staleTime: 0,
+    refetchOnMount: 'always',
   })
   const [editingPayment, setEditingPayment] = useState<string | null>(null)
   const [savingList, setSavingList] = useState<string | null>(null)
@@ -157,6 +171,8 @@ export default function SettingsPage() {
   const currencies = useSettingsStore((s) => s.currencies)
   const customCurrencies = useSettingsStore((s) => s.customCurrencies)
   const paymentMethods = useSettingsStore((s) => s.paymentMethods)
+  const settingsError = useSettingsStore((s) => s.settingsError)
+  const loadSettings = useSettingsStore((s) => s.load)
   const setCustomCurrencies = useSettingsStore((s) => s.setCustomCurrencies)
   const setPaymentMethods = useSettingsStore((s) => s.setPaymentMethods)
 
@@ -372,6 +388,10 @@ export default function SettingsPage() {
       toast.error('أدخل اسم طريقة الدفع')
       return
     }
+    if (!paymentDraft.account_id) {
+      toast.error('اربط طريقة الدفع بحساب نشط من شجرة الحسابات')
+      return
+    }
 
     let next: PaymentMethod[]
     if (editingPayment) {
@@ -411,7 +431,7 @@ export default function SettingsPage() {
       </div>
 
       <div className="flex gap-2 border-b border-gray-200 dark:border-gray-700 overflow-x-auto">
-        {TABS.map((tab) => {
+        {visibleTabs.map((tab) => {
           const Icon = tab.icon
           return (
             <button
@@ -709,9 +729,15 @@ export default function SettingsPage() {
             <div>
               <h2 className="text-lg font-semibold dark:text-gray-100">طرق الدفع</h2>
               <p className="text-sm text-gray-500 dark:text-gray-400">
-                أضف أو عدّل أو احذف طرق الدفع. تظهر هذه الطرق تلقائياً في شاشة نقطة البيع والتقارير.
+                اربط كل طريقة دفع بأي حساب نشط من شجرة الحسابات؛ يستخدم الحساب تلقائيًا في القيود المحاسبية.
               </p>
             </div>
+            {settingsError && (
+              <div className="flex items-center justify-between gap-2 rounded-lg bg-red-50 p-3 text-sm text-red-700">
+                <span>{settingsError}</span>
+                <button type="button" className="underline" onClick={() => void loadSettings(true)}>إعادة تحميل الإعدادات</button>
+              </div>
+            )}
 
             <form onSubmit={handlePaymentSubmit} className="grid grid-cols-1 md:grid-cols-4 gap-3 items-end">
               <Input
@@ -729,16 +755,37 @@ export default function SettingsPage() {
               />
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">حساب الربط</label>
+                {accountsError && (
+                  <div className="mb-2 flex items-center justify-between gap-2 text-sm text-red-600">
+                    <span>تعذر تحميل حسابات المطعم.</span>
+                    <button type="button" className="underline" onClick={() => void refetchAccounts()}>إعادة المحاولة</button>
+                  </div>
+                )}
                 <select
                   value={paymentDraft.account_id || ''}
                   onChange={(e) => setPaymentDraft({ ...paymentDraft, account_id: e.target.value ? Number(e.target.value) : undefined })}
                   className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100 rounded-lg"
+                  required
+                  disabled={accountsLoading || accountsError}
                 >
-                  <option value="">بدون ربط</option>
-                  {(accountsList || []).map((a: any) => (
-                    <option key={a.id} value={a.id}>{a.code} - {a.name}</option>
+                  <option value="">{accountsLoading ? 'جارٍ تحميل الحسابات...' : 'اختر حسابًا'}</option>
+                  {(accountsList || []).map((account: any) => (
+                    <option
+                      key={account.id}
+                      value={account.id}
+                      disabled={!account.is_active}
+                    >
+                      {account.code} - {account.name} ({account.type}{account.is_active ? '' : ' - غير نشط'})
+                    </option>
                   ))}
                 </select>
+                {!accountsLoading && !accountsError && !(accountsList || []).length && (
+                  <p className="mt-1 text-xs text-amber-600">لا توجد حسابات للمطعم في قاعدة البيانات؛ أنشئ حسابًا من شجرة الحسابات.</p>
+                )}
+                {!accountsLoading && !accountsError && (accountsList || []).length > 0
+                  && !(accountsList || []).some((account: any) => account.is_active) && (
+                  <p className="mt-1 text-xs text-amber-600">الحسابات ظاهرة، لكن جميعها غير نشطة ولا يمكن ربطها بطريقة الدفع.</p>
+                )}
               </div>
               <div className="flex gap-2 md:col-span-1">
                 <Button type="submit" loading={savingList === 'payments'} className="flex-1">
@@ -942,9 +989,12 @@ const PERMISSION_LABELS: Record<string, string> = {
   edit_employees: 'تعديل موظف',
   delete_employees: 'حذف موظف',
   view_finance: 'عرض المالية',
+  manage_chart_of_accounts: 'إدارة شجرة الحسابات',
   view_purchases: 'عرض المشتريات',
   create_purchases: 'إضافة مشتريات',
   edit_purchases: 'تعديل مشتريات',
+  delete_purchases: 'حذف مشتريات',
+  delete_expenses: 'حذف مصروف',
   view_reports: 'عرض التقارير',
   export_reports: 'تصدير التقارير',
   view_settings: 'عرض الإعدادات',
@@ -962,7 +1012,12 @@ const PERMISSION_LABELS: Record<string, string> = {
   create_suppliers: 'إضافة مورد',
   edit_suppliers: 'تعديل مورد',
   delete_suppliers: 'حذف مورد',
+  open_shift: 'فتح وردية',
   close_shift: 'إغلاق وردية',
+  manage_multi_cashier_shifts: 'إدارة الورديات المشتركة',
+  manage_shift_employees: 'تحديد موظفي الوردية',
+  pay_employee_wages: 'صرف أجور الوردية',
+  view_all_shifts: 'عرض جميع الورديات',
 }
 
 function permissionLabel(name: string) {
@@ -974,6 +1029,10 @@ function RolesPermissionsPanel() {
   const [newRoleName, setNewRoleName] = useState('')
   const [editingRole, setEditingRole] = useState<any>(null)
   const [selectedPerms, setSelectedPerms] = useState<string[]>([])
+  const currentPermissions = useAuthStore((state) => state.user?.permissions || [])
+  const canCreateRole = currentPermissions.includes('create_roles')
+  const canEditRole = currentPermissions.includes('edit_roles')
+  const canDeleteRole = currentPermissions.includes('delete_roles')
 
   const { data: roles } = useQuery({
     queryKey: ['admin-roles'],
@@ -1042,7 +1101,7 @@ function RolesPermissionsPanel() {
 
   return (
     <div className="space-y-6">
-      <Card>
+      {canCreateRole && <Card>
         <h2 className="text-lg font-semibold dark:text-gray-100 mb-4">إضافة دور جديد</h2>
         <div className="flex gap-2">
           <Input
@@ -1058,7 +1117,7 @@ function RolesPermissionsPanel() {
             <Plus className="w-4 h-4" /> إضافة
           </Button>
         </div>
-      </Card>
+      </Card>}
 
       <Card>
         <h2 className="text-lg font-semibold dark:text-gray-100 mb-4">الأدوار والصلاحيات</h2>
@@ -1070,11 +1129,13 @@ function RolesPermissionsPanel() {
                   <p className="font-semibold text-gray-900 dark:text-gray-100">{role.name}</p>
                   <p className="text-xs text-gray-500">{(role.permissions || []).length} صلاحية</p>
                 </div>
-                <div className="flex gap-2">
-                  <Button size="sm" variant="secondary" onClick={() => openEdit(role)}>
-                    <Pencil className="w-4 h-4" /> تعديل الصلاحيات
-                  </Button>
-                  {role.name !== 'Super Admin' && (
+                {(canEditRole || canDeleteRole) && <div className="flex gap-2">
+                  {canEditRole && (
+                    <Button size="sm" variant="secondary" onClick={() => openEdit(role)}>
+                      <Pencil className="w-4 h-4" /> تعديل الصلاحيات
+                    </Button>
+                  )}
+                  {canDeleteRole && role.name !== 'Super Admin' && (
                     <Button
                       size="sm"
                       variant="danger"
@@ -1086,7 +1147,7 @@ function RolesPermissionsPanel() {
                       <Trash2 className="w-4 h-4" />
                     </Button>
                   )}
-                </div>
+                </div>}
               </div>
             </div>
           ))}
@@ -1096,7 +1157,7 @@ function RolesPermissionsPanel() {
         </div>
       </Card>
 
-      <Modal isOpen={!!editingRole} onClose={() => setEditingRole(null)} title={`صلاحيات: ${editingRole?.name}`}>
+      {canEditRole && <Modal isOpen={!!editingRole} onClose={() => setEditingRole(null)} title={`صلاحيات: ${editingRole?.name}`}>
         {editingRole && (
           <div className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-2 max-h-96 overflow-y-auto">
@@ -1125,7 +1186,7 @@ function RolesPermissionsPanel() {
             </div>
           </div>
         )}
-      </Modal>
+      </Modal>}
     </div>
   )
 }

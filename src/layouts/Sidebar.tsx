@@ -22,6 +22,7 @@ import {
 } from 'lucide-react'
 import { useLangStore } from '../store/langStore'
 import { useSettingsStore, mediaUrl } from '../store/settingsStore'
+import { useAuthStore } from '../store/authStore'
 import { t } from '../i18n'
 
 interface SidebarProps {
@@ -32,6 +33,7 @@ interface NavChild {
   label: string
   path: string
   icon: typeof LayoutDashboard
+  permissions?: string[]
 }
 
 interface NavItem {
@@ -39,57 +41,68 @@ interface NavItem {
   label: string
   path: string
   children?: NavChild[]
+  permissions?: string[]
+  anyPermissions?: string[]
 }
 
 export default function Sidebar({ open }: SidebarProps) {
   const location = useLocation()
   const { lang } = useLangStore()
   const { restaurant } = useSettingsStore()
+  const permissions = useAuthStore((state) => state.user?.permissions || [])
+  const can = (required: string[] = [], any: string[] = []) =>
+    required.every((permission) => permissions.includes(permission))
+    && (!any.length || any.some((permission) => permissions.includes(permission)))
 
   const menuItems: NavItem[] = [
     {
       icon: LayoutDashboard,
       label: t('dashboard', lang),
       path: '/dashboard',
-      children: [{ label: 'الإشعارات', path: '/notifications', icon: Bell }],
+      permissions: ['view_dashboard'],
+      children: [{ label: 'الإشعارات', path: '/notifications', icon: Bell, permissions: ['view_notifications'] }],
     },
-    { icon: ShoppingCart, label: t('pos', lang), path: '/pos' },
+    { icon: ShoppingCart, label: t('pos', lang), path: '/pos', anyPermissions: ['create_orders', 'view_pos'] },
     {
       icon: Utensils,
       label: t('products', lang),
       path: '/products',
+      permissions: ['view_products'],
       children: [
-        { label: 'التصنيفات', path: '/categories', icon: Tag },
-        { label: 'الوصفات', path: '/recipes', icon: BookOpen },
+        { label: 'التصنيفات', path: '/categories', icon: Tag, permissions: ['view_categories'] },
+        { label: 'الوصفات', path: '/recipes', icon: BookOpen, permissions: ['view_recipes'] },
       ],
     },
     {
       icon: Table,
       label: t('tables', lang),
       path: '/tables',
+      permissions: ['view_tables'],
     },
-    { icon: ChefHat, label: t('kitchen', lang), path: '/kitchen' },
-    { icon: Users, label: 'الموظفون', path: '/employees' },
+    { icon: ChefHat, label: t('kitchen', lang), path: '/kitchen', permissions: ['view_kitchen'] },
+    { icon: Users, label: 'الموظفون', path: '/employees', permissions: ['view_employees'] },
     {
       icon: Package,
       label: t('inventory', lang),
       path: '/inventory',
+      permissions: ['view_inventory'],
       children: [
-        { label: 'حركات المخزون', path: '/stock-movements', icon: Activity },
-        { label: 'المشتريات', path: '/purchases', icon: Truck },
+        { label: 'حركات المخزون', path: '/stock-movements', icon: Activity, permissions: ['view_inventory'] },
+        { label: 'المشتريات', path: '/purchases', icon: Truck, permissions: ['view_purchases'] },
       ],
     },
     {
       icon: DollarSign,
       label: 'المالية',
       path: '/finance',
+      permissions: ['view_finance'],
       children: [
-        { label: 'شجرة الحسابات', path: '/finance/chart-of-accounts', icon: List },
-        { label: 'قيود اليومية', path: '/finance/journal-entries', icon: FileText },
-        { label: 'دفتر الاستاذ', path: '/finance/ledger', icon: Book },
-        { label: 'قائمة الدخل', path: '/finance/income-statement', icon: TrendingUp },
-        { label: 'الميزانية العمومية', path: '/finance/balance-sheet', icon: Landmark },
-        { label: 'المصروفات', path: '/expenses', icon: Receipt },
+        { label: 'شجرة الحسابات', path: '/finance/chart-of-accounts', icon: List, permissions: ['view_finance'] },
+        { label: 'قيود اليومية', path: '/finance/journal-entries', icon: FileText, permissions: ['view_finance'] },
+        { label: 'دفتر الأستاذ', path: '/finance/ledger', icon: Book, permissions: ['view_finance'] },
+        { label: 'قائمة الدخل', path: '/finance/income-statement', icon: TrendingUp, permissions: ['view_finance'] },
+        { label: 'الميزانية العمومية', path: '/finance/balance-sheet', icon: Landmark, permissions: ['view_finance'] },
+        { label: 'المصروفات', path: '/expenses', icon: Receipt, permissions: ['view_finance'] },
       ],
     },
   ]
@@ -126,45 +139,66 @@ export default function Sidebar({ open }: SidebarProps) {
 
       <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
         {menuItems.map((item) => {
+          const visibleChildren = (item.children || []).filter((child) => can(child.permissions))
+          const showItem = can(item.permissions, item.anyPermissions) || visibleChildren.length > 0
+          if (!showItem) return null
           const Icon = item.icon
-          const isActive = location.pathname === item.path
+          const canOpenItem = can(item.permissions, item.anyPermissions)
+          const isActive = canOpenItem && location.pathname === item.path
           const isSectionActive =
             isActive || (item.children || []).some((child) => location.pathname === child.path)
 
           return (
             <div key={item.path}>
-              <Link
-                to={item.path}
-                className={`group relative flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all ${
-                  isSectionActive
-                    ? 'bg-white/10 text-white shadow-inner'
-                    : 'text-slate-400 hover:text-white hover:bg-white/5'
-                }`}
-              >
-                {isSectionActive && (
-                  <span className="absolute right-0 top-1/2 -translate-y-1/2 h-6 w-1 rounded-l-full bg-primary" />
-                )}
-                <Icon className={`w-5 h-5 shrink-0 ${isSectionActive ? 'text-primary' : ''}`} />
-                {open && <span className="font-medium text-sm truncate">{item.label}</span>}
-              </Link>
+              {canOpenItem ? (
+                <Link
+                  to={item.path}
+                  aria-current={isActive ? 'page' : undefined}
+                  className={`group relative flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 ${
+                    isSectionActive
+                      ? 'bg-blue-500/25 text-white ring-1 ring-blue-400/40 shadow-md scale-[1.03]'
+                      : 'text-slate-200 hover:text-white hover:bg-white/10 hover:scale-[1.02]'
+                  }`}
+                >
+                  {isSectionActive && (
+                    <span className="absolute right-0 top-1/2 h-7 w-1 -translate-y-1/2 rounded-l-full bg-sky-300" />
+                  )}
+                  <Icon className={`w-5 h-5 shrink-0 transition-colors ${isSectionActive ? 'text-sky-200' : 'group-hover:text-sky-200'}`} />
+                  {open && (
+                    <span className={`truncate transition-all duration-200 ${
+                      isSectionActive ? 'text-base font-bold' : 'text-sm font-medium group-hover:text-base'
+                    }`}>
+                      {item.label}
+                    </span>
+                  )}
+                </Link>
+              ) : (
+                <div className="flex items-center gap-3 px-3 py-2.5 text-slate-400">
+                  <Icon className="w-5 h-5 shrink-0" />
+                  {open && <span className="text-sm font-medium">{item.label}</span>}
+                </div>
+              )}
 
-              {open && isSectionActive && item.children && (
+              {open && isSectionActive && visibleChildren.length > 0 && (
                 <div className="mt-1 mr-5 space-y-1 border-r border-white/10 pr-3">
-                  {item.children.map((child) => {
+                  {visibleChildren.map((child) => {
                     const ChildIcon = child.icon
                     const childActive = location.pathname === child.path
                     return (
                       <Link
                         key={child.path}
                         to={child.path}
-                        className={`flex items-center gap-2 px-2 py-1.5 rounded-lg text-[13px] transition-colors ${
+                        aria-current={childActive ? 'page' : undefined}
+                        className={`group flex items-center gap-2 px-2 py-1.5 rounded-lg transition-all duration-200 ${
                           childActive
-                            ? 'text-primary bg-primary/10 font-medium'
-                            : 'text-slate-400 hover:text-white hover:bg-white/5'
+                            ? 'text-sky-200 bg-sky-500/20 font-bold scale-[1.02]'
+                            : 'text-slate-200 hover:text-white hover:bg-white/10 hover:scale-[1.02]'
                         }`}
                       >
-                        <ChildIcon className="w-4 h-4 shrink-0" />
-                        <span className="truncate">{child.label}</span>
+                        <ChildIcon className="w-4 h-4 shrink-0 transition-colors group-hover:text-sky-200" />
+                        <span className={`truncate transition-all duration-200 ${
+                          childActive ? 'text-sm font-bold' : 'text-[13px] group-hover:text-sm'
+                        }`}>{child.label}</span>
                       </Link>
                     )
                   })}

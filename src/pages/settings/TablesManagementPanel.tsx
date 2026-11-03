@@ -7,6 +7,7 @@ import Input from '../../components/common/inputs/Input'
 import Card from '../../components/common/cards/Card'
 import Modal from '../../components/common/modals/Modal'
 import Badge from '../../components/common/data-display/Badge'
+import { useAuthStore } from '../../store/authStore'
 
 const STATUS_LABELS: Record<string, string> = {
   available: 'متاحة',
@@ -24,6 +25,10 @@ const STATUS_COLORS: Record<string, 'success' | 'danger' | 'warning' | 'info'> =
 
 export default function TablesManagementPanel() {
   const queryClient = useQueryClient()
+  const permissions = useAuthStore((state) => state.user?.permissions || [])
+  const canCreate = permissions.includes('create_tables')
+  const canEdit = permissions.includes('edit_tables')
+  const canDelete = permissions.includes('delete_tables')
   const [showModal, setShowModal] = useState(false)
   const [editingTable, setEditingTable] = useState<any>(null)
 
@@ -76,7 +81,7 @@ export default function TablesManagementPanel() {
               إضافة طاولة جديدة أو تعديل اسمها وسعتها وحالتها أو حذفها.
             </p>
           </div>
-          <Button
+          {canCreate && <Button
             onClick={() => {
               setEditingTable(null)
               setShowModal(true)
@@ -84,7 +89,7 @@ export default function TablesManagementPanel() {
           >
             <Plus className="w-4 h-4" />
             إضافة طاولة
-          </Button>
+          </Button>}
         </div>
       </Card>
 
@@ -114,8 +119,8 @@ export default function TablesManagementPanel() {
                 </Badge>
               </div>
 
-              <div className="flex flex-wrap items-center gap-2">
-                <select
+              {(canEdit || canDelete) && <div className="flex flex-wrap items-center gap-2">
+                {canEdit && <select
                   value={table.status}
                   onChange={(e) =>
                     statusMutation.mutate({ id: table.id, status: e.target.value })
@@ -126,8 +131,8 @@ export default function TablesManagementPanel() {
                   <option value="occupied">مشغول</option>
                   <option value="reserved">محجوز</option>
                   <option value="cleaning">تنظيف</option>
-                </select>
-                <button
+                </select>}
+                {canEdit && <button
                   onClick={() => {
                     setEditingTable(table)
                     setShowModal(true)
@@ -136,8 +141,8 @@ export default function TablesManagementPanel() {
                   title="تعديل"
                 >
                   <Pencil className="w-4 h-4" />
-                </button>
-                <button
+                </button>}
+                {canDelete && <button
                   onClick={() => {
                     if (window.confirm(`هل تريد حذف ${table.name}؟`)) {
                       deleteMutation.mutate(table.id)
@@ -147,14 +152,14 @@ export default function TablesManagementPanel() {
                   title="حذف"
                 >
                   <Trash2 className="w-4 h-4" />
-                </button>
-              </div>
+                </button>}
+              </div>}
             </div>
           ))}
         </div>
       </Card>
 
-      <Modal
+      {(canCreate || canEdit) && <Modal
         isOpen={showModal}
         onClose={() => setShowModal(false)}
         title={editingTable ? 'تعديل طاولة' : 'إضافة طاولة جديدة'}
@@ -170,7 +175,7 @@ export default function TablesManagementPanel() {
             queryClient.invalidateQueries({ queryKey: ['tables-all'] })
           }}
         />
-      </Modal>
+      </Modal>}
     </div>
   )
 }

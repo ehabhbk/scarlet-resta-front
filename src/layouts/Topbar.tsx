@@ -44,9 +44,9 @@ export default function Topbar() {
   const isAdmin = ['Super Admin', 'Admin'].includes(userRoleName || '')
 
   const can = (perm: string) => isAdmin || userPerms.includes(perm)
-  const canSettings = can('manage_settings') || can('create_settings') || isAdmin
-  const canReports = can('view_reports') || can('create_reports') || isAdmin
-  const canUsers = can('manage_users') || can('create_users') || isAdmin
+  const canSettings = can('edit_settings') || isAdmin
+  const canReports = can('view_reports') || isAdmin
+  const canUsers = can('view_users') || can('create_users') || isAdmin
 
   const handleLogout = async () => {
     setMenuOpen(false)

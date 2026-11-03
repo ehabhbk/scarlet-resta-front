@@ -9,9 +9,13 @@ import Card from '../../components/common/cards/Card'
 import DataTable from '../../components/common/tables/DataTable'
 import Modal from '../../components/common/modals/Modal'
 import Pagination from '../../components/common/Pagination'
+import { useAuthStore } from '../../store/authStore'
 
 export default function ExpensesPage() {
-  const { symbol } = useSettingsStore()
+  const { symbol, paymentMethods } = useSettingsStore()
+  const permissions = useAuthStore((state) => state.user?.permissions || [])
+  const canCreate = permissions.includes('create_expenses')
+  const canDelete = permissions.includes('delete_expenses')
   const [showModal, setShowModal] = useState(false)
   const [page, setPage] = useState(1)
   const queryClient = useQueryClient()
@@ -25,6 +29,10 @@ export default function ExpensesPage() {
   })
   const expenses = expensesRes?.data
   const expensesMeta = expensesRes ? { current_page: expensesRes.current_page, last_page: expensesRes.last_page, total: expensesRes.total, per_page: expensesRes.per_page } : null
+  const { data: accounts } = useQuery({
+    queryKey: ['accounts-list'],
+    queryFn: async () => (await api.get('/accounts')).data?.accounts || [],
+  })
 
   const deleteMutation = useMutation({
     mutationFn: async (id: number) => { await api.delete(`/expenses/${id}`) },
@@ -34,48 +42,70 @@ export default function ExpensesPage() {
   const columns = [
     { key: 'category', header: 'الفئة' },
     { key: 'amount', header: 'المبلغ', render: (e: any) => formatMoney(e.amount, symbol) },
+    { key: 'account', header: 'الحساب', render: (e: any) => e.account?.name || '-' },
     { key: 'expense_date', header: 'التاريخ' },
     { key: 'description', header: 'الوصف' },
     { key: 'is_approved', header: 'معتمد', render: (e: any) => e.is_approved ? 'نعم' : 'لا' },
-    { key: 'actions', header: 'الإجراءات', render: (e: any) => (
+    ...(canDelete ? [{ key: 'actions', header: 'الإجراءات', render: (e: any) => (
       <button onClick={() => deleteMutation.mutate(e.id)} className="p-1 text-red-600 hover:bg-red-50 rounded"><Trash2 className="w-4 h-4" /></button>
-    )},
+    )}] : []),
   ]
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold text-gray-900">المصروفات</h1>
-        <Button onClick={() => setShowModal(true)}><Plus className="w-4 h-4" /> إضافة مصروف</Button>
+        {canCreate && <Button onClick={() => setShowModal(true)}><Plus className="w-4 h-4" /> إضافة مصروف</Button>}
       </div>
       <Card>
         <DataTable data={expenses || []} columns={columns} loading={isLoading} emptyMessage="لا توجد مصروفات" />
         <Pagination meta={expensesMeta} onPageChange={setPage} />
       </Card>
-      <Modal isOpen={showModal} onClose={() => setShowModal(false)} title="إضافة مصروف">
-        <ExpenseForm onClose={() => setShowModal(false)} onSuccess={() => { setShowModal(false); queryClient.invalidateQueries({ queryKey: ['expenses'] }) }} />
-      </Modal>
+      {canCreate && <Modal isOpen={showModal} onClose={() => setShowModal(false)} title="إضافة مصروف">
+        <ExpenseForm accounts={accounts || []} paymentMethods={paymentMethods} onClose={() => setShowModal(false)} onSuccess={() => { setShowModal(false); queryClient.invalidateQueries({ queryKey: ['expenses'] }); queryClient.invalidateQueries({ queryKey: ['journal-entries'] }); queryClient.invalidateQueries({ queryKey: ['chart-of-accounts'] }) }} />
+      </Modal>}
     </div>
   )
 }
 
-function ExpenseForm({ onClose, onSuccess }: any) {
+function ExpenseForm({ accounts, paymentMethods, onClose, onSuccess }: any) {
   const [formData, setFormData] = useState({
     category: '',
     amount: '',
+    account_id: '',
     expense_date: new Date().toISOString().split('T')[0],
     description: '',
-    payment_method: 'cash',
+    payment_method: paymentMethods[0]?.value || '',
   })
   const mutation = useMutation({
     mutationFn: async (data: any) => { await api.post('/expenses', data) },
     onSuccess,
+    onError: (error: any) => {
+      const firstError = Object.values(error?.response?.data?.errors || {})[0]
+      window.alert((Array.isArray(firstError) ? firstError[0] : firstError) || error?.response?.data?.message || 'تعذر حفظ المصروف')
+    },
   })
-  const handleSubmit = (e: React.FormEvent) => { e.preventDefault(); mutation.mutate(formData) }
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault()
+    mutation.mutate({ ...formData, amount: Number(formData.amount), account_id: Number(formData.account_id) })
+  }
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       <Input label="الفئة" value={formData.category} onChange={(e) => setFormData({ ...formData, category: e.target.value })} required />
       <Input label="المبلغ" type="number" value={formData.amount} onChange={(e) => setFormData({ ...formData, amount: e.target.value })} required />
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-2">حساب المصروف</label>
+        <select value={formData.account_id} onChange={(e) => setFormData({ ...formData, account_id: e.target.value })} className="w-full px-4 py-2 border border-gray-300 rounded-lg" required>
+          <option value="">اختر حساب المصروف</option>
+          {accounts.filter((a: any) => a.type === 'expense' && a.is_active).map((a: any) => <option key={a.id} value={a.id}>{a.code} - {a.name}</option>)}
+        </select>
+      </div>
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-2">طريقة الدفع</label>
+        <select value={formData.payment_method} onChange={(e) => setFormData({ ...formData, payment_method: e.target.value })} className="w-full px-4 py-2 border border-gray-300 rounded-lg" required>
+          {paymentMethods.map((method: any) => <option key={method.value} value={method.value}>{method.label}</option>)}
+        </select>
+      </div>
       <Input label="التاريخ" type="date" value={formData.expense_date} onChange={(e) => setFormData({ ...formData, expense_date: e.target.value })} required />
       <Input label="الوصف" value={formData.description} onChange={(e) => setFormData({ ...formData, description: e.target.value })} />
       <div className="flex gap-3 justify-end pt-4">

@@ -10,6 +10,16 @@ import DataTable from '../../components/common/tables/DataTable'
 import Modal from '../../components/common/modals/Modal'
 import Badge from '../../components/common/data-display/Badge'
 import { mediaUrl } from '../../store/settingsStore'
+import type { User } from '../../types'
+
+interface Account {
+  id: number
+  code: string
+  name: string
+  type: string
+  parent_id?: number | string | null
+  is_active?: boolean
+}
 
 export default function UsersPage() {
   const [showModal, setShowModal] = useState(false)
@@ -29,6 +39,14 @@ export default function UsersPage() {
     queryFn: async () => {
       const res = await api.get('/admin/roles')
       return res.data.roles || res.data.data || res.data
+    },
+  })
+
+  const { data: accounts } = useQuery({
+    queryKey: ['accounts-list'],
+    queryFn: async (): Promise<Account[]> => {
+      const res = await api.get('/accounts')
+      return (res.data?.accounts || res.data?.data || []) as Account[]
     },
   })
 
@@ -74,6 +92,22 @@ export default function UsersPage() {
           <span className="font-medium">{u.name}</span>
         </div>
       ),
+    },
+    {
+      key: 'account_links',
+      header: 'حسابات الربط',
+      render: (u: User) => {
+        const cashier = (u.roles || []).some((role) => isCashierRole(role.name || ''))
+        const payAccount = u.pay_account?.name || accounts?.find((account) => Number(account.id) === Number(u.pay_account_id))?.name
+        const vaultAccount = u.vault_account?.name || accounts?.find((account) => Number(account.id) === Number(u.vault_account_id))?.name
+        if (!cashier) return payAccount || '-'
+        return (
+          <div className="space-y-1 text-xs">
+            <p>مصروف الأجر: {payAccount || 'غير مربوط'}</p>
+            <p>الخزنة: {vaultAccount || 'غير مربوطة'}</p>
+          </div>
+        )
+      },
     },
     {
       key: 'username',
@@ -172,10 +206,15 @@ export default function UsersPage() {
       <Modal isOpen={showModal} onClose={() => setShowModal(false)} title="إضافة مستخدم">
         <UserForm
           roles={Array.isArray(roles) ? roles : roles?.data || []}
+          accounts={accounts || []}
           onClose={() => setShowModal(false)}
           onSuccess={() => {
             setShowModal(false)
             queryClient.invalidateQueries({ queryKey: ['admin-users'] })
+            queryClient.invalidateQueries({ queryKey: ['accounts-list'] })
+            queryClient.invalidateQueries({ queryKey: ['settings-accounts'] })
+            queryClient.invalidateQueries({ queryKey: ['chart-of-accounts'] })
+            queryClient.invalidateQueries({ queryKey: ['users-all'] })
           }}
         />
       </Modal>
@@ -184,10 +223,15 @@ export default function UsersPage() {
           <EditUserForm
             user={editingUser}
             roles={Array.isArray(roles) ? roles : roles?.data || []}
+            accounts={accounts || []}
             onClose={() => setEditingUser(null)}
             onSuccess={() => {
               setEditingUser(null)
               queryClient.invalidateQueries({ queryKey: ['admin-users'] })
+              queryClient.invalidateQueries({ queryKey: ['accounts-list'] })
+              queryClient.invalidateQueries({ queryKey: ['settings-accounts'] })
+              queryClient.invalidateQueries({ queryKey: ['chart-of-accounts'] })
+              queryClient.invalidateQueries({ queryKey: ['users-all'] })
             }}
           />
         )}
@@ -196,13 +240,79 @@ export default function UsersPage() {
   )
 }
 
-function UserForm({ roles, onClose, onSuccess }: any) {
+function isCashierRole(role: string) {
+  const normalized = role.trim().toLowerCase().replace(/[\s_-]/g, '')
+  return normalized.includes('cashier') || normalized.includes('كاشير')
+}
+
+function CashierAccountsNotice() {
+  return (
+    <div className="space-y-4 rounded-xl border border-blue-100 bg-blue-50/60 p-4 dark:border-blue-900 dark:bg-blue-950/20">
+      <p className="text-sm font-semibold text-gray-800 dark:text-gray-100">
+        اختر حساب مصروف الأجر وخزينة فرعية موجودة، أو اترك الخزينة على الإنشاء التلقائي ليُنشئ النظام خزنة فرعية باسم المستخدم ويربطها به عند الحفظ.
+      </p>
+    </div>
+  )
+}
+
+function UserAccountFields({ accounts, cashier, formData, setFormData }: any) {
+  const expenseAccounts = accounts.filter((account: Account) => account.type === 'expense' && account.is_active)
+  const vaultAccounts = accounts.filter((account: Account) =>
+    account.type === 'asset' && account.is_active && account.parent_id
+  )
+
+  return (
+    <div className="space-y-3">
+      <div>
+        <label className="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-200">حساب مصروف الأجر</label>
+        <select
+          value={formData.pay_account_id}
+          onChange={(event) => setFormData({ ...formData, pay_account_id: event.target.value })}
+          className="w-full rounded-lg border border-gray-300 bg-white px-4 py-2 dark:border-gray-700 dark:bg-gray-900"
+        >
+          <option value="">بدون تحديد (افتراضي)</option>
+          {expenseAccounts.map((account: Account) => (
+            <option key={account.id} value={account.id}>{account.code} - {account.name}</option>
+          ))}
+        </select>
+      </div>
+      {cashier && (
+        <div>
+          <label className="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-200">الخزينة الفرعية للكاشير</label>
+          <select
+            value={formData.vault_account_id}
+            onChange={(event) => setFormData({ ...formData, vault_account_id: event.target.value })}
+            className="w-full rounded-lg border border-gray-300 bg-white px-4 py-2 dark:border-gray-700 dark:bg-gray-900"
+          >
+            <option value="">إنشاء خزينة فرعية باسم المستخدم تلقائيًا</option>
+            {vaultAccounts.map((account: Account) => (
+              <option key={account.id} value={account.id}>{account.code} - {account.name}</option>
+            ))}
+          </select>
+        </div>
+      )}
+    </div>
+  )
+}
+
+function CashierAccountSummary({ user }: { user: User }) {
+  return (
+    <div className="space-y-1 rounded-xl border border-blue-100 bg-blue-50/60 p-4 text-sm dark:border-blue-900 dark:bg-blue-950/20">
+      <p>حساب مصروف الأجر: {user.pay_account?.name || 'غير مربوط'}</p>
+      <p>الخزنة الفرعية: {user.vault_account?.name || 'غير مربوطة'}</p>
+    </div>
+  )
+}
+
+function UserForm({ roles, accounts, onClose, onSuccess }: any) {
   const [formData, setFormData] = useState({
     name: '',
     username: '',
     password: '',
     role: '',
     is_active: true,
+    pay_account_id: '',
+    vault_account_id: '',
   })
   const [imageFile, setImageFile] = useState<File | null>(null)
   const [imagePreview, setImagePreview] = useState('')
@@ -216,12 +326,12 @@ function UserForm({ roles, onClose, onSuccess }: any) {
   const mutation = useMutation({
     mutationFn: async (data: any) => {
       if (imageFile) {
-        const formData = new FormData()
+        const requestData = new FormData()
         Object.entries(data).forEach(([key, value]) =>
-          formData.append(key, key === 'is_active' ? (value ? '1' : '0') : String(value))
+          requestData.append(key, value === null || value === undefined ? '' : key === 'is_active' ? (value ? '1' : '0') : String(value))
         )
-        formData.append('image_file', imageFile)
-        await api.post('/admin/users', formData, {
+        requestData.append('image_file', imageFile)
+        await api.post('/admin/users', requestData, {
           headers: { 'Content-Type': 'multipart/form-data' },
         })
       } else {
@@ -238,7 +348,8 @@ function UserForm({ roles, onClose, onSuccess }: any) {
       toast.error(
         (Array.isArray(firstError) ? firstError[0] : firstError) ||
           error?.response?.data?.message ||
-          'تعذر إضافة المستخدم'
+        error?.message ||
+        'تعذر إضافة المستخدم'
       )
     },
   })
@@ -248,6 +359,8 @@ function UserForm({ roles, onClose, onSuccess }: any) {
     mutation.mutate({
       ...formData,
       username: formData.username.trim().toLowerCase(),
+      pay_account_id: formData.pay_account_id ? Number(formData.pay_account_id) : null,
+      vault_account_id: formData.vault_account_id ? Number(formData.vault_account_id) : null,
     })
   }
 
@@ -308,6 +421,15 @@ function UserForm({ roles, onClose, onSuccess }: any) {
           ))}
         </select>
       </div>
+      {isCashierRole(formData.role) && (
+        <CashierAccountsNotice />
+      )}
+      <UserAccountFields
+        accounts={accounts}
+        cashier={isCashierRole(formData.role)}
+        formData={formData}
+        setFormData={setFormData}
+      />
       <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-200">
         <input
           type="checkbox"
@@ -329,13 +451,15 @@ function UserForm({ roles, onClose, onSuccess }: any) {
   )
 }
 
-function EditUserForm({ user, roles, onClose, onSuccess }: any) {
+function EditUserForm({ user, roles, accounts, onClose, onSuccess }: any) {
   const [formData, setFormData] = useState({
     name: user.name || '',
     username: user.username || '',
     password: '',
     role: (user.roles && user.roles[0]?.name) || '',
     is_active: user.is_active ?? true,
+    pay_account_id: user.pay_account_id ? String(user.pay_account_id) : '',
+    vault_account_id: user.vault_account_id ? String(user.vault_account_id) : '',
   })
   const [imageFile, setImageFile] = useState<File | null>(null)
   const [imagePreview, setImagePreview] = useState(
@@ -351,13 +475,13 @@ function EditUserForm({ user, roles, onClose, onSuccess }: any) {
   const mutation = useMutation({
     mutationFn: async (data: any) => {
       if (imageFile) {
-        const formData = new FormData()
+        const requestData = new FormData()
         Object.entries(data).forEach(([key, value]) =>
-          formData.append(key, key === 'is_active' ? (value ? '1' : '0') : String(value))
+          requestData.append(key, value === null || value === undefined ? '' : key === 'is_active' ? (value ? '1' : '0') : String(value))
         )
-        formData.append('_method', 'PUT')
-        formData.append('image_file', imageFile)
-        await api.post(`/admin/users/${user.id}`, formData, {
+        requestData.append('_method', 'PUT')
+        requestData.append('image_file', imageFile)
+        await api.post(`/admin/users/${user.id}`, requestData, {
           headers: { 'Content-Type': 'multipart/form-data' },
         })
       } else {
@@ -374,7 +498,8 @@ function EditUserForm({ user, roles, onClose, onSuccess }: any) {
       toast.error(
         (Array.isArray(firstError) ? firstError[0] : firstError) ||
           error?.response?.data?.message ||
-          'تعذر تحديث المستخدم'
+        error?.message ||
+        'تعذر تحديث المستخدم'
       )
     },
   })
@@ -386,6 +511,8 @@ function EditUserForm({ user, roles, onClose, onSuccess }: any) {
       username: formData.username.trim().toLowerCase(),
       role: formData.role,
       is_active: formData.is_active,
+      pay_account_id: formData.pay_account_id ? Number(formData.pay_account_id) : null,
+      vault_account_id: formData.vault_account_id ? Number(formData.vault_account_id) : null,
     }
     if (formData.password) payload.password = formData.password
     mutation.mutate(payload)
@@ -445,6 +572,15 @@ function EditUserForm({ user, roles, onClose, onSuccess }: any) {
           ))}
         </select>
       </div>
+      {isCashierRole(formData.role) && (
+        <CashierAccountSummary user={user} />
+      )}
+      <UserAccountFields
+        accounts={accounts}
+        cashier={isCashierRole(formData.role)}
+        formData={formData}
+        setFormData={setFormData}
+      />
       <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-200">
         <input
           type="checkbox"

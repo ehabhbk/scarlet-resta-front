@@ -1,8 +1,10 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { toast } from 'sonner'
 import { api } from '../../services/api'
 import { useSettingsStore, formatMoney } from '../../store/settingsStore'
-import { Search, Eye, XCircle } from 'lucide-react'
+import { useAuthStore } from '../../store/authStore'
+import { Search, Eye, XCircle, Trash2 } from 'lucide-react'
 import Input from '../../components/common/inputs/Input'
 import Card from '../../components/common/cards/Card'
 import DataTable from '../../components/common/tables/DataTable'
@@ -12,14 +14,26 @@ import Pagination from '../../components/common/Pagination'
 import { mediaUrl } from '../../store/settingsStore'
 
 export default function OrdersPage() {
-  const { symbol } = useSettingsStore()
+  const { symbol, paymentMethods, load } = useSettingsStore()
+  const user = useAuthStore((state) => state.user)
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('')
   const [page, setPage] = useState(1)
   const [selectedOrder, setSelectedOrder] = useState<any>(null)
   const [paymentAmount, setPaymentAmount] = useState('')
-  const [paymentMethod, setPaymentMethod] = useState('cash')
+  const [paymentMethod, setPaymentMethod] = useState('')
   const queryClient = useQueryClient()
+  const can = (permission: string) => user?.permissions?.includes(permission) ?? false
+
+  useEffect(() => {
+    void load()
+  }, [load])
+
+  useEffect(() => {
+    if (!paymentMethods.some((method) => method.value === paymentMethod)) {
+      setPaymentMethod(paymentMethods[0]?.value || '')
+    }
+  }, [paymentMethods, paymentMethod])
 
   const { data: ordersRes, isLoading } = useQuery({
     queryKey: ['orders', search, statusFilter, page],
@@ -61,6 +75,50 @@ export default function OrdersPage() {
     },
   })
 
+  const changePaymentMethodMutation = useMutation({
+    mutationFn: async ({ id, method }: { id: number; method: string }) => {
+      await api.put(`/orders/${id}`, { payment_method: method })
+    },
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['orders'] })
+      if (selectedOrder) {
+        const res = await api.get(`/orders/${selectedOrder.id}`)
+        setSelectedOrder(res.data?.data || res.data)
+      }
+    },
+    onError: (error: any) => {
+      toast.error(error?.response?.data?.message || 'تعذر تعديل طريقة الدفع')
+    },
+  })
+
+  const refundMutation = useMutation({
+    mutationFn: async (id: number) => {
+      await api.post(`/orders/${id}/refund`, { reason: 'استرداد من إدارة الطلبات' })
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['orders'] })
+      setSelectedOrder(null)
+      toast.success('تم استرداد المبلغ')
+    },
+    onError: (error: any) => {
+      toast.error(error?.response?.data?.message || 'تعذر استرداد الطلب')
+    },
+  })
+
+  const deleteMutation = useMutation({
+    mutationFn: async (id: number) => {
+      await api.delete(`/orders/${id}`)
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['orders'] })
+      setSelectedOrder(null)
+      toast.success('تم حذف الطلب')
+    },
+    onError: (error: any) => {
+      toast.error(error?.response?.data?.message || 'تعذر حذف الطلب')
+    },
+  })
+
   const statusColors: Record<string, 'default' | 'success' | 'warning' | 'danger' | 'info'> = {
     pending: 'warning',
     confirmed: 'info',
@@ -73,6 +131,7 @@ export default function OrdersPage() {
 
   const columns = [
     { key: 'order_number', header: 'رقم الطلب' },
+    { key: 'cashier', header: 'الكاشير', render: (item: any) => item.cashier?.name || '-' },
     { key: 'type', header: 'النوع', render: (item: any) => 
       item.type === 'dine_in' ? 'داخل المطعم' : item.type === 'takeaway' ? 'سفري' : 'توصيل'
     },
@@ -93,9 +152,14 @@ export default function OrdersPage() {
         <button onClick={() => setSelectedOrder(item)} className="p-1 text-blue-600 hover:bg-blue-50 rounded">
           <Eye className="w-4 h-4" />
         </button>
-        {!['completed', 'cancelled'].includes(item.status) && (
+        {can('cancel_orders') && !['completed', 'cancelled'].includes(item.status) && (
           <button onClick={() => cancelMutation.mutate({ id: item.id, reason: 'إلغاء من قبل الكاشير' })} className="p-1 text-red-600 hover:bg-red-50 rounded">
             <XCircle className="w-4 h-4" />
+          </button>
+        )}
+        {can('delete_orders') && (
+          <button onClick={() => deleteMutation.mutate(item.id)} className="p-1 text-red-700 hover:bg-red-50 rounded" title="حذف الطلب">
+            <Trash2 className="w-4 h-4" />
           </button>
         )}
       </div>
@@ -197,18 +261,20 @@ export default function OrdersPage() {
               <h3 className="font-semibold mb-2">تغيير الحالة</h3>
               <div className="flex flex-wrap gap-2">
                 {['confirmed','preparing','ready','served','completed'].map((s) => (
-                  <button
-                    key={s}
-                    onClick={() => statusMutation.mutate({ id: selectedOrder.id, status: s })}
-                    className="px-3 py-1 text-sm border border-gray-300 rounded-lg hover:bg-gray-100"
-                  >
-                    {s}
-                  </button>
-                ))}
+                    can('edit_orders') && (
+                      <button
+                        key={s}
+                        onClick={() => statusMutation.mutate({ id: selectedOrder.id, status: s })}
+                        className="px-3 py-1 text-sm border border-gray-300 rounded-lg hover:bg-gray-100"
+                      >
+                        {s}
+                      </button>
+                    )
+                  ))}
               </div>
             </div>
 
-            {selectedOrder.payment_status !== 'paid' && (
+            {can('edit_orders') && selectedOrder.payment_status !== 'paid' && (
               <div>
                 <h3 className="font-semibold mb-2">تسجيل دفعة</h3>
                 <div className="flex gap-2">
@@ -224,11 +290,12 @@ export default function OrdersPage() {
                     onChange={(e) => setPaymentMethod(e.target.value)}
                     className="px-3 py-2 border border-gray-300 rounded-lg"
                   >
-                    <option value="cash">نقدي</option>
-                    <option value="card">بطاقة</option>
-                    <option value="wallet">محفظة</option>
+                    {paymentMethods.map((method) => (
+                      <option key={method.value} value={method.value}>{method.label}</option>
+                    ))}
                   </select>
                   <button
+                    disabled={!paymentMethod || paymentMethods.length === 0}
                     onClick={() => paymentMutation.mutate({ id: selectedOrder.id, amount: Number(paymentAmount), method: paymentMethod })}
                     className="px-4 py-2 bg-primary text-white rounded-lg"
                   >
@@ -236,6 +303,39 @@ export default function OrdersPage() {
                   </button>
                 </div>
               </div>
+            )}
+            {can('edit_orders') && paymentMethods.length > 0 && selectedOrder.payment_status !== 'unpaid' && (
+              <div>
+                <h3 className="font-semibold mb-2">تغيير طريقة دفع الطلب</h3>
+                <div className="flex items-center gap-2">
+                  <select
+                    value={paymentMethod}
+                    onChange={(e) => setPaymentMethod(e.target.value)}
+                    className="flex-1 px-3 py-2 border border-gray-300 rounded-lg"
+                  >
+                    {paymentMethods.map((method) => (
+                      <option key={method.value} value={method.value}>{method.label}</option>
+                    ))}
+                  </select>
+                  <button
+                    disabled={!paymentMethod || paymentMethod === selectedOrder.payment_method || changePaymentMethodMutation.isPending}
+                    onClick={() => changePaymentMethodMutation.mutate({ id: selectedOrder.id, method: paymentMethod })}
+                    className="px-4 py-2 bg-primary text-white rounded-lg disabled:opacity-50"
+                  >
+                    حفظ الطريقة
+                  </button>
+                </div>
+                <p className="mt-1 text-xs text-gray-500">سيتم تحديث طريقة الدفعات المسجلة للطلب دون تغيير إجمالي المدفوع.</p>
+              </div>
+            )}
+            {can('refund_orders') && ['paid', 'partial'].includes(selectedOrder.payment_status) && (
+              <button
+                onClick={() => refundMutation.mutate(selectedOrder.id)}
+                disabled={refundMutation.isPending}
+                className="rounded-lg bg-amber-600 px-4 py-2 text-white disabled:opacity-50"
+              >
+                استرداد الطلب
+              </button>
             )}
           </div>
         )}
