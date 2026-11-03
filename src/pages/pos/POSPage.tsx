@@ -58,6 +58,8 @@ interface Receipt {
   paymentMethod: string
   paymentLabel: string
   tableId: number | null
+  tableName?: string
+  orderType: 'dine_in' | 'takeaway'
   orderNumber?: string
   customerName: string
   customerPhone: string
@@ -87,10 +89,12 @@ export default function POSPage() {
   const [selectedCategory, setSelectedCategory] = useState<number | null>(null)
   const [cart, setCart] = useState<CartItem[]>([])
   const [paymentMethod, setPaymentMethod] = useState('cash')
+  const [splitPayment, setSplitPayment] = useState(false)
+  const [splitPayments, setSplitPayments] = useState<{ method: string; amount: number }[]>([])
   const [discount, setDiscount] = useState(0)
   const [tableId, setTableId] = useState<number | null>(null)
   const [configuringProduct, setConfiguringProduct] = useState<any>(null)
-  const [lastReceipt, setLastReceipt] = useState<Receipt | null>(null)
+
   const [selectedSizeId, setSelectedSizeId] = useState<number | null>(null)
   const [selectedModifierOptionIds, setSelectedModifierOptionIds] = useState<number[]>([])
   const [productSearch, setProductSearch] = useState('')
@@ -400,8 +404,7 @@ export default function POSPage() {
     return [...known, ...extra].filter((method) => method.amount !== 0 || known.length <= 3)
   }, [paymentMethods, shiftRevenue.byPayment])
 
-  const paymentLabel =
-    paymentMethods.find((method) => method.value === paymentMethod)?.label || paymentMethod
+
 
   const cashRevenue = Number(shiftRevenue.byPayment.cash) || 0
   const expectedCash = Number(openShift?.opening_cash || 0) + cashRevenue
@@ -499,20 +502,39 @@ export default function POSPage() {
   })
 
   const createOrderMutation = useMutation({
-    mutationFn: async (orderData: any) => {
-      const res = await api.post('/orders', orderData)
+    mutationFn: async (payload: { orderData: any; payments: { method: string; amount: number }[] | null }) => {
+      const res = await api.post('/orders', payload.orderData)
+      const orderId = res?.data?.order?.id || res?.data?.id
+      if (payload.payments && payload.payments.length > 1 && orderId) {
+        for (const payment of payload.payments) {
+          if (Number(payment.amount) > 0) {
+            await api.post(`/orders/${orderId}/payment`, {
+              amount: Number(payment.amount),
+              method: payment.method,
+            })
+          }
+        }
+      }
       return res.data
     },
     onSuccess: (res) => {
+      const receiptPaymentLabel = splitPayment && splitPayments.length
+        ? splitPayments
+            .filter((p) => Number(p.amount) > 0)
+            .map((p) => `${paymentMethods.find((m) => m.value === p.method)?.label || p.method} ${Number(p.amount).toFixed(2)}`)
+            .join(' + ')
+        : paymentMethods.find((m) => m.value === paymentMethod)?.label || paymentMethod
       const receipt: Receipt = {
         cart: [...cart],
         subtotal,
         tax,
         total,
         discount,
-        paymentMethod,
-        paymentLabel,
+        paymentMethod: splitPayment && splitPayments.length ? splitPayments[0].method : paymentMethod,
+        paymentLabel: receiptPaymentLabel,
         tableId,
+        tableName: tables?.find((t: any) => Number(t.id) === Number(tableId))?.name,
+        orderType: tableId ? 'dine_in' : 'takeaway',
         orderNumber: res?.order?.order_number,
         customerName,
         customerPhone,
@@ -520,7 +542,6 @@ export default function POSPage() {
         date: new Date().toLocaleString('ar-EG'),
         cashier: user?.name || '-',
       }
-      setLastReceipt(receipt)
       setCart([])
       setDiscount(0)
       setTableId(null)
@@ -590,6 +611,44 @@ export default function POSPage() {
     } else {
       setCart([...cart, cartItem])
     }
+  }
+
+  const reprintOrder = (order: any) => {
+    const receipt: Receipt = {
+      cart: (order.items || []).map((it: any, index: number) => ({
+        product_id: it.product_id || it.product?.id || index,
+        name: it.product?.name || it.name || 'منتج',
+        image: it.product?.image,
+        price: Number(it.unit_price) || 0,
+        quantity: Number(it.quantity) || 1,
+        size_id: it.size_id || it.size?.id,
+        size_name: it.size?.name,
+        modifiers: (it.modifiers || []).map((m: any) => ({
+          modifier_id: m.modifier_id || m.modifier?.id,
+          modifier_option_id: m.modifier_option_id || m.id,
+          name: [m.modifier, m.option].filter(Boolean).join(': ') || m.name || '',
+          price_modifier: Number(m.price_modifier) || 0,
+        })),
+      })),
+      subtotal: Number(order.subtotal) || 0,
+      tax: Number(order.tax_amount) || 0,
+      total: Number(order.total_amount) || 0,
+      discount: Number(order.discount_amount) || 0,
+      paymentMethod: order.payment_method || 'cash',
+      paymentLabel: (order.payments || []).length
+        ? (order.payments as any[]).map((p: any) => `${p.method || p.method_name || ''} ${Number(p.amount).toFixed(2)}`).join(' + ')
+        : order.payment_method || '-',
+      tableId: order.table_id || null,
+      tableName: order.table?.name,
+      orderType: order.table_id ? 'dine_in' : 'takeaway',
+      orderNumber: order.order_number,
+      customerName: order.customer?.name || order.customer_name || '',
+      customerPhone: order.customer?.phone || order.customer_phone || '',
+      currency: currencySymbol,
+      date: order.created_at ? new Date(order.created_at).toLocaleString('ar-EG') : new Date().toLocaleString('ar-EG'),
+      cashier: order.cashier?.name || user?.name || '-',
+    }
+    printReceipt(receipt)
   }
 
   const openConfigurator = (product: any) => {
@@ -706,6 +765,7 @@ export default function POSPage() {
       <p>رقم الطلب: ${escapeHtml(receipt.orderNumber || '-')}</p>
       <p>التاريخ: ${escapeHtml(receipt.date)}</p>
       <p>الكاشير: ${escapeHtml(receipt.cashier)}</p>
+      <p>نوع الطلب: ${receipt.orderType === 'dine_in' ? 'داخلي' : 'سفري'}${receipt.orderType === 'dine_in' && receipt.tableName ? ` (طاولة ${escapeHtml(receipt.tableName)})` : ''}</p>
       ${receipt.customerName ? `<p>العميل: ${escapeHtml(receipt.customerName)}</p>` : ''}
       ${receipt.customerPhone ? `<p>الجوال: ${escapeHtml(receipt.customerPhone)}</p>` : ''}
       <hr/>
@@ -731,15 +791,30 @@ export default function POSPage() {
       return
     }
 
+    const payments = splitPayment
+      ? splitPayments.filter((p) => Number(p.amount) > 0)
+      : [{ method: paymentMethod, amount: total }]
+
+    if (payments.length === 0) {
+      toast.error('أدخل طريقة دفع واحدة على الأقل')
+      return
+    }
+
+    const paidSum = payments.reduce((sum, p) => sum + Number(p.amount), 0)
+    if (splitPayment && Math.abs(paidSum - total) > 0.01) {
+      toast.error('مجموع طرق الدفع يجب أن يساوي الإجمالي')
+      return
+    }
+
     const orderData = {
       shift_id: openShift.id,
       type: tableId ? 'dine_in' : 'takeaway',
       table_id: tableId,
       customer_name: customerName.trim() || undefined,
       customer_phone: customerPhone.trim() || undefined,
-      payment_method: paymentMethod,
+      payment_method: payments[0].method,
       discount_amount: discount,
-      amount_paid: total,
+      amount_paid: splitPayment ? 0 : total,
       notes: customerName
         ? `عميل: ${customerName}${customerPhone ? ` - ${customerPhone}` : ''}`
         : undefined,
@@ -755,7 +830,7 @@ export default function POSPage() {
       })),
     }
 
-    createOrderMutation.mutate(orderData)
+    createOrderMutation.mutate({ orderData, payments: splitPayment ? payments : null })
   }
 
   if (shiftsLoading) {
@@ -1083,28 +1158,97 @@ export default function POSPage() {
             </div>
           </div>
 
-          <div className="p-4 border-t border-gray-200 dark:border-gray-800">
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">
-              طريقة الدفع
-            </label>
-            <div className="relative">
-              <PaymentIcon
-                method={paymentMethod}
-                className="pointer-events-none absolute right-3 top-1/2 h-5 w-5 -translate-y-1/2 text-primary"
-              />
-              <select
-                value={paymentMethod}
-                onChange={(e) => setPaymentMethod(e.target.value)}
-                className="w-full appearance-none rounded-lg border border-gray-300 bg-white px-10 py-2.5 text-gray-900 focus:outline-none focus:ring-2 focus:ring-primary dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
+          <div className="p-4 border-t border-gray-200 dark:border-gray-800 space-y-3">
+            <div className="flex items-center justify-between">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-200">
+                طريقة الدفع
+              </label>
+              <button
+                type="button"
+                onClick={() => {
+                  if (!splitPayment) {
+                    setSplitPayments([{ method: paymentMethod, amount: total }])
+                  }
+                  setSplitPayment((prev) => !prev)
+                }}
+                className="text-xs text-primary hover:underline"
               >
-                {paymentMethods.map((method) => (
-                  <option key={method.value} value={method.value}>
-                    {method.label}
-                  </option>
-                ))}
-              </select>
-              <ChevronDown className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+                {splitPayment ? 'دفع بطريقة واحدة' : 'تقسيم الدفع'}
+              </button>
             </div>
+
+            {!splitPayment ? (
+              <div className="relative">
+                <PaymentIcon
+                  method={paymentMethod}
+                  className="pointer-events-none absolute right-3 top-1/2 h-5 w-5 -translate-y-1/2 text-primary"
+                />
+                <select
+                  value={paymentMethod}
+                  onChange={(e) => setPaymentMethod(e.target.value)}
+                  className="w-full appearance-none rounded-lg border border-gray-300 bg-white px-10 py-2.5 text-gray-900 focus:outline-none focus:ring-2 focus:ring-primary dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
+                >
+                  {paymentMethods.map((method) => (
+                    <option key={method.value} value={method.value}>
+                      {method.label}
+                    </option>
+                  ))}
+                </select>
+                <ChevronDown className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {splitPayments.map((payment, index) => (
+                  <div key={index} className="flex gap-2">
+                    <select
+                      value={payment.method}
+                      onChange={(e) => {
+                        const next = [...splitPayments]
+                        next[index] = { ...next[index], method: e.target.value }
+                        setSplitPayments(next)
+                      }}
+                      className="flex-1 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-900"
+                    >
+                      {paymentMethods.map((method) => (
+                        <option key={method.value} value={method.value}>
+                          {method.label}
+                        </option>
+                      ))}
+                    </select>
+                    <input
+                      type="number"
+                      min={0}
+                      step="0.01"
+                      value={payment.amount}
+                      onChange={(e) => {
+                        const next = [...splitPayments]
+                        next[index] = { ...next[index], amount: Number(e.target.value) || 0 }
+                        setSplitPayments(next)
+                      }}
+                      className="w-28 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-900"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setSplitPayments((prev) => prev.filter((_, i) => i !== index))}
+                      className="rounded-lg p-2 text-red-600 hover:bg-red-50"
+                      aria-label="حذف طريقة الدفع"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  </div>
+                ))}
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  onClick={() => setSplitPayments((prev) => [...prev, { method: paymentMethods[0]?.value || 'cash', amount: 0 }])}
+                >
+                  <Plus className="h-4 w-4" /> إضافة طريقة دفع
+                </Button>
+                <p className="text-xs text-gray-500">
+                  المجموع: {splitPayments.reduce((s, p) => s + Number(p.amount), 0).toFixed(2)} / {total.toFixed(2)}
+                </p>
+              </div>
+            )}
           </div>
 
           <div className="p-4 space-y-2">
@@ -1120,12 +1264,7 @@ export default function POSPage() {
                   ? 'جاري إنشاء الطلب...'
                   : 'إنشاء الطلب وطباعة الإيصال'}
             </Button>
-            {lastReceipt && (
-              <Button variant="secondary" className="w-full" onClick={() => printReceipt(lastReceipt)}>
-                <Printer className="w-4 h-4" />
-                إعادة طباعة الإيصال
-              </Button>
-            )}
+
           </div>
         </div>
       </div>
@@ -1343,6 +1482,9 @@ export default function POSPage() {
                   <div className="flex flex-wrap gap-2">
                     <Button size="sm" variant="secondary" onClick={() => setSelectedOrder(order)}>
                       <Eye className="h-4 w-4" /> التفاصيل
+                    </Button>
+                    <Button size="sm" variant="secondary" onClick={() => reprintOrder(order)}>
+                      <Printer className="h-4 w-4" /> إعادة طباعة
                     </Button>
                     {canEditOrders && order.status !== 'cancelled' && (
                       <Button size="sm" variant="secondary" onClick={() => loadOrderForEditing(order)}>
