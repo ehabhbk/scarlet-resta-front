@@ -17,6 +17,11 @@ export interface User {
   permissions?: string[]
   pay_account_id?: number | null
   vault_account_id?: number | null
+  kitchen_station_id?: number | null
+  kitchen_station?: {
+    id: number
+    name: string
+  } | null
   pay_account?: {
     id: number
     code: string

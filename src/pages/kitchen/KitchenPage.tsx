@@ -47,7 +47,11 @@ const elapsedMinutes = (createdAt: string) => {
 
 export default function KitchenPage() {
   const queryClient = useQueryClient()
-  const canUpdateKitchen = useAuthStore((state) => state.user?.permissions?.includes('update_kitchen_order') || false)
+  const user = useAuthStore((state) => state.user)
+  const permissions = user?.permissions || []
+  const canUpdateKitchen = permissions.includes('update_kitchen_order')
+  const stationOnly = permissions.includes('view_station_kitchen_orders')
+    && !permissions.includes('view_all_kitchen_orders')
   const [lastUpdated, setLastUpdated] = useState<Date>(new Date())
 
   const { data: kitchenOrders, isLoading, isFetching, refetch } = useQuery({
@@ -61,8 +65,11 @@ export default function KitchenPage() {
   })
 
   const updateStatusMutation = useMutation({
-    mutationFn: async ({ itemId, status }: { itemId: number; status: string }) => {
-      await api.post(`/kitchen/order-items/${itemId}/status`, { kitchen_status: status })
+    mutationFn: async ({ itemId, status, stationId }: { itemId: number; status: string; stationId?: number | null }) => {
+      await api.post(`/kitchen/order-items/${itemId}/status`, {
+        kitchen_status: status,
+        ...(stationId ? { station_id: stationId } : {}),
+      })
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['kitchen-orders'] })
@@ -185,9 +192,10 @@ export default function KitchenPage() {
           {orders.map((order: any) => {
             const minutes = elapsedMinutes(order.created_at)
             const urgent = minutes >= 20
-            const allReady =
+            const allReady = order.can_mark_served ?? (
               (order.items || []).length > 0 &&
               (order.items || []).every((item: any) => item.kitchen_status === 'ready')
+            )
 
             return (
               <Card
@@ -214,6 +222,22 @@ export default function KitchenPage() {
                           ? 'توصيل'
                           : 'سفري'}
                     </p>
+                    {order.stations?.length > 0 && (
+                      <div className="mt-2 flex flex-wrap gap-1">
+                        {order.stations.map((station: any) => (
+                          <span
+                            key={station.id}
+                            className="rounded-full border px-2 py-0.5 text-[11px] font-medium"
+                            style={{
+                              borderColor: station.color || '#d1d5db',
+                              color: station.color || '#6b7280',
+                            }}
+                          >
+                            {station.name}
+                          </span>
+                        ))}
+                      </div>
+                    )}
                   </div>
                   <div className="text-left">
                     <span
@@ -288,7 +312,11 @@ export default function KitchenPage() {
                           <Button
                             size="sm"
                             onClick={() =>
-                              updateStatusMutation.mutate({ itemId: item.id, status: 'preparing' })
+                              updateStatusMutation.mutate({
+                                itemId: item.id,
+                                status: 'preparing',
+                                stationId: stationOnly ? user?.kitchen_station_id : undefined,
+                              })
                             }
                             loading={updateStatusMutation.isPending}
                           >
@@ -299,7 +327,11 @@ export default function KitchenPage() {
                           <Button
                             size="sm"
                             onClick={() =>
-                              updateStatusMutation.mutate({ itemId: item.id, status: 'ready' })
+                              updateStatusMutation.mutate({
+                                itemId: item.id,
+                                status: 'ready',
+                                stationId: stationOnly ? user?.kitchen_station_id : undefined,
+                              })
                             }
                             loading={updateStatusMutation.isPending}
                           >

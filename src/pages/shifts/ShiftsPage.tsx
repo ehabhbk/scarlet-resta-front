@@ -16,11 +16,9 @@ export default function ShiftsPage() {
   const [showModal, setShowModal] = useState(false)
   const [closingShift, setClosingShift] = useState<any>(null)
   const [actualCash, setActualCash] = useState('')
-  const [paymentMethodsByEmployee, setPaymentMethodsByEmployee] = useState<Record<number, string>>({})
   const [page, setPage] = useState(1)
   const queryClient = useQueryClient()
   const user = useAuthStore((state) => state.user)
-  const { symbol, paymentMethods } = useSettingsStore()
 
   const { data: shiftsRes, isLoading } = useQuery({
     queryKey: ['shifts', page],
@@ -41,16 +39,9 @@ export default function ShiftsPage() {
   const closeMutation = useMutation({
     mutationFn: async () => {
       if (!closingShift) return
-      const employeePayments = closingShift.wage_disbursement_due
-        ? (closingShift.employees || []).map((employee: any) => ({
-        employee_id: Number(employee.id),
-        payment_method: paymentMethodsByEmployee[employee.id] || '',
-          }))
-        : []
       await api.put(`/shifts/${closingShift.id}`, {
         status: 'closed',
         actual_cash: Number(actualCash) || 0,
-        employee_payments: employeePayments,
       })
     },
     onSuccess: () => {
@@ -73,12 +64,9 @@ export default function ShiftsPage() {
         {s.status === 'open' && user?.permissions?.includes('close_shift') && (
           <button
             onClick={() => {
-              setClosingShift(s)
-              setActualCash(String(s.expected_cash || s.opening_cash || 0))
-              setPaymentMethodsByEmployee(Object.fromEntries(
-                (s.employees || []).map((employee: any) => [employee.id, paymentMethods[0]?.value || ''])
-              ))
-            }}
+                setClosingShift(s)
+                setActualCash(String(s.expected_cash || s.opening_cash || 0))
+              }}
             className="p-1 text-amber-600 hover:bg-amber-50 rounded"
             title="إغلاق الوردية"
           >
@@ -111,37 +99,11 @@ export default function ShiftsPage() {
       </Modal>
       <Modal isOpen={!!closingShift} onClose={() => setClosingShift(null)} title={`إغلاق وردية ${closingShift?.user?.name || ''}`}>
         <div className="space-y-4">
-          {closingShift?.wage_disbursement_due && (closingShift?.employees || []).map((employee: any) => (
-            <div key={employee.id} className="grid grid-cols-2 items-center gap-3">
-              <span>{employee.name} - {employee.pay_type === 'daily' ? formatMoney(employee.pay_rate, symbol) : `${employee.pay_rate}%`}</span>
-              <select
-                value={paymentMethodsByEmployee[employee.id] || ''}
-                onChange={(event) => setPaymentMethodsByEmployee((current) => ({ ...current, [employee.id]: event.target.value }))}
-                className="rounded-lg border border-gray-300 px-3 py-2"
-                required
-              >
-                <option value="">طريقة دفع الأجر</option>
-                {paymentMethods.map((method) => <option key={method.value} value={method.value}>{method.label}</option>)}
-              </select>
-            </div>
-          ))}
-          {(closingShift?.employees || []).length > 0 && !user?.permissions?.includes('pay_employee_wages') && (
-            <p className="text-sm text-red-600">لا تملك صلاحية دفع أجور الموظفين وإغلاق وردياتهم.</p>
-          )}
           <Input label="النقد الفعلي" type="number" min={0} value={actualCash} onChange={(event) => setActualCash(event.target.value)} />
           <div className="flex justify-end gap-3">
             <Button variant="secondary" onClick={() => setClosingShift(null)}>إلغاء</Button>
             <Button
               variant="danger"
-              disabled={
-                (closingShift?.employees || []).length > 0
-                && closingShift?.wage_disbursement_due
-                && (
-                  !user?.permissions?.includes('pay_employee_wages')
-                  || paymentMethods.length === 0
-                  || (closingShift?.employees || []).some((employee: any) => !paymentMethodsByEmployee[employee.id])
-                )
-              }
               loading={closeMutation.isPending}
               onClick={() => closeMutation.mutate()}
             >إغلاق الوردية</Button>

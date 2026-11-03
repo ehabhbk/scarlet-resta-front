@@ -50,6 +50,14 @@ export default function UsersPage() {
     },
   })
 
+  const { data: kitchenStations } = useQuery({
+    queryKey: ['admin-kitchen-stations'],
+    queryFn: async () => {
+      const res = await api.get('/admin/kitchen-stations')
+      return res.data.stations || []
+    },
+  })
+
   const deleteMutation = useMutation({
     mutationFn: async (id: number) => {
       await api.delete(`/admin/users/${id}`)
@@ -207,6 +215,7 @@ export default function UsersPage() {
         <UserForm
           roles={Array.isArray(roles) ? roles : roles?.data || []}
           accounts={accounts || []}
+          kitchenStations={kitchenStations || []}
           onClose={() => setShowModal(false)}
           onSuccess={() => {
             setShowModal(false)
@@ -224,6 +233,7 @@ export default function UsersPage() {
             user={editingUser}
             roles={Array.isArray(roles) ? roles : roles?.data || []}
             accounts={accounts || []}
+            kitchenStations={kitchenStations || []}
             onClose={() => setEditingUser(null)}
             onSuccess={() => {
               setEditingUser(null)
@@ -243,6 +253,11 @@ export default function UsersPage() {
 function isCashierRole(role: string) {
   const normalized = role.trim().toLowerCase().replace(/[\s_-]/g, '')
   return normalized.includes('cashier') || normalized.includes('كاشير')
+}
+
+function isChefRole(role: string) {
+  const normalized = role.trim().toLowerCase()
+  return normalized === 'chef' || normalized === 'شيف' || normalized === 'طباخ'
 }
 
 function CashierAccountsNotice() {
@@ -304,7 +319,7 @@ function CashierAccountSummary({ user }: { user: User }) {
   )
 }
 
-function UserForm({ roles, accounts, onClose, onSuccess }: any) {
+function UserForm({ roles, accounts, kitchenStations, onClose, onSuccess }: any) {
   const [formData, setFormData] = useState({
     name: '',
     username: '',
@@ -313,6 +328,7 @@ function UserForm({ roles, accounts, onClose, onSuccess }: any) {
     is_active: true,
     pay_account_id: '',
     vault_account_id: '',
+    kitchen_station_id: '',
   })
   const [imageFile, setImageFile] = useState<File | null>(null)
   const [imagePreview, setImagePreview] = useState('')
@@ -361,6 +377,9 @@ function UserForm({ roles, accounts, onClose, onSuccess }: any) {
       username: formData.username.trim().toLowerCase(),
       pay_account_id: formData.pay_account_id ? Number(formData.pay_account_id) : null,
       vault_account_id: formData.vault_account_id ? Number(formData.vault_account_id) : null,
+      kitchen_station_id: isChefRole(formData.role) && formData.kitchen_station_id
+        ? Number(formData.kitchen_station_id)
+        : null,
     })
   }
 
@@ -421,6 +440,13 @@ function UserForm({ roles, accounts, onClose, onSuccess }: any) {
           ))}
         </select>
       </div>
+      {isChefRole(formData.role) && (
+        <KitchenStationField
+          stations={kitchenStations}
+          value={formData.kitchen_station_id}
+          onChange={(value: string) => setFormData({ ...formData, kitchen_station_id: value })}
+        />
+      )}
       {isCashierRole(formData.role) && (
         <CashierAccountsNotice />
       )}
@@ -451,7 +477,7 @@ function UserForm({ roles, accounts, onClose, onSuccess }: any) {
   )
 }
 
-function EditUserForm({ user, roles, accounts, onClose, onSuccess }: any) {
+function EditUserForm({ user, roles, accounts, kitchenStations, onClose, onSuccess }: any) {
   const [formData, setFormData] = useState({
     name: user.name || '',
     username: user.username || '',
@@ -460,6 +486,7 @@ function EditUserForm({ user, roles, accounts, onClose, onSuccess }: any) {
     is_active: user.is_active ?? true,
     pay_account_id: user.pay_account_id ? String(user.pay_account_id) : '',
     vault_account_id: user.vault_account_id ? String(user.vault_account_id) : '',
+    kitchen_station_id: user.kitchen_station_id ? String(user.kitchen_station_id) : '',
   })
   const [imageFile, setImageFile] = useState<File | null>(null)
   const [imagePreview, setImagePreview] = useState(
@@ -513,6 +540,9 @@ function EditUserForm({ user, roles, accounts, onClose, onSuccess }: any) {
       is_active: formData.is_active,
       pay_account_id: formData.pay_account_id ? Number(formData.pay_account_id) : null,
       vault_account_id: formData.vault_account_id ? Number(formData.vault_account_id) : null,
+      kitchen_station_id: isChefRole(formData.role) && formData.kitchen_station_id
+        ? Number(formData.kitchen_station_id)
+        : null,
     }
     if (formData.password) payload.password = formData.password
     mutation.mutate(payload)
@@ -572,6 +602,13 @@ function EditUserForm({ user, roles, accounts, onClose, onSuccess }: any) {
           ))}
         </select>
       </div>
+      {isChefRole(formData.role) && (
+        <KitchenStationField
+          stations={kitchenStations}
+          value={formData.kitchen_station_id}
+          onChange={(value: string) => setFormData({ ...formData, kitchen_station_id: value })}
+        />
+      )}
       {isCashierRole(formData.role) && (
         <CashierAccountSummary user={user} />
       )}
@@ -599,5 +636,28 @@ function EditUserForm({ user, roles, accounts, onClose, onSuccess }: any) {
         </Button>
       </div>
     </form>
+  )
+}
+
+function KitchenStationField({ stations, value, onChange }: any) {
+  return (
+    <div>
+      <label className="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-200">
+        محطة المطبخ
+      </label>
+      <select
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        className="w-full rounded-lg border border-gray-300 bg-white px-4 py-2 dark:border-gray-700 dark:bg-gray-900"
+        required
+      >
+        <option value="">اختر محطة المطبخ</option>
+        {stations.map((station: any) => (
+          <option key={station.id} value={station.id}>
+            {station.display_name || station.name}
+          </option>
+        ))}
+      </select>
+    </div>
   )
 }

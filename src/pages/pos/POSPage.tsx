@@ -102,6 +102,7 @@ export default function POSPage() {
   const [customerPhone, setCustomerPhone] = useState('')
   const [showShiftModal, setShowShiftModal] = useState(false)
   const [showCloseModal, setShowCloseModal] = useState(false)
+  const [showEmployeeWagesModal, setShowEmployeeWagesModal] = useState(false)
   const [showOrdersModal, setShowOrdersModal] = useState(false)
   const [selectedOrder, setSelectedOrder] = useState<any>(null)
   const [editingOrder, setEditingOrder] = useState<any>(null)
@@ -110,7 +111,7 @@ export default function POSPage() {
   const [actualCash, setActualCash] = useState(0)
   const [openingCash, setOpeningCash] = useState(0)
   const [shiftEmployeeIds, setShiftEmployeeIds] = useState<number[]>([])
-  const [employeePaymentMethods, setEmployeePaymentMethods] = useState<Record<number, string>>({})
+  const [wagePaymentMethods, setWagePaymentMethods] = useState<Record<number, string>>({})
   const [shiftNow, setShiftNow] = useState(new Date())
   const [refundOrderTarget, setRefundOrderTarget] = useState<any>(null)
   const [refundAmount, setRefundAmount] = useState(0)
@@ -158,11 +159,11 @@ export default function POSPage() {
 
   const openShift = shiftData?.shift
   const can = (permission: string) => user?.permissions?.includes(permission) ?? false
-  const shiftEmployees = shiftData?.wage_disbursement_due && openShift?.employees?.length
-    ? openShift.employees
-    : shiftData?.wage_disbursement_due && openShift?.employee
-      ? [openShift.employee]
-      : []
+  const { data: employeeWagesData, isLoading: employeeWagesLoading } = useQuery({
+    queryKey: ['employee-wages', openShift?.id],
+    queryFn: async () => (await api.get(`/shifts/${openShift.id}/employee-wages`)).data,
+    enabled: showEmployeeWagesModal && !!openShift?.id && can('pay_employee_wages'),
+  })
 
   const {
     data: shiftOptions,
@@ -492,6 +493,22 @@ export default function POSPage() {
     },
   })
 
+  const payEmployeeWageMutation = useMutation({
+    mutationFn: async ({ employeeId, paymentMethod }: { employeeId: number; paymentMethod: string }) => {
+      if (!openShift?.id) throw new Error('لا توجد وردية مفتوحة')
+      return (await api.post(`/shifts/${openShift.id}/employee-wages`, {
+        employee_id: employeeId,
+        payment_method: paymentMethod,
+      })).data
+    },
+    onSuccess: async (response) => {
+      await queryClient.invalidateQueries({ queryKey: ['employee-wages', openShift?.id] })
+      await queryClient.invalidateQueries({ queryKey: ['shifts-current'] })
+      toast.success(response?.message || 'تم دفع أجر الموظف')
+    },
+    onError: (error: any) => toast.error(error?.response?.data?.message || 'تعذر دفع أجر الموظف'),
+  })
+
   const handleOpenShift = async () => {
     if (can('manage_shift_employees') && shiftOptionsError) {
       const result = await refetchShiftOptions()
@@ -512,14 +529,6 @@ export default function POSPage() {
   const handleShiftButton = () => {
     if (openShift) {
       setActualCash(expectedCash)
-      setEmployeePaymentMethods(
-        Object.fromEntries(
-          shiftEmployees.map((employee: any) => [
-            employee.id,
-            employee.pivot?.payment_method || paymentMethods[0]?.value || '',
-          ])
-        )
-      )
       setShowCloseModal(true)
       return
     }
@@ -530,12 +539,11 @@ export default function POSPage() {
   }
 
   const closeShiftMutation = useMutation({
-    mutationFn: async ({ cash, employeePayments }: { cash: number; employeePayments: { employee_id: number; payment_method: string }[] }) => {
+    mutationFn: async (cash: number) => {
       if (!openShift?.id) return
       const res = await api.put(`/shifts/${openShift.id}`, {
         status: 'closed',
         actual_cash: cash,
-        employee_payments: employeePayments,
       })
       return res.data
     },
@@ -984,6 +992,12 @@ export default function POSPage() {
             {can('view_orders') && (
               <Button variant="secondary" size="sm" onClick={() => setShowOrdersModal(true)}>
                 الطلبات
+              </Button>
+            )}
+            {can('pay_employee_wages') && openShift && (
+              <Button variant="secondary" size="sm" onClick={() => setShowEmployeeWagesModal(true)}>
+                <Wallet className="w-4 h-4" />
+                أجر الموظفين
               </Button>
             )}
             {((openShift && can('close_shift')) || (!openShift && can('open_shift'))) && (
@@ -1555,32 +1569,6 @@ export default function POSPage() {
 
       <Modal isOpen={showCloseModal} onClose={() => setShowCloseModal(false)} title="إغلاق الوردية">
         <div className="space-y-4">
-          {shiftEmployees.map((employee: any) => (
-            <div key={employee.id} className="grid grid-cols-2 items-center gap-3 rounded-lg border border-gray-200 p-3 dark:border-gray-700">
-              <div>
-                <p className="font-medium">{employee.name}</p>
-                <p className="text-xs text-gray-500">
-                  {employee.pay_type === 'daily'
-                    ? `يومية ${formatMoney(employee.pay_rate, currencySymbol)}`
-                    : `نسبة ${employee.pay_rate}% = ${formatMoney(shiftRevenue.total * Number(employee.pay_rate) / 100, currencySymbol)}`}
-                </p>
-              </div>
-              {can('pay_employee_wages') ? <select
-                aria-label={`طريقة دفع أجر ${employee.name}`}
-                value={employeePaymentMethods[employee.id] || ''}
-                onChange={(event) => setEmployeePaymentMethods((current) => ({ ...current, [employee.id]: event.target.value }))}
-                className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-900"
-                required
-              >
-                <option value="">اختر طريقة دفع الأجر</option>
-                {paymentMethods.map((method) => (
-                  <option key={method.value} value={method.value}>
-                    {method.label}{method.account_id ? '' : ' (الحساب غير مربوط)'}
-                  </option>
-                ))}
-              </select> : <p className="text-sm text-gray-500">طريقة الدفع يحددها مستخدم مخوّل بإدارة أجور الموظفين.</p>}
-            </div>
-          ))}
           {can('view_pos') && <div className="rounded-lg border border-blue-100 bg-blue-50 p-3 text-sm dark:border-blue-900 dark:bg-blue-950/30">
             <p className="font-semibold text-blue-900 dark:text-blue-200">
               حساب التوريد: {user?.vault_account?.name || 'الخزنة الفرعية للكاشير'}
@@ -1626,23 +1614,63 @@ export default function POSPage() {
             </Button>
             <Button
               variant="danger"
-              disabled={shiftEmployees.length > 0 && (
-                !can('pay_employee_wages')
-                || paymentMethods.length === 0
-                || shiftEmployees.some((employee: any) => !employeePaymentMethods[employee.id])
-              )}
-              onClick={() => closeShiftMutation.mutate({
-                cash: actualCash,
-                employeePayments: shiftEmployees.map((employee: any) => ({
-                  employee_id: Number(employee.id),
-                  payment_method: employeePaymentMethods[employee.id] || '',
-                })),
-              })}
+              onClick={() => closeShiftMutation.mutate(actualCash)}
               loading={closeShiftMutation.isPending}
             >
               إغلاق الوردية
             </Button>
           </div>
+        </div>
+      </Modal>
+
+      <Modal
+        isOpen={showEmployeeWagesModal}
+        onClose={() => setShowEmployeeWagesModal(false)}
+        title="دفع أجور الموظفين"
+        size="lg"
+      >
+        <div className="space-y-4">
+          {!openShift && <p className="text-sm text-amber-700">افتح وردية لعرض موظفيها المستحقين للأجر.</p>}
+          {openShift && employeeWagesLoading && <p className="text-sm text-gray-500">جارٍ تحميل أجور الموظفين...</p>}
+          {openShift && !employeeWagesLoading && !(employeeWagesData?.employees || []).length && (
+            <p className="text-sm text-gray-500">لا توجد أجور غير مدفوعة لموظفي هذه الوردية.</p>
+          )}
+          {(employeeWagesData?.employees || []).map((employee: any) => (
+            <div key={employee.id} className="grid gap-3 rounded-lg border border-gray-200 p-3 sm:grid-cols-[1fr_auto_auto] sm:items-center dark:border-gray-700">
+              <div>
+                <p className="font-medium">{employee.name}</p>
+                <p className="text-xs text-gray-500">
+                  {employee.pay_type === 'daily'
+                    ? `يومية ${formatMoney(employee.amount, currencySymbol)}`
+                    : `نسبة ${employee.pay_rate}% — ${formatMoney(employee.amount, currencySymbol)}`}
+                </p>
+              </div>
+              <select
+                aria-label={`طريقة دفع أجر ${employee.name}`}
+                value={wagePaymentMethods[employee.id] || employee.payment_method || paymentMethods[0]?.value || ''}
+                onChange={(event) => setWagePaymentMethods((current) => ({ ...current, [employee.id]: event.target.value }))}
+                className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-900"
+                required
+              >
+                <option value="">اختر طريقة الدفع</option>
+                {paymentMethods.map((method) => (
+                  <option key={method.value} value={method.value} disabled={!method.account_id}>
+                    {method.label}{method.account_id ? '' : ' (الحساب غير مربوط)'}
+                  </option>
+                ))}
+              </select>
+              <Button
+                disabled={!paymentMethods.find((method) => method.value === (wagePaymentMethods[employee.id] || employee.payment_method || paymentMethods[0]?.value))?.account_id}
+                loading={payEmployeeWageMutation.isPending && payEmployeeWageMutation.variables?.employeeId === employee.id}
+                onClick={() => payEmployeeWageMutation.mutate({
+                  employeeId: Number(employee.id),
+                  paymentMethod: wagePaymentMethods[employee.id] || employee.payment_method || paymentMethods[0]?.value || '',
+                })}
+              >
+                دفع
+              </Button>
+            </div>
+          ))}
         </div>
       </Modal>
 

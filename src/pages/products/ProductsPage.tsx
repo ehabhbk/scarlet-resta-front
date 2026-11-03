@@ -49,6 +49,14 @@ export default function ProductsPage() {
     },
   })
 
+  const { data: kitchenStations } = useQuery({
+    queryKey: ['kitchen-stations'],
+    queryFn: async () => {
+      const res = await api.get('/products/kitchen-stations')
+      return res.data.stations || []
+    },
+  })
+
   const deleteMutation = useMutation({
     mutationFn: async (id: number) => {
       await api.delete(`/products/${id}`)
@@ -158,6 +166,7 @@ export default function ProductsPage() {
         <ProductForm
           product={editingProduct}
           categories={categories || []}
+          kitchenStations={kitchenStations || []}
           onClose={() => setShowModal(false)}
           onSuccess={() => {
             setShowModal(false)
@@ -177,10 +186,11 @@ export default function ProductsPage() {
   )
 }
 
-function ProductForm({ product, categories, onClose, onSuccess }: any) {
+function ProductForm({ product, categories, kitchenStations, onClose, onSuccess }: any) {
   const [formData, setFormData] = useState({
     name: product?.name || '',
     category_id: product?.category_id || '',
+    kitchen_station_id: product?.kitchen_station_id ? String(product.kitchen_station_id) : '',
     sale_price: product?.sale_price || '',
     cost_price: product?.cost_price || '',
     current_stock: product?.current_stock || 0,
@@ -200,6 +210,7 @@ function ProductForm({ product, categories, onClose, onSuccess }: any) {
       const data = new FormData()
       data.append('name', formData.name)
       data.append('category_id', String(formData.category_id))
+      data.append('kitchen_station_id', formData.kitchen_station_id)
       data.append('sale_price', String(formData.sale_price))
       data.append('cost_price', String(formData.cost_price))
       data.append('current_stock', String(formData.current_stock))
@@ -254,6 +265,21 @@ function ProductForm({ product, categories, onClose, onSuccess }: any) {
           <option value="">بدون قسم</option>
           {categories.map((category: any) => (
             <option key={category.id} value={category.id}>{category.name}</option>
+          ))}
+        </select>
+      </div>
+      <div>
+        <label className="mb-1 block text-sm font-medium">محطة المطبخ</label>
+        <select
+          value={formData.kitchen_station_id}
+          onChange={(e) => setFormData({ ...formData, kitchen_station_id: e.target.value })}
+          className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2"
+        >
+          <option value="">بدون محطة</option>
+          {kitchenStations.map((station: any) => (
+            <option key={station.id} value={station.id}>
+              {station.display_name || station.name}
+            </option>
           ))}
         </select>
       </div>
