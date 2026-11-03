@@ -8,12 +8,16 @@ import {
   Package,
   BookOpen,
   Truck,
-  Receipt,
-  Calendar,
   Activity,
   Bell,
-  MapPin,
   Tag,
+  DollarSign,
+  Receipt,
+  Landmark,
+  FileText,
+  Book,
+  List,
+  TrendingUp,
 } from 'lucide-react'
 import { useLangStore } from '../store/langStore'
 import { useSettingsStore, mediaUrl } from '../store/settingsStore'
@@ -59,19 +63,9 @@ export default function Sidebar({ open }: SidebarProps) {
       ],
     },
     {
-      icon: Receipt,
-      label: 'الطلبات',
-      path: '/orders',
-      children: [{ label: 'الورديات', path: '/shifts', icon: Calendar }],
-    },
-    {
       icon: Table,
       label: t('tables', lang),
       path: '/tables',
-      children: [
-        { label: 'المناطق', path: '/areas', icon: MapPin },
-        { label: 'محطات المطبخ', path: '/kitchen-stations', icon: ChefHat },
-      ],
     },
     { icon: ChefHat, label: t('kitchen', lang), path: '/kitchen' },
     {
@@ -81,6 +75,19 @@ export default function Sidebar({ open }: SidebarProps) {
       children: [
         { label: 'حركات المخزون', path: '/stock-movements', icon: Activity },
         { label: 'المشتريات', path: '/purchases', icon: Truck },
+      ],
+    },
+    {
+      icon: DollarSign,
+      label: 'المالية',
+      path: '/finance',
+      children: [
+        { label: 'شجرة الحسابات', path: '/finance/chart-of-accounts', icon: List },
+        { label: 'قيود اليومية', path: '/finance/journal-entries', icon: FileText },
+        { label: 'دفتر الاستاذ', path: '/finance/ledger', icon: Book },
+        { label: 'قائمة الدخل', path: '/finance/income-statement', icon: TrendingUp },
+        { label: 'الميزانية العمومية', path: '/finance/balance-sheet', icon: Landmark },
+        { label: 'المصروفات', path: '/expenses', icon: Receipt },
       ],
     },
   ]

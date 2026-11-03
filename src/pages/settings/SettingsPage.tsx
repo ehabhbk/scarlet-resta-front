@@ -4,6 +4,7 @@ import { toast } from 'sonner'
 import {
   Save,
   Settings as SettingsIcon,
+  ChefHat,
   DollarSign,
   FileText,
   Printer,
@@ -29,6 +30,8 @@ import {
 import Card from '../../components/common/cards/Card'
 import Button from '../../components/common/buttons/Button'
 import TablesManagementPanel from './TablesManagementPanel'
+import AreasManagementPanel from './AreasManagementPanel'
+import KitchenStationsManagementPanel from './KitchenStationsManagementPanel'
 import Input from '../../components/common/inputs/Input'
 import Modal from '../../components/common/modals/Modal'
 
@@ -96,6 +99,7 @@ const TABS = [
   { id: 'users', label: 'المستخدمون', icon: Users },
   { id: 'roles', label: 'الأدوار والصلاحيات', icon: Shield },
   { id: 'tables', label: 'الطاولات', icon: Table },
+  { id: 'kitchen', label: 'المطبخ', icon: ChefHat },
 ] as const
 
 type TabId = (typeof TABS)[number]['id']
@@ -870,7 +874,13 @@ export default function SettingsPage() {
       )}
 
       {activeTab === 'roles' && <RolesPermissionsPanel />}
-      {activeTab === 'tables' && <TablesManagementPanel />}
+      {activeTab === 'tables' && (
+        <>
+          <TablesManagementPanel />
+          <AreasManagementPanel />
+        </>
+      )}
+      {activeTab === 'kitchen' && <KitchenStationsManagementPanel />}
     </div>
   )
 }

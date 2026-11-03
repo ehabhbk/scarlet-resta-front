@@ -15,6 +15,11 @@ import InventoryPage from './pages/inventory/InventoryPage'
 import CustomersPage from './pages/customers/CustomersPage'
 import EmployeesPage from './pages/employees/EmployeesPage'
 import FinancePage from './pages/finance/FinancePage'
+import ChartOfAccountsPage from './pages/finance/ChartOfAccountsPage'
+import IncomeStatementPage from './pages/finance/IncomeStatementPage'
+import BalanceSheetPage from './pages/finance/BalanceSheetPage'
+import LedgerPage from './pages/finance/LedgerPage'
+import JournalEntriesPage from './pages/finance/JournalEntriesPage'
 import ReportsPage from './pages/reports/ReportsPage'
 import SettingsPage from './pages/settings/SettingsPage'
 import RecipesPage from './pages/recipes/RecipesPage'
@@ -149,6 +154,11 @@ function App() {
               <Navigate to="/login" />
             )
           } />
+          <Route path="/finance/chart-of-accounts" element={isAuthenticated ? (<MainLayout><ChartOfAccountsPage /></MainLayout>) : (<Navigate to="/login" />)} />
+          <Route path="/finance/income-statement" element={isAuthenticated ? (<MainLayout><IncomeStatementPage /></MainLayout>) : (<Navigate to="/login" />)} />
+          <Route path="/finance/balance-sheet" element={isAuthenticated ? (<MainLayout><BalanceSheetPage /></MainLayout>) : (<Navigate to="/login" />)} />
+          <Route path="/finance/ledger" element={isAuthenticated ? (<MainLayout><LedgerPage /></MainLayout>) : (<Navigate to="/login" />)} />
+          <Route path="/finance/journal-entries" element={isAuthenticated ? (<MainLayout><JournalEntriesPage /></MainLayout>) : (<Navigate to="/login" />)} />
           <Route path="/reports" element={
             isAuthenticated ? (
               <MainLayout>
