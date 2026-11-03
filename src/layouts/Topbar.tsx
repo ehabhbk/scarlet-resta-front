@@ -1,4 +1,4 @@
-import { Bell, Moon, Sun, Search, ChevronDown, LogOut, Settings, User as UserIcon, BarChart3, Users } from 'lucide-react'
+import { Bell, Moon, Sun, Search, ChevronDown, LogOut, Settings, BarChart3, Users } from 'lucide-react'
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
@@ -185,14 +185,14 @@ export default function Topbar() {
                   </p>
                 </div>
 
-                {canSettings && (
+                {canUsers && (
                   <button
                     type="button"
-                    onClick={() => { setMenuOpen(false); navigate('/settings') }}
+                    onClick={() => { setMenuOpen(false); navigate('/users') }}
                     className="flex w-full items-center gap-3 px-4 py-3 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800"
                   >
-                    <Settings className="w-4 h-4" />
-                    الإعدادات
+                    <Users className="w-4 h-4" />
+                    المستخدمون
                   </button>
                 )}
 
@@ -207,25 +207,16 @@ export default function Topbar() {
                   </button>
                 )}
 
-                {canUsers && (
+                {canSettings && (
                   <button
                     type="button"
-                    onClick={() => { setMenuOpen(false); navigate('/users') }}
+                    onClick={() => { setMenuOpen(false); navigate('/settings') }}
                     className="flex w-full items-center gap-3 px-4 py-3 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800"
                   >
-                    <Users className="w-4 h-4" />
-                    المستخدمون
+                    <Settings className="w-4 h-4" />
+                    الإعدادات
                   </button>
                 )}
-
-                <button
-                  type="button"
-                  onClick={() => { setMenuOpen(false); navigate('/users') }}
-                  className="flex w-full items-center gap-3 px-4 py-3 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800"
-                >
-                  <UserIcon className="w-4 h-4" />
-                  الملف الشخصي
-                </button>
 
                 <div className="border-t border-gray-100 dark:border-gray-800">
                   <button

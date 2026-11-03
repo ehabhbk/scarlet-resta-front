@@ -141,6 +141,13 @@ export default function SettingsPage() {
   const [currencyDraft, setCurrencyDraft] = useState<CurrencyOption>(EMPTY_CURRENCY)
   const [editingCurrency, setEditingCurrency] = useState<string | null>(null)
   const [paymentDraft, setPaymentDraft] = useState<PaymentMethod>(EMPTY_PAYMENT)
+  const { data: accountsList } = useQuery({
+    queryKey: ['settings-accounts'],
+    queryFn: async () => {
+      const res = await api.get('/accounts')
+      return res.data?.accounts || []
+    },
+  })
   const [editingPayment, setEditingPayment] = useState<string | null>(null)
   const [savingList, setSavingList] = useState<string | null>(null)
   const fileInputRef = useRef<HTMLInputElement | null>(null)
@@ -369,14 +376,14 @@ export default function SettingsPage() {
     let next: PaymentMethod[]
     if (editingPayment) {
       next = paymentMethods.map((method) =>
-        method.value === editingPayment ? { value, label } : method
+        method.value === editingPayment ? { value, label, account_id: paymentDraft.account_id } : method
       )
     } else {
       if (paymentMethods.some((method) => method.value === value)) {
         toast.error('طريقة الدفع موجودة مسبقاً')
         return
       }
-      next = [...paymentMethods, { value, label }]
+      next = [...paymentMethods, { value, label, account_id: paymentDraft.account_id }]
     }
 
     await persistPaymentMethods(next)
@@ -720,7 +727,20 @@ export default function SettingsPage() {
                 onChange={(e) => setPaymentDraft({ ...paymentDraft, value: e.target.value })}
                 hint="حروف إنجليزية بدون مسافات"
               />
-              <div className="flex gap-2 md:col-span-2">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">حساب الربط</label>
+                <select
+                  value={paymentDraft.account_id || ''}
+                  onChange={(e) => setPaymentDraft({ ...paymentDraft, account_id: e.target.value ? Number(e.target.value) : undefined })}
+                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100 rounded-lg"
+                >
+                  <option value="">بدون ربط</option>
+                  {(accountsList || []).map((a: any) => (
+                    <option key={a.id} value={a.id}>{a.code} - {a.name}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="flex gap-2 md:col-span-1">
                 <Button type="submit" loading={savingList === 'payments'} className="flex-1">
                   <Plus className="w-4 h-4" />
                   {editingPayment ? 'تحديث طريقة الدفع' : 'إضافة طريقة دفع'}
@@ -885,6 +905,70 @@ export default function SettingsPage() {
   )
 }
 
+const PERMISSION_LABELS: Record<string, string> = {
+  view_dashboard: 'عرض لوحة التحكم',
+  view_products: 'عرض المنتجات',
+  create_products: 'إضافة منتج',
+  edit_products: 'تعديل منتج',
+  delete_products: 'حذف منتج',
+  view_categories: 'عرض التصنيفات',
+  create_categories: 'إضافة تصنيف',
+  edit_categories: 'تعديل تصنيف',
+  delete_categories: 'حذف تصنيف',
+  view_recipes: 'عرض الوصفات',
+  create_recipes: 'إضافة وصفة',
+  edit_recipes: 'تعديل وصفة',
+  delete_recipes: 'حذف وصفة',
+  view_orders: 'عرض الطلبات',
+  create_orders: 'إنشاء طلب',
+  edit_orders: 'تعديل طلب',
+  cancel_orders: 'إلغاء طلب',
+  delete_orders: 'حذف طلب',
+  view_tables: 'عرض الطاولات',
+  create_tables: 'إضافة طاولة',
+  edit_tables: 'تعديل طاولة',
+  delete_tables: 'حذف طاولة',
+  view_kitchen: 'عرض المطبخ',
+  update_kitchen_order: 'تحديث حالة طلب المطبخ',
+  view_inventory: 'عرض المخزون',
+  create_inventory: 'إضافة صنف مخزون',
+  edit_inventory: 'تعديل صنف مخزون',
+  delete_inventory: 'حذف صنف مخزون',
+  view_customers: 'عرض العملاء',
+  create_customers: 'إضافة عميل',
+  edit_customers: 'تعديل عميل',
+  view_employees: 'عرض الموظفين',
+  create_employees: 'إضافة موظف',
+  edit_employees: 'تعديل موظف',
+  delete_employees: 'حذف موظف',
+  view_finance: 'عرض المالية',
+  view_purchases: 'عرض المشتريات',
+  create_purchases: 'إضافة مشتريات',
+  edit_purchases: 'تعديل مشتريات',
+  view_reports: 'عرض التقارير',
+  export_reports: 'تصدير التقارير',
+  view_settings: 'عرض الإعدادات',
+  edit_settings: 'تعديل الإعدادات',
+  view_users: 'عرض المستخدمين',
+  create_users: 'إضافة مستخدم',
+  edit_users: 'تعديل مستخدم',
+  delete_users: 'حذف مستخدم',
+  view_roles: 'عرض الأدوار',
+  create_roles: 'إضافة دور',
+  edit_roles: 'تعديل دور',
+  delete_roles: 'حذف دور',
+  view_payments: 'عرض المدفوعات',
+  view_suppliers: 'عرض الموردين',
+  create_suppliers: 'إضافة مورد',
+  edit_suppliers: 'تعديل مورد',
+  delete_suppliers: 'حذف مورد',
+  close_shift: 'إغلاق وردية',
+}
+
+function permissionLabel(name: string) {
+  return PERMISSION_LABELS[name] || name
+}
+
 function RolesPermissionsPanel() {
   const queryClient = useQueryClient()
   const [newRoleName, setNewRoleName] = useState('')
@@ -1024,7 +1108,7 @@ function RolesPermissionsPanel() {
                     onChange={() => togglePerm(p.name)}
                     className="rounded border-gray-300"
                   />
-                  <span className="text-sm text-gray-700 dark:text-gray-200">{p.name}</span>
+                  <span className="text-sm text-gray-700 dark:text-gray-200">{permissionLabel(p.name)}</span>
                 </label>
               ))}
             </div>

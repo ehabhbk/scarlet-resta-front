@@ -221,6 +221,45 @@ export default function ReportsPage() {
 
   const report = REPORTS.find((item) => item.id === reportType) || REPORTS[0]
 
+  const [mode, setMode] = useState<'reports' | 'shift'>('reports')
+  const [selectedShiftId, setSelectedShiftId] = useState<number | null>(null)
+
+  const { data: shiftsData } = useQuery({
+    queryKey: ['shifts-list-report'],
+    queryFn: async () => {
+      const res = await api.get('/shifts', { params: { per_page: 100 } })
+      return res.data?.data || res.data || []
+    },
+    enabled: mode === 'shift',
+  })
+
+  const { data: shiftDetail } = useQuery({
+    queryKey: ['shift-detail-report', selectedShiftId],
+    queryFn: async () => {
+      const res = await api.get(`/shifts/${selectedShiftId}`)
+      return res.data?.shift || res.data?.data || res.data
+    },
+    enabled: mode === 'shift' && !!selectedShiftId,
+  })
+
+  const { data: shiftOrdersData } = useQuery({
+    queryKey: ['shift-orders-report', selectedShiftId],
+    queryFn: async () => {
+      const res = await api.get('/orders', { params: { shift_id: selectedShiftId, per_page: 100 } })
+      const payload = res.data
+      return Array.isArray(payload?.data) ? payload.data : Array.isArray(payload) ? payload : []
+    },
+    enabled: mode === 'shift' && !!selectedShiftId,
+  })
+
+  const shiftOrders = shiftOrdersData || []
+  const shiftTotal = shiftOrders.reduce((s: number, o: any) => s + (Number(o.total_amount) || 0), 0)
+  const shiftByPayment = shiftOrders.reduce((acc: Record<string, number>, o: any) => {
+    const m = o.payment_method || 'cash'
+    acc[m] = (acc[m] || 0) + (Number(o.total_amount) || 0)
+    return acc
+  }, {})
+
   const { data: reportData, isLoading, isFetching, refetch } = useQuery({
     queryKey: ['report', reportType, fromDate, toDate],
     queryFn: async () => {
@@ -419,6 +458,50 @@ export default function ReportsPage() {
     win.document.close()
   }
 
+  const handlePrintShift = () => {
+    if (!shiftDetail || shiftOrders.length === 0) return
+    const win = window.open('', '_blank', 'width=900,height=700')
+    if (!win) return
+    const rowsHtml = shiftOrders
+      .map(
+        (o: any) =>
+          `<tr><td>${escapeHtml(o.order_number)}</td><td>${escapeHtml(
+            o.created_at ? new Date(o.created_at).toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' }) : '-'
+          )}</td><td>${escapeHtml(paymentLabel(o.payment_method))}</td><td>${Number(o.total_amount).toFixed(2)}</td></tr>`
+      )
+      .join('')
+    const paymentHtml = Object.entries(shiftByPayment)
+      .map(([m, amt]) => `<tr><td>${escapeHtml(paymentLabel(m))}</td><td>${Number(amt).toFixed(2)}</td></tr>`)
+      .join('')
+    win.document.write(`
+      <html dir="rtl"><head><title>تقرير وردية ${escapeHtml(shiftDetail?.id || '')}</title>
+      <style>
+        body{font-family:Tahoma,Arial,sans-serif;padding:24px;color:#111;}
+        h1{margin:0 0 4px;font-size:22px;}
+        h2{margin:16px 0 8px;font-size:16px;}
+        table{width:100%;border-collapse:collapse;font-size:12px;margin-top:8px;}
+        th,td{border-bottom:1px solid #e5e5e5;padding:8px;text-align:right;}
+        th{background:#f5f5f5;}
+        .muted{color:#666;font-size:12px;}
+        @media print{body{padding:8px;}}
+      </style></head><body>
+        <h1>تقرير الوردية</h1>
+        <p class="muted">رقم الوردية: ${escapeHtml(shiftDetail?.id || '-')}</p>
+        <p class="muted">الكاشير: ${escapeHtml(shiftDetail?.user?.name || '-')}</p>
+        <p class="muted">التاريخ: ${escapeHtml(shiftDetail?.shift_date || '-')}</p>
+        <p class="muted">وقت الفتح: ${escapeHtml(shiftDetail?.start_time ? String(shiftDetail.start_time).slice(0,5) : '-')}</p>
+        <h2>الإيرادات حسب طريقة الدفع</h2>
+        <table><thead><tr><th>طريقة الدفع</th><th>المبلغ</th></tr></thead><tbody>${paymentHtml}</tbody></table>
+        <h2>إجمالي الوردية: ${shiftTotal.toFixed(2)}</h2>
+        <h2>تفاصيل الطلبات</h2>
+        <table><thead><tr><th>رقم الطلب</th><th>الوقت</th><th>طريقة الدفع</th><th>المبلغ</th></tr></thead><tbody>${rowsHtml}</tbody></table>
+        <p class="muted" style="margin-top:24px;">تم إنشاء التقرير في ${escapeHtml(new Date().toLocaleString('ar-EG'))}</p>
+        <script>window.onload = function(){ window.print(); };</script>
+      </body></html>
+    `)
+    win.document.close()
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -434,6 +517,98 @@ export default function ReportsPage() {
         </Button>
       </div>
 
+      <div className="flex gap-2 border-b border-gray-200 dark:border-gray-700">
+        <button onClick={() => setMode('reports')} className={`px-4 py-2 border-b-2 font-medium ${mode === 'reports' ? 'border-primary text-primary' : 'border-transparent text-gray-500'}`}>التقارير</button>
+        <button onClick={() => setMode('shift')} className={`px-4 py-2 border-b-2 font-medium ${mode === 'shift' ? 'border-primary text-primary' : 'border-transparent text-gray-500'}`}>تقرير وردية</button>
+      </div>
+
+      {mode === 'shift' && (
+        <Card>
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">اختر الوردية</label>
+              <select
+                value={selectedShiftId || ''}
+                onChange={(e) => setSelectedShiftId(e.target.value ? Number(e.target.value) : null)}
+                className="w-full px-4 py-2 border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100"
+              >
+                <option value="">-- اختر --</option>
+                {(Array.isArray(shiftsData) ? shiftsData : []).map((s: any) => (
+                  <option key={s.id} value={s.id}>
+                    #{s.id} - {s.user?.name || s.user_name || '-'} - {s.shift_date ? new Date(s.shift_date).toLocaleDateString('ar-EG') : '-'}
+                  </option>
+                ))}
+              </select>
+            </div>
+            {shiftDetail && selectedShiftId && (
+              <div className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <Card padding="sm">
+                    <p className="text-sm text-gray-500">الكاشير</p>
+                    <p className="text-lg font-bold">{shiftDetail?.user?.name || '-'}</p>
+                  </Card>
+                  <Card padding="sm">
+                    <p className="text-sm text-gray-500">إجمالي الوردية</p>
+                    <p className="text-lg font-bold">{shiftTotal.toFixed(2)}</p>
+                  </Card>
+                  <Card padding="sm">
+                    <p className="text-sm text-gray-500">عدد الطلبات</p>
+                    <p className="text-lg font-bold">{shiftOrders.length}</p>
+                  </Card>
+                </div>
+                <div>
+                  <h2 className="text-lg font-semibold mb-2">الإيرادات حسب طريقة الدفع</h2>
+                  <table className="w-full text-sm">
+                    <thead><tr className="bg-gray-50 dark:bg-gray-800"><th className="px-3 py-2 text-right">طريقة الدفع</th><th className="px-3 py-2 text-right">المبلغ</th></tr></thead>
+                    <tbody>
+                      {Object.entries(shiftByPayment).map(([m, amt]) => (
+                        <tr key={m} className="border-b border-gray-100 dark:border-gray-800">
+                          <td className="px-3 py-2">{paymentLabel(m)}</td>
+                          <td className="px-3 py-2">{Number(amt).toFixed(2)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                <div>
+                  <h2 className="text-lg font-semibold mb-2">تفاصيل الطلبات</h2>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead className="bg-gray-50 dark:bg-gray-800">
+                        <tr>
+                          <th className="px-3 py-2 text-right">رقم الطلب</th>
+                          <th className="px-3 py-2 text-right">الوقت</th>
+                          <th className="px-3 py-2 text-right">طريقة الدفع</th>
+                          <th className="px-3 py-2 text-right">المبلغ</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {shiftOrders.map((o: any) => (
+                          <tr key={o.id} className="border-b border-gray-100 dark:border-gray-800">
+                            <td className="px-3 py-2">{o.order_number}</td>
+                            <td className="px-3 py-2">{o.created_at ? new Date(o.created_at).toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' }) : '-'}</td>
+                            <td className="px-3 py-2">{paymentLabel(o.payment_method)}</td>
+                            <td className="px-3 py-2">{Number(o.total_amount).toFixed(2)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+                <div className="flex gap-2">
+                  <Button variant="outline" onClick={handlePrintShift}>
+                    <Printer className="w-4 h-4" />
+                    طباعة / PDF
+                  </Button>
+                </div>
+              </div>
+            )}
+          </div>
+        </Card>
+      )}
+
+      {mode === 'reports' ? (
+        <>
       <Card>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div>
@@ -572,6 +747,8 @@ export default function ReportsPage() {
           )}
         </div>
       )}
+        </>
+      ) : null}
     </div>
   )
 }

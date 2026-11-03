@@ -124,6 +124,10 @@ export default function POSPage() {
 
   useEffect(() => {
     void loadSettings()
+    const interval = window.setInterval(() => {
+      void loadSettings()
+    }, 15000)
+    return () => window.clearInterval(interval)
   }, [loadSettings])
 
   useEffect(() => {
@@ -309,7 +313,10 @@ export default function POSPage() {
         size_id: item.size_id || undefined,
         modifier_options: item.modifier_options || [],
       }))
-      await api.put(`/orders/${editingOrder.id}`, { items })
+      await api.put(`/orders/${editingOrder.id}`, {
+        items,
+        payment_method: orderEditPaymentMethod,
+      })
       const refreshed = await api.get(`/orders/${editingOrder.id}`)
       const updatedOrder =
         refreshed.data?.order || refreshed.data?.data?.order || refreshed.data?.data || refreshed.data
@@ -369,7 +376,7 @@ export default function POSPage() {
         name: [option.modifier, option.option].filter(Boolean).join(': ') || option.name || '',
       })),
     })))
-    setOrderEditPaymentMethod(paymentMethod)
+    setOrderEditPaymentMethod(order?.payment_method || paymentMethod)
     setEditingOrder(order)
   }
 
@@ -1773,17 +1780,18 @@ export default function POSPage() {
                 </span>
               </div>
             </div>
+            <div>
+              <label className="mb-1 block text-sm font-medium">طريقة الدفع</label>
+              <select
+                value={orderEditPaymentMethod}
+                onChange={(e) => setOrderEditPaymentMethod(e.target.value)}
+                className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 dark:border-gray-700 dark:bg-gray-900"
+              >
+                {paymentMethods.map((method) => <option key={method.value} value={method.value}>{method.label}</option>)}
+              </select>
+            </div>
             {orderDifference > 0 && (
-              <div>
-                <label className="mb-1 block text-sm font-medium">طريقة دفع الفرق عند زيادة الإجمالي</label>
-                <select
-                  value={orderEditPaymentMethod}
-                  onChange={(e) => setOrderEditPaymentMethod(e.target.value)}
-                  className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 dark:border-gray-700 dark:bg-gray-900"
-                >
-                  {paymentMethods.map((method) => <option key={method.value} value={method.value}>{method.label}</option>)}
-                </select>
-              </div>
+              <p className="text-xs text-gray-500">سيتم تحصيل الفرق (إن وُجد) بالطريقة المختارة أعلاه.</p>
             )}
             <div className="flex justify-end gap-2">
               <Button variant="secondary" onClick={() => setEditingOrder(null)}>إلغاء</Button>

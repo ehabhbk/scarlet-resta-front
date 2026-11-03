@@ -7,7 +7,7 @@ import Card from '../../components/common/cards/Card'
 import StatCard from '../../components/common/data-display/StatCard'
 
 export default function FinancePage() {
-  const { symbol } = useSettingsStore()
+  const { symbol, paymentMethods } = useSettingsStore()
   const [period, setPeriod] = useState('month')
 
   const { data: profitLoss } = useQuery({
@@ -18,7 +18,7 @@ export default function FinancePage() {
     },
   })
 
-  const { data: paymentMethods } = useQuery({
+  const { data: paymentMethodStats } = useQuery({
     queryKey: ['payment-methods'],
     queryFn: async () => {
       const res = await api.get('/reports/payment-methods')
@@ -72,12 +72,10 @@ export default function FinancePage() {
       <Card>
         <h2 className="text-lg font-semibold mb-4">طرق الدفع</h2>
         <div className="space-y-3">
-          {paymentMethods?.map((method: any) => (
+          {paymentMethodStats?.map((method: any) => (
             <div key={method.payment_method} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
               <span className="font-medium">
-                {method.payment_method === 'cash' ? 'نقدي' :
-                 method.payment_method === 'card' ? 'بطاقة' :
-                 method.payment_method === 'wallet' ? 'محفظة' : method.payment_method}
+                {paymentMethods.find((m) => m.value === method.payment_method)?.label || method.payment_method}
               </span>
               <div className="text-right">
                 <p className="font-bold">{formatMoney(method.total, symbol)}عملية</p>

@@ -29,6 +29,7 @@ export interface CurrencyOption {
 export interface PaymentMethod {
   value: string
   label: string
+  account_id?: number
 }
 
 export const CURRENCIES: CurrencyOption[] = [
