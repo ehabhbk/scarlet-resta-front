@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '../../services/api'
 
 import Card from '../../components/common/cards/Card'
@@ -121,7 +121,20 @@ function TableVisual({ table, onClick }: { table: TableItem; onClick: () => void
 
 export default function TablesPage() {
   const { symbol } = useSettingsStore()
+  const queryClient = useQueryClient()
   const [selectedTable, setSelectedTable] = useState<TableItem | null>(null)
+
+  const releaseMutation = useMutation({
+    mutationFn: async (tableId: number) => {
+      await api.put(`/tables/${tableId}`, { status: 'available' })
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['tables-all'] })
+      queryClient.invalidateQueries({ queryKey: ['tables'] })
+      queryClient.invalidateQueries({ queryKey: ['table-details'] })
+      setSelectedTable(null)
+    },
+  })
 
   const { data: tables, isLoading } = useQuery({
     queryKey: ['tables-all'],
@@ -189,10 +202,10 @@ export default function TablesPage() {
         {selectedTable && (
           <div className="space-y-4">
             {detailsLoading && <p className="text-sm text-gray-500">جاري تحميل الطلبات...</p>}
-            {!detailsLoading && !(tableDetails?.orders || []).length && (
-              <p className="text-sm text-gray-500">لا توجد طلبات لهذه الطاولة.</p>
+            {!detailsLoading && (tableDetails?.status === 'available' || !(tableDetails?.orders || []).length) && (
+              <p className="text-sm text-gray-500">لا توجد طلبات نشطة لهذه الطاولة.</p>
             )}
-            {[...(tableDetails?.orders || [])]
+            {tableDetails?.status !== 'available' && [...(tableDetails?.orders || [])]
               .sort((a: any, b: any) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime())
               .map((order: any) => (
               <div
@@ -229,6 +242,16 @@ export default function TablesPage() {
             ))}
           </div>
         )}
+        <div className="flex justify-end pt-2">
+          <button
+            type="button"
+            onClick={() => selectedTable && releaseMutation.mutate(selectedTable.id)}
+            disabled={releaseMutation.isPending}
+            className="rounded-lg bg-green-600 px-4 py-2 text-sm font-medium text-white hover:bg-green-700 disabled:opacity-60"
+          >
+            {releaseMutation.isPending ? 'جاري التفريغ...' : 'تفريغ الطاولة'}
+          </button>
+        </div>
       </Modal>
     </div>
   )
