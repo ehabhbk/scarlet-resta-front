@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '../../services/api'
 import { useSettingsStore, formatMoney } from '../../store/settingsStore'
-import { Plus, Search, Edit, Trash2 } from 'lucide-react'
+import { Plus, Search, Edit, Trash2, DollarSign } from 'lucide-react'
 import Button from '../../components/common/buttons/Button'
 import Input from '../../components/common/inputs/Input'
 import Card from '../../components/common/cards/Card'
@@ -26,6 +26,14 @@ export default function EmployeesPage() {
       return res.data
     },
   })
+
+  const { data: accountsList } = useQuery({
+    queryKey: ['accounts-list'],
+    queryFn: async () => {
+      const res = await api.get('/accounts')
+      return res.data?.accounts || []
+    },
+  })
   const employees = employeesRes?.data
   const employeesMeta = employeesRes ? { current_page: employeesRes.current_page, last_page: employeesRes.last_page, total: employeesRes.total, per_page: employeesRes.per_page } : null
 
@@ -36,6 +44,20 @@ export default function EmployeesPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['employees'] })
     },
+  })
+
+  const paySalaryMutation = useMutation({
+    mutationFn: async (id: number) => {
+      const res = await api.post(`/employees/${id}/pay-salary`)
+      return res.data
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['employees'] })
+      queryClient.invalidateQueries({ queryKey: ['journal-entries'] })
+      queryClient.invalidateQueries({ queryKey: ['chart-of-accounts'] })
+      alert(data?.message || 'تم دفع الراتب')
+    },
+    onError: (e: any) => alert(e?.response?.data?.message || 'تعذر دفع الراتب'),
   })
 
   const statusColors: Record<string, 'success' | 'warning' | 'danger'> = {
@@ -55,6 +77,11 @@ export default function EmployeesPage() {
     )},
     { key: 'actions', header: 'الإجراءات', render: (item: any) => (
       <div className="flex gap-2">
+        {item.pay_type === 'monthly' && (
+          <button onClick={() => paySalaryMutation.mutate(item.id)} className="p-1 text-green-600 hover:bg-green-50 rounded" title="دفع الراتب">
+            <DollarSign className="w-4 h-4" />
+          </button>
+        )}
         <button onClick={() => { setEditingEmployee(item); setShowModal(true) }} className="p-1 text-blue-600 hover:bg-blue-50 rounded">
           <Edit className="w-4 h-4" />
         </button>
@@ -101,6 +128,7 @@ export default function EmployeesPage() {
       >
         <EmployeeForm
           employee={editingEmployee}
+          accounts={accountsList || []}
           onClose={() => setShowModal(false)}
           onSuccess={() => {
             setShowModal(false)
@@ -112,7 +140,7 @@ export default function EmployeesPage() {
   )
 }
 
-function EmployeeForm({ employee, onClose, onSuccess }: any) {
+function EmployeeForm({ employee, accounts, onClose, onSuccess }: any) {
   const [formData, setFormData] = useState({
     employee_id: employee?.employee_id || '',
     name: employee?.name || '',
@@ -121,6 +149,11 @@ function EmployeeForm({ employee, onClose, onSuccess }: any) {
     email: employee?.email || '',
     hire_date: employee?.hire_date || new Date().toISOString().split('T')[0],
     salary: employee?.salary || 0,
+    pay_type: employee?.pay_type || 'monthly',
+    pay_rate: employee?.pay_rate || 0,
+    pay_day: employee?.pay_day || 1,
+    pay_account_id: employee?.pay_account_id || '',
+    pay_auto: employee?.pay_auto ?? true,
     status: employee?.status || 'active',
   })
 
@@ -192,6 +225,72 @@ function EmployeeForm({ employee, onClose, onSuccess }: any) {
           value={formData.salary}
           onChange={(e) => setFormData({ ...formData, salary: e.target.value })}
         />
+      </div>
+
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-2">نوع الأجر</label>
+        <select
+          value={formData.pay_type}
+          onChange={(e) => setFormData({ ...formData, pay_type: e.target.value })}
+          className="w-full px-4 py-2 border border-gray-300 rounded-lg"
+        >
+          <option value="monthly">راتب شهري</option>
+          <option value="daily">يومية</option>
+          <option value="percentage">نسبة من المبيعات</option>
+        </select>
+      </div>
+
+      {formData.pay_type === 'monthly' && (
+        <div className="grid grid-cols-2 gap-4">
+          <Input
+            label="الراتب الشهري"
+            type="number"
+            value={formData.salary}
+            onChange={(e) => setFormData({ ...formData, salary: e.target.value })}
+          />
+          <Input
+            label="يوم تسليم الراتب (1-31)"
+            type="number"
+            min={1}
+            max={31}
+            value={formData.pay_day}
+            onChange={(e) => setFormData({ ...formData, pay_day: Number(e.target.value) || 1 })}
+          />
+        </div>
+      )}
+
+      {(formData.pay_type === 'daily' || formData.pay_type === 'percentage') && (
+        <Input
+          label={formData.pay_type === 'daily' ? 'الأجر اليومي' : 'النسبة (%)'}
+          type="number"
+          value={formData.pay_rate}
+          onChange={(e) => setFormData({ ...formData, pay_rate: e.target.value })}
+        />
+      )}
+
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-2">حساب الربط (المصروف)</label>
+        <select
+          value={formData.pay_account_id}
+          onChange={(e) => setFormData({ ...formData, pay_account_id: e.target.value ? Number(e.target.value) : '' })}
+          className="w-full px-4 py-2 border border-gray-300 rounded-lg"
+        >
+          <option value="">بدون ربط</option>
+          {(accounts || []).map((a: any) => (
+            <option key={a.id} value={a.id}>{a.code} - {a.name}</option>
+          ))}
+        </select>
+      </div>
+
+      <div>
+        <label className="flex items-center gap-2 text-sm">
+          <input
+            type="checkbox"
+            checked={formData.pay_auto}
+            onChange={(e) => setFormData({ ...formData, pay_auto: e.target.checked })}
+          />
+          ترحيل تلقائي عند إغلاق الوردية (لليومية/النسبة)
+        </label>
       </div>
 
       <div>

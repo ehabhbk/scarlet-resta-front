@@ -10,6 +10,7 @@ import {
   Truck,
   Activity,
   Bell,
+  Users,
   Tag,
   DollarSign,
   Receipt,
@@ -68,6 +69,7 @@ export default function Sidebar({ open }: SidebarProps) {
       path: '/tables',
     },
     { icon: ChefHat, label: t('kitchen', lang), path: '/kitchen' },
+    { icon: Users, label: 'الموظفون', path: '/employees' },
     {
       icon: Package,
       label: t('inventory', lang),
