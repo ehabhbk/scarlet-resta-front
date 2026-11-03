@@ -28,6 +28,7 @@ import {
 } from '../../store/settingsStore'
 import Card from '../../components/common/cards/Card'
 import Button from '../../components/common/buttons/Button'
+import TablesManagementPanel from './TablesManagementPanel'
 import Input from '../../components/common/inputs/Input'
 import Modal from '../../components/common/modals/Modal'
 
@@ -81,6 +82,7 @@ const GROUPS: Record<string, SettingField[]> = {
     { key: 'auto_close_tables', label: 'إغلاق الطاولة تلقائياً بعد الدفع', type: 'boolean', defaultValue: 'false' },
     { key: 'auto_close_minutes', label: 'مدة الإغلاق التلقائي (دقيقة)', type: 'number', defaultValue: '60' },
     { key: 'require_table_for_dine_in', label: 'إلزام اختيار طاولة للطلبات الداخلية', type: 'boolean', defaultValue: 'false' },
+    { key: 'table_release_minutes', label: 'تفريغ الطاولة تلقائياً بعد التسليم (دقيقة، 0 = يدوي)', type: 'number', defaultValue: '0' },
   ],
 }
 
@@ -868,6 +870,7 @@ export default function SettingsPage() {
       )}
 
       {activeTab === 'roles' && <RolesPermissionsPanel />}
+      {activeTab === 'tables' && <TablesManagementPanel />}
     </div>
   )
 }

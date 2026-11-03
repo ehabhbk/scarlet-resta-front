@@ -1,191 +1,235 @@
 import { useState } from 'react'
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useQuery } from '@tanstack/react-query'
 import { api } from '../../services/api'
-import { Plus, Search, Edit, Trash2 } from 'lucide-react'
-import Button from '../../components/common/buttons/Button'
-import Input from '../../components/common/inputs/Input'
+
 import Card from '../../components/common/cards/Card'
-import DataTable from '../../components/common/tables/DataTable'
 import Modal from '../../components/common/modals/Modal'
 import Badge from '../../components/common/data-display/Badge'
+import { formatMoney } from '../../store/settingsStore'
+import { useSettingsStore } from '../../store/settingsStore'
+
+interface TableItem {
+  id: number
+  name: string
+  capacity: number
+  status: string
+  area?: { id: number; name: string }
+  orders?: any[]
+}
+
+const STATUS_LABELS: Record<string, string> = {
+  available: 'متاحة',
+  occupied: 'مشغولة',
+  reserved: 'محجوزة',
+  cleaning: 'قيد التنظيف',
+}
+
+const ORDER_STATUS_LABELS: Record<string, string> = {
+  pending: 'تم الاستلام',
+  confirmed: 'تم الاستلام',
+  preparing: 'في المطبخ',
+  ready: 'جاهز',
+  served: 'تم التسليم',
+  completed: 'مكتمل',
+  cancelled: 'ملغي',
+}
+
+const orderDisplayStatus = (order: any) => {
+  if (order.status === 'served' || order.status === 'completed') return order.status
+  const items = order.items || []
+  if (items.length > 0 && items.every((item: any) => item.kitchen_status === 'ready')) {
+    return 'ready'
+  }
+  if (items.some((item: any) => item.kitchen_status === 'preparing')) {
+    return 'preparing'
+  }
+  return order.status || 'pending'
+}
+
+const orderStatusVariant = (status: string) => {
+  if (status === 'served' || status === 'completed') return 'success'
+  if (status === 'ready') return 'warning'
+  if (status === 'preparing') return 'danger'
+  return 'warning'
+}
+
+const isOccupied = (table: TableItem) => {
+  return (
+    table.status === 'occupied' ||
+    table.status === 'reserved' ||
+    (table.orders || []).some((order) => !['completed', 'cancelled'].includes(order.status))
+  )
+}
+
+function TableVisual({ table, onClick }: { table: TableItem; onClick: () => void }) {
+  const occupied = isOccupied(table)
+  const chairs = Math.max(1, Number(table.capacity) || 4)
+  const radius = 46
+  const chairSize = 12
+
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="group relative flex flex-col items-center gap-2 rounded-2xl p-4 transition-transform hover:scale-[1.02] focus:outline-none"
+      title={`${table.name} - ${STATUS_LABELS[table.status] || table.status}`}
+    >
+      <div className="relative" style={{ width: 120, height: 120 }}>
+        {Array.from({ length: chairs }).map((_, index) => {
+          const angle = (index / chairs) * Math.PI * 2 - Math.PI / 2
+          const x = 60 + radius * Math.cos(angle) - chairSize / 2
+          const y = 60 + radius * Math.sin(angle) - chairSize / 2
+          return (
+            <span
+              key={index}
+              className={`absolute rounded-full border-2 ${
+                occupied
+                  ? 'bg-red-500 border-red-600'
+                  : 'bg-green-500 border-green-600'
+              }`}
+              style={{
+                left: x,
+                top: y,
+                width: chairSize,
+                height: chairSize,
+              }}
+            />
+          )
+        })}
+        <span
+          className={`absolute left-1/2 top-1/2 flex h-16 w-16 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-xl border-4 text-center text-xs font-bold text-white shadow-lg ${
+            occupied
+              ? 'border-red-700 bg-red-500'
+              : 'border-green-700 bg-green-500'
+          }`}
+        >
+          {table.name}
+        </span>
+      </div>
+      <span
+        className={`rounded-full px-2 py-0.5 text-xs font-medium ${
+          occupied
+            ? 'bg-red-100 text-red-700 dark:bg-red-500/10 dark:text-red-300'
+            : 'bg-green-100 text-green-700 dark:bg-green-500/10 dark:text-green-300'
+        }`}
+      >
+        {STATUS_LABELS[table.status] || table.status} • {table.capacity} كرسي
+      </span>
+    </button>
+  )
+}
 
 export default function TablesPage() {
-  const [search, setSearch] = useState('')
-  const [showModal, setShowModal] = useState(false)
-  const [editingTable, setEditingTable] = useState<any>(null)
-  const queryClient = useQueryClient()
+  const { symbol } = useSettingsStore()
+  const [selectedTable, setSelectedTable] = useState<TableItem | null>(null)
 
   const { data: tables, isLoading } = useQuery({
-    queryKey: ['tables', search],
+    queryKey: ['tables-all'],
     queryFn: async () => {
-      const res = await api.get(`/tables?search=${search}`)
-      return res.data.data
+      const res = await api.get('/tables', { params: { per_page: 100 } })
+      const payload = res.data
+      return (Array.isArray(payload?.data) ? payload.data : Array.isArray(payload) ? payload : []) as TableItem[]
     },
   })
 
-  const { data: areas } = useQuery({
-    queryKey: ['areas'],
+  const { data: tableDetails, isLoading: detailsLoading } = useQuery({
+    queryKey: ['table-details', selectedTable?.id],
     queryFn: async () => {
-      const res = await api.get('/areas')
-      return res.data.areas
+      const res = await api.get(`/tables/${selectedTable!.id}`)
+      return res.data?.table || res.data?.data || res.data
     },
+    enabled: !!selectedTable?.id,
   })
 
-  const deleteMutation = useMutation({
-    mutationFn: async (id: number) => {
-      await api.delete(`/tables/${id}`)
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['tables'] })
-    },
-  })
-
-  const statusColors: Record<string, 'success' | 'danger' | 'warning' | 'info'> = {
-    available: 'success',
-    occupied: 'danger',
-    reserved: 'warning',
-    cleaning: 'info',
-  }
-
-  const columns = [
-    { key: 'name', header: 'اسم الطاولة' },
-    { key: 'area', header: 'المنطقة', render: (item: any) => item.area?.name || '-' },
-    { key: 'capacity', header: 'السعة' },
-    { key: 'status', header: 'الحالة', render: (item: any) => (
-      <Badge variant={statusColors[item.status] || 'default'}>{item.status}</Badge>
-    )},
-    { key: 'actions', header: 'الإجراءات', render: (item: any) => (
-      <div className="flex gap-2 items-center">
-        <select
-          value={item.status}
-          onChange={async (e) => {
-            await api.put(`/tables/${item.id}`, { status: e.target.value })
-            queryClient.invalidateQueries({ queryKey: ['tables'] })
-          }}
-          className="text-xs px-2 py-1 border border-gray-300 rounded"
-        >
-          <option value="available">متاح</option>
-          <option value="occupied">مشغول</option>
-          <option value="reserved">محجوز</option>
-          <option value="cleaning">تنظيف</option>
-        </select>
-        <button onClick={() => { setEditingTable(item); setShowModal(true) }} className="p-1 text-blue-600 hover:bg-blue-50 rounded">
-          <Edit className="w-4 h-4" />
-        </button>
-        <button onClick={() => deleteMutation.mutate(item.id)} className="p-1 text-red-600 hover:bg-red-50 rounded">
-          <Trash2 className="w-4 h-4" />
-        </button>
-      </div>
-    )},
-  ]
+  const grouped = (tables || []).reduce<Record<string, TableItem[]>>((acc, table) => {
+    const areaName = table.area?.name || 'بدون منطقة'
+    acc[areaName] = acc[areaName] || []
+    acc[areaName].push(table)
+    return acc
+  }, {})
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-gray-900">الطاولات</h1>
-        <Button onClick={() => { setEditingTable(null); setShowModal(true) }}>
-          <Plus className="w-4 h-4" />
-          إضافة طاولة
-        </Button>
+        <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">الطاولات</h1>
+        <p className="text-sm text-gray-500 dark:text-gray-400">
+          إدارة الطاولات (الإضافة والتعديل والحذف) تتم من الإعدادات ← الطاولات
+        </p>
       </div>
 
-      <Card>
-        <div className="mb-4">
-          <Input
-            placeholder="بحث عن طاولة..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            icon={<Search className="w-5 h-5" />}
-          />
-        </div>
+      {isLoading && <p className="text-sm text-gray-500">جاري التحميل...</p>}
 
-        <DataTable
-          data={tables || []}
-          columns={columns}
-          loading={isLoading}
-          emptyMessage="لا توجد طاولات"
-        />
-      </Card>
+      {Object.keys(grouped).length === 0 && !isLoading && (
+        <Card>
+          <p className="text-sm text-gray-500">لا توجد طاولات. أضفها من الإعدادات ← الطاولات.</p>
+        </Card>
+      )}
+
+      {Object.entries(grouped).map(([areaName, areaTables]) => (
+        <Card key={areaName}>
+          <h2 className="mb-4 text-lg font-semibold text-gray-900 dark:text-gray-100">{areaName}</h2>
+          <div className="flex flex-wrap justify-center gap-6">
+            {areaTables.map((table) => (
+              <TableVisual
+                key={table.id}
+                table={table}
+                onClick={() => setSelectedTable(table)}
+              />
+            ))}
+          </div>
+        </Card>
+      ))}
 
       <Modal
-        isOpen={showModal}
-        onClose={() => setShowModal(false)}
-        title={editingTable ? 'تعديل طاولة' : 'إضافة طاولة جديدة'}
+        isOpen={!!selectedTable}
+        onClose={() => setSelectedTable(null)}
+        title={`طلبات ${selectedTable?.name || ''}`}
+        size="lg"
       >
-        <TableForm
-          table={editingTable}
-          areas={areas || []}
-          onClose={() => setShowModal(false)}
-          onSuccess={() => {
-            setShowModal(false)
-            queryClient.invalidateQueries({ queryKey: ['tables'] })
-          }}
-        />
+        {selectedTable && (
+          <div className="space-y-4">
+            {detailsLoading && <p className="text-sm text-gray-500">جاري تحميل الطلبات...</p>}
+            {!detailsLoading && !(tableDetails?.orders || []).length && (
+              <p className="text-sm text-gray-500">لا توجد طلبات لهذه الطاولة.</p>
+            )}
+            {[...(tableDetails?.orders || [])]
+              .sort((a: any, b: any) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime())
+              .map((order: any) => (
+              <div
+                key={order.id}
+                className="rounded-lg border border-gray-200 p-3 dark:border-gray-700"
+              >
+                {(() => {
+                  const displayStatus = orderDisplayStatus(order)
+                  return (
+                    <div className="flex items-center justify-between gap-3">
+                      <div>
+                        <p className="font-semibold text-gray-900 dark:text-gray-100">{order.order_number}</p>
+                        <p className="text-xs text-gray-500">
+                          {ORDER_STATUS_LABELS[displayStatus] || displayStatus} • {formatMoney(order.total_amount, symbol)} • {order.payment_status}
+                        </p>
+                      </div>
+                      <Badge variant={orderStatusVariant(displayStatus)}>
+                        {ORDER_STATUS_LABELS[displayStatus] || displayStatus}
+                      </Badge>
+                    </div>
+                  )
+                })()}
+                {(order.items || []).length > 0 && (
+                  <div className="mt-2 space-y-1 border-t border-gray-100 pt-2 text-sm dark:border-gray-800">
+                    {(order.items || []).map((item: any, index: number) => (
+                      <div key={item.id || index} className="flex justify-between gap-2">
+                        <span>{item.product?.name || 'منتج'} × {item.quantity}</span>
+                        <span>{formatMoney(item.total_price ?? 0, symbol)}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
       </Modal>
     </div>
-  )
-}
-
-function TableForm({ table, areas, onClose, onSuccess }: any) {
-  const [formData, setFormData] = useState({
-    name: table?.name || '',
-    area_id: table?.area_id || '',
-    capacity: table?.capacity || 4,
-    status: table?.status || 'available',
-  })
-
-  const mutation = useMutation({
-    mutationFn: async (data: any) => {
-      if (table) {
-        await api.put(`/tables/${table.id}`, data)
-      } else {
-        await api.post('/tables', data)
-      }
-    },
-    onSuccess,
-  })
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
-    mutation.mutate(formData)
-  }
-
-  return (
-    <form onSubmit={handleSubmit} className="space-y-4">
-      <Input
-        label="اسم الطاولة"
-        value={formData.name}
-        onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-        required
-      />
-      
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">المنطقة</label>
-        <select
-          value={formData.area_id}
-          onChange={(e) => setFormData({ ...formData, area_id: e.target.value })}
-          className="w-full px-4 py-2 border border-gray-300 rounded-lg"
-        >
-          <option value="">اختر المنطقة</option>
-          {areas.map((area: any) => (
-            <option key={area.id} value={area.id}>{area.name}</option>
-          ))}
-        </select>
-      </div>
-
-      <Input
-        label="السعة"
-        type="number"
-        value={formData.capacity}
-        onChange={(e) => setFormData({ ...formData, capacity: e.target.value })}
-      />
-
-      <div className="flex gap-3 justify-end pt-4">
-        <Button variant="secondary" onClick={onClose}>إلغاء</Button>
-        <Button type="submit" loading={mutation.isPending}>
-          {table ? 'تحديث' : 'إضافة'}
-        </Button>
-      </div>
-    </form>
   )
 }
