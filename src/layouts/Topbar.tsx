@@ -69,6 +69,7 @@ export default function Topbar() {
   }
 
   const initial = (user?.name || user?.username || '?').trim().charAt(0).toUpperCase()
+  const avatarSrc = user?.avatar || user?.image
 
   return (
     <header className="bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 px-6 py-3 flex items-center justify-between">
@@ -150,10 +151,10 @@ export default function Topbar() {
             aria-haspopup="menu"
             aria-expanded={menuOpen}
           >
-            {restaurant?.logo ? (
+            {avatarSrc || restaurant?.logo ? (
               <img
-                src={mediaUrl(restaurant.logo)}
-                alt={restaurant.name}
+                src={mediaUrl(avatarSrc || restaurant?.logo || '')}
+                alt={user?.name || restaurant?.name}
                 className="w-10 h-10 rounded-full object-cover border border-gray-200 dark:border-gray-700"
               />
             ) : (

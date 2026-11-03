@@ -22,6 +22,9 @@ import {
   Eye,
   Pencil,
   RotateCcw,
+  Lock,
+  Unlock,
+  ChevronDown,
 } from 'lucide-react'
 import Button from '../../components/common/buttons/Button'
 import Modal from '../../components/common/modals/Modal'
@@ -101,10 +104,11 @@ export default function POSPage() {
   const [orderDraftItems, setOrderDraftItems] = useState<any[]>([])
   const [orderEditPaymentMethod, setOrderEditPaymentMethod] = useState('cash')
   const [actualCash, setActualCash] = useState(0)
-  const [shiftForm, setShiftForm] = useState({
-    name: 'وردية اليوم',
-    opening_cash: 0,
-  })
+  const [openingCash, setOpeningCash] = useState(0)
+  const [shiftNow, setShiftNow] = useState(new Date())
+  const [refundOrderTarget, setRefundOrderTarget] = useState<any>(null)
+  const [refundAmount, setRefundAmount] = useState(0)
+  const [refundReason, setRefundReason] = useState('استرداد من نقطة البيع')
 
   const {
     symbol: currencySymbol,
@@ -135,6 +139,39 @@ export default function POSPage() {
   })
 
   const openShift = shiftData?.shift
+
+  const { data: latestShiftData } = useQuery({
+    queryKey: ['shifts-latest'],
+    queryFn: async () => {
+      const res = await api.get('/shifts', { params: { per_page: 1, page: 1 } })
+      return res.data
+    },
+    enabled: showShiftModal && !openShift,
+  })
+
+  const nextShiftNumber = (() => {
+    const latestId = Number(latestShiftData?.data?.[0]?.id) || 0
+    return latestId + 1
+  })()
+
+  const formatShiftDate = (value?: string | null) => {
+    if (!value) return '-'
+    const parsed = new Date(value)
+    return Number.isNaN(parsed.getTime())
+      ? String(value).slice(0, 10)
+      : parsed.toLocaleDateString('ar-EG')
+  }
+
+  const formatShiftTime = (value?: string | null) => {
+    if (!value) return '-'
+    if (String(value).includes('T')) {
+      const parsed = new Date(value)
+      if (!Number.isNaN(parsed.getTime())) {
+        return parsed.toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' })
+      }
+    }
+    return String(value).slice(0, 5)
+  }
 
   const { data: ordersData, isLoading: ordersLoading, isError: ordersError, refetch: refetchOrders } = useQuery({
     queryKey: ['pos-orders', openShift?.id],
@@ -222,26 +259,38 @@ export default function POSPage() {
   })
 
   const refundOrderMutation = useMutation({
-    mutationFn: async (id: number) => {
-      await api.post(`/orders/${id}/refund`, { reason: 'استرجاع من نقطة البيع' })
+    mutationFn: async ({ id, amount, reason }: { id: number; amount: number; reason: string }) => {
+      const res = await api.post(`/orders/${id}/refund`, { amount, reason })
+      return res.data
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       refetchOrders()
+      queryClient.invalidateQueries({ queryKey: ['orders'] })
       queryClient.invalidateQueries({ queryKey: ['shifts-current'] })
-      toast.success('تم استرجاع الدفع')
+      setRefundOrderTarget(null)
+      setSelectedOrder(null)
+      toast.success(data?.message || 'تم استرداد المبلغ')
     },
-    onError: (e: any) => toast.error(e?.response?.data?.message || 'تعذر استرجاع الدفع'),
+    onError: (e: any) => toast.error(e?.response?.data?.message || 'تعذر استرداد المبلغ'),
   })
 
   const deleteOrderMutation = useMutation({
-    mutationFn: async (id: number) => {
-      await api.delete(`/orders/${id}`)
+    mutationFn: async (order: any) => {
+      const paid = Number(order.amount_paid || 0) - Number(order.change_due || 0)
+      if (paid > 0) {
+        await api.post(`/orders/${order.id}/refund`, {
+          amount: paid,
+          reason: 'حذف الطلب مع استرداد المبلغ',
+        })
+      }
+      await api.delete(`/orders/${order.id}`)
     },
     onSuccess: () => {
       refetchOrders()
       queryClient.invalidateQueries({ queryKey: ['orders'] })
       queryClient.invalidateQueries({ queryKey: ['shifts-current'] })
-      toast.success('تم حذف الطلب')
+      setSelectedOrder(null)
+      toast.success('تم حذف الطلب واسترداد المبلغ إن وجد')
     },
     onError: (e: any) => toast.error(e?.response?.data?.message || 'تعذر حذف الطلب'),
   })
@@ -249,7 +298,6 @@ export default function POSPage() {
   const updateOrderMutation = useMutation({
     mutationFn: async () => {
       if (!editingOrder) throw new Error('لا يوجد طلب محدد للتعديل')
-      const previousTotal = Number(editingOrder.total_amount) || 0
       const previousPaid = Number(editingOrder.amount_paid) || 0
       const items = orderDraftItems.map((item) => ({
         product_id: Number(item.product_id),
@@ -266,7 +314,10 @@ export default function POSPage() {
         throw new Error('تم تعديل الطلب ولكن تعذر تحديد إجماليه الجديد لتسوية فرق المبلغ')
       }
       const updatedPaid = Number(updatedOrder?.amount_paid)
-      const difference = Number((updatedTotal - previousTotal).toFixed(2))
+      const paidAfterUpdate = Number.isFinite(updatedPaid) ? updatedPaid : previousPaid
+      // Settle the gap between what was actually paid and the new total, not just
+      // the change in the total (the order may have been partially paid before).
+      const difference = Number(Math.max(0, updatedTotal - paidAfterUpdate).toFixed(2))
       if (difference > 0) {
         await api.post(`/orders/${editingOrder.id}/payment`, {
           amount: difference,
@@ -304,11 +355,14 @@ export default function POSPage() {
     setOrderDraftItems(items.map((item: any, index: number) => ({
       key: `${item.id || item.product_id}-${index}`,
       product_id: item.product_id || item.product?.id || '',
+      name: item.product?.name || item.name || '',
       quantity: Number(item.quantity) || 1,
       size_id: item.size_id || item.size?.id || '',
+      size_name: item.size?.name || '',
       modifier_options: (item.modifier_options || item.modifierOptions || item.modifiers || []).map((option: any) => ({
         modifier_id: option.modifier_id || option.modifier?.id,
         modifier_option_id: option.modifier_option_id || option.id,
+        name: [option.modifier, option.option].filter(Boolean).join(': ') || option.name || '',
       })),
     })))
     setOrderEditPaymentMethod(paymentMethod)
@@ -354,27 +408,41 @@ export default function POSPage() {
 
   // Shift modal is opened manually via the "فتح وردية" button.
   const openShiftMutation = useMutation({
-    mutationFn: async (data: { name: string; opening_cash: number }) => {
+    mutationFn: async (cash: number) => {
+      const now = new Date()
       const res = await api.post('/shifts/open', {
         user_id: user?.id,
-        name: data.name,
-        shift_date: new Date().toISOString().split('T')[0],
-        start_time: new Date().toTimeString().slice(0, 5),
+        name: `وردية ${now.toLocaleDateString('ar-EG')} ${now.toTimeString().slice(0, 5)}`,
+        shift_date: now.toISOString().split('T')[0],
+        start_time: now.toTimeString().slice(0, 5),
         end_time: '23:59',
-        opening_cash: data.opening_cash,
+        opening_cash: cash,
         status: 'open',
       })
       return res.data
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['shifts-current'] })
+      queryClient.invalidateQueries({ queryKey: ['shifts-latest'] })
       setShowShiftModal(false)
+      setOpeningCash(0)
       toast.success('تم فتح الوردية بنجاح')
     },
     onError: (error: any) => {
       toast.error(error?.response?.data?.message || 'تعذر فتح الوردية')
     },
   })
+
+  const handleShiftButton = () => {
+    if (openShift) {
+      setActualCash(expectedCash)
+      setShowCloseModal(true)
+      return
+    }
+    setOpeningCash(0)
+    setShiftNow(new Date())
+    setShowShiftModal(true)
+  }
 
   const closeShiftMutation = useMutation({
     mutationFn: async (cash: number) => {
@@ -404,17 +472,15 @@ export default function POSPage() {
   })
 
   const { data: products } = useQuery({
-    queryKey: ['products', selectedCategory],
+    queryKey: ['pos-products-available'],
     queryFn: async () => {
-      const url = selectedCategory
-        ? `/products?category_id=${selectedCategory}&is_available=1`
-        : '/products?is_available=1'
-      const res = await api.get(url)
-      return res.data.data || res.data.products || []
+      const res = await api.get('/products/available')
+      return res.data.products || res.data.data || []
     },
   })
 
   const filteredProducts = products?.filter((product: any) => {
+    if (selectedCategory && Number(product.category_id) !== Number(selectedCategory)) return false
     if (!productSearch.trim()) return true
     const term = productSearch.trim().toLowerCase()
     return (
@@ -527,6 +593,7 @@ export default function POSPage() {
   }
 
   const openConfigurator = (product: any) => {
+    toast.success(`تم اختيار ${product.name}`, { duration: 1500 })
     if ((product.sizes && product.sizes.length > 0) || (product.modifiers && product.modifiers.length > 0)) {
       setConfiguringProduct(product)
       const defaultSize = product.sizes?.find((s: any) => s.is_default)
@@ -559,6 +626,40 @@ export default function POSPage() {
   const subtotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0)
   const tax = subtotal * taxRate
   const total = subtotal - discount + tax
+
+  const orderDraftSubtotal = useMemo(
+    () =>
+      orderDraftItems.reduce((sum, line) => {
+        const product = (orderProducts || []).find(
+          (candidate: any) => Number(candidate.id) === Number(line.product_id)
+        )
+        let unitPrice = Number(product?.sale_price) || 0
+        const size = product?.sizes?.find((candidate: any) => Number(candidate.id) === Number(line.size_id))
+        if (size) unitPrice += Number(size.price_modifier) || 0
+        const selectedOptionIds = (line.modifier_options || [])
+          .map((option: any) => Number(option.modifier_option_id))
+          .filter((id: number) => Number.isFinite(id))
+        for (const modifier of product?.modifiers || []) {
+          for (const option of modifier.options || []) {
+            if (selectedOptionIds.includes(Number(option.id))) {
+              unitPrice += Number(option.price_modifier) || 0
+            }
+          }
+        }
+        return sum + unitPrice * (Number(line.quantity) || 0)
+      }, 0),
+    [orderDraftItems, orderProducts]
+  )
+
+  const orderDraftDiscount = Math.min(
+    orderDraftSubtotal,
+    Number(editingOrder?.discount_amount) || 0
+  )
+  const orderDraftTax = (orderDraftSubtotal - orderDraftDiscount) * taxRate
+  const orderDraftTotal =
+    orderDraftSubtotal - orderDraftDiscount + orderDraftTax + (Number(editingOrder?.delivery_fee) || 0)
+  const orderPaidAmount = Number(editingOrder?.amount_paid) || 0
+  const orderDifference = Number((orderDraftTotal - orderPaidAmount).toFixed(2))
 
   const printReceipt = (receipt: Receipt | null) => {
     if (!receipt) return
@@ -672,49 +773,54 @@ export default function POSPage() {
           <div className="flex flex-wrap items-center gap-3">
             <h1 className="text-xl font-bold text-gray-900 dark:text-gray-100">نقطة البيع</h1>
             {openShift ? (
-              <div className="flex items-center gap-2 px-3 py-1 bg-green-100 text-green-800 dark:bg-green-500/10 dark:text-green-300 rounded-lg">
+              <div className="flex flex-wrap items-center gap-2 px-3 py-1.5 bg-green-100 text-green-800 dark:bg-green-500/10 dark:text-green-300 rounded-lg">
                 <Clock className="w-4 h-4" />
-                <span className="text-sm font-medium">وردية مفتوحة</span>
-                <span className="text-sm">| الكاشير: {user?.name}</span>
+                <span className="text-sm font-semibold">وردية مفتوحة #{openShift.id}</span>
+                <span className="text-xs text-green-700 dark:text-green-300">
+                  التاريخ: {formatShiftDate(openShift.shift_date)}
+                </span>
+                <span className="text-xs text-green-700 dark:text-green-300">
+                  وقت الفتح: {formatShiftTime(openShift.start_time)}
+                </span>
+                <span className="text-xs text-green-700 dark:text-green-300">
+                  الكاشير: {user?.name || '-'}
+                </span>
               </div>
             ) : (
-              <div className="flex items-center gap-2 px-3 py-1 bg-red-100 text-red-800 dark:bg-red-500/10 dark:text-red-300 rounded-lg">
+              <div className="flex items-center gap-2 px-3 py-1.5 bg-red-100 text-red-800 dark:bg-red-500/10 dark:text-red-300 rounded-lg">
                 <Clock className="w-4 h-4" />
-                <span className="text-sm font-medium">لا توجد وردية مفتوحة</span>
+                <span className="text-sm font-medium">الوردية مغلقة</span>
               </div>
             )}
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             {openShift && (
-              <>
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  onClick={() => {
-                    queryClient.invalidateQueries({ queryKey: ['shifts-current'] })
-                  }}
-                >
-                  <RefreshCw className="w-4 h-4" />
-                  تحديث الإيراد
-                </Button>
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  onClick={() => {
-                    setActualCash(expectedCash)
-                    setShowCloseModal(true)
-                  }}
-                >
-                  إغلاق الوردية
-                </Button>
-              </>
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => {
+                  queryClient.invalidateQueries({ queryKey: ['shifts-current'] })
+                }}
+              >
+                <RefreshCw className="w-4 h-4" />
+                تحديث الإيراد
+              </Button>
             )}
             <Button variant="secondary" size="sm" onClick={() => setShowOrdersModal(true)}>
               الطلبات
             </Button>
-            <Button variant="secondary" size="sm" onClick={() => setShowShiftModal(true)}>
-              فتح وردية جديدة
-            </Button>
+            <button
+              type="button"
+              onClick={handleShiftButton}
+              className={`inline-flex items-center justify-center gap-2 rounded-lg px-3 py-1.5 text-sm font-medium text-white transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 ${
+                openShift
+                  ? 'bg-red-600 hover:bg-red-700 focus:ring-red-500'
+                  : 'bg-green-600 hover:bg-green-700 focus:ring-green-500'
+              }`}
+            >
+              {openShift ? <Lock className="w-4 h-4" /> : <Unlock className="w-4 h-4" />}
+              {openShift ? 'إغلاق الوردية' : 'فتح وردية'}
+            </button>
           </div>
         </div>
 
@@ -840,7 +946,7 @@ export default function POSPage() {
           </div>
         </div>
 
-        <div className="w-full h-[48%] md:h-auto md:w-[26rem] md:max-w-[40%] md:flex-none bg-white dark:bg-gray-900 border-t md:border-t-0 md:border-r border-gray-200 dark:border-gray-800 flex flex-col min-h-0 overflow-y-auto md:overflow-hidden">
+        <div className="w-full h-[48%] md:h-auto md:w-[27rem] md:max-w-[42%] md:flex-none bg-white dark:bg-gray-900 border-t md:border-t-0 md:border-r border-gray-200 dark:border-gray-800 flex flex-col min-h-0 overflow-y-auto">
           <div className="p-4 border-b border-gray-200 dark:border-gray-800">
             <h2 className="text-lg font-semibold flex items-center gap-2 text-gray-900 dark:text-gray-100">
               <ShoppingCart className="w-5 h-5" />
@@ -886,7 +992,7 @@ export default function POSPage() {
             </select>
           </div>
 
-          <div className="flex-1 min-h-0 overflow-y-auto p-4 space-y-3">
+          <div className="p-4 space-y-3">
             {cart.length === 0 ? (
               <div className="text-center text-gray-500 py-8">
                 <ShoppingCart className="w-12 h-12 mx-auto mb-2 text-gray-300" />
@@ -981,21 +1087,23 @@ export default function POSPage() {
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">
               طريقة الدفع
             </label>
-            <div className="grid grid-cols-2 gap-2">
-              {paymentMethods.map((method) => (
-                <button
-                  key={method.value}
-                  onClick={() => setPaymentMethod(method.value)}
-                  className={`flex flex-col items-center gap-1 p-2 rounded-lg border text-sm ${
-                    paymentMethod === method.value
-                      ? 'border-primary bg-primary/5 text-primary'
-                      : 'border-gray-300 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800'
-                  }`}
-                >
-                  <PaymentIcon method={method.value} className="w-5 h-5" />
-                  <span className="text-xs">{method.label}</span>
-                </button>
-              ))}
+            <div className="relative">
+              <PaymentIcon
+                method={paymentMethod}
+                className="pointer-events-none absolute right-3 top-1/2 h-5 w-5 -translate-y-1/2 text-primary"
+              />
+              <select
+                value={paymentMethod}
+                onChange={(e) => setPaymentMethod(e.target.value)}
+                className="w-full appearance-none rounded-lg border border-gray-300 bg-white px-10 py-2.5 text-gray-900 focus:outline-none focus:ring-2 focus:ring-primary dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
+              >
+                {paymentMethods.map((method) => (
+                  <option key={method.value} value={method.value}>
+                    {method.label}
+                  </option>
+                ))}
+              </select>
+              <ChevronDown className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
             </div>
           </div>
 
@@ -1120,29 +1228,44 @@ export default function POSPage() {
         title="فتح وردية جديدة"
       >
         <div className="space-y-4">
-          <div className="p-3 bg-blue-50 dark:bg-blue-500/10 rounded-lg">
-            <p className="text-sm text-blue-800 dark:text-blue-200">الكاشير: {user?.name}</p>
+          <div className="grid grid-cols-2 gap-3 text-sm">
+            <div className="rounded-lg bg-gray-50 p-3 dark:bg-gray-800">
+              <p className="text-gray-500">رقم الوردية</p>
+              <p className="font-semibold text-gray-900 dark:text-gray-100">#{nextShiftNumber}</p>
+            </div>
+            <div className="rounded-lg bg-gray-50 p-3 dark:bg-gray-800">
+              <p className="text-gray-500">الكاشير</p>
+              <p className="font-semibold text-gray-900 dark:text-gray-100">{user?.name || '-'}</p>
+            </div>
+            <div className="rounded-lg bg-gray-50 p-3 dark:bg-gray-800">
+              <p className="text-gray-500">التاريخ</p>
+              <p className="font-semibold text-gray-900 dark:text-gray-100">
+                {shiftNow.toLocaleDateString('ar-EG')}
+              </p>
+            </div>
+            <div className="rounded-lg bg-gray-50 p-3 dark:bg-gray-800">
+              <p className="text-gray-500">وقت الفتح</p>
+              <p className="font-semibold text-gray-900 dark:text-gray-100">
+                {shiftNow.toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' })}
+              </p>
+            </div>
           </div>
-          <Input
-            label="اسم الوردية"
-            value={shiftForm.name}
-            onChange={(e) => setShiftForm({ ...shiftForm, name: e.target.value })}
-          />
           <Input
             label="النقد الافتتاحي"
             type="number"
-            value={shiftForm.opening_cash}
-            onChange={(e) => setShiftForm({ ...shiftForm, opening_cash: Number(e.target.value) })}
+            min={0}
+            step="0.01"
+            value={openingCash}
+            onChange={(e) => setOpeningCash(Number(e.target.value) || 0)}
           />
           <div className="flex justify-end gap-3 pt-4">
-            {openShift && (
-              <Button variant="secondary" onClick={() => setShowShiftModal(false)}>
-                إلغاء
-              </Button>
-            )}
+            <Button variant="secondary" onClick={() => setShowShiftModal(false)}>
+              إلغاء
+            </Button>
             <Button
-              onClick={() => openShiftMutation.mutate(shiftForm)}
+              onClick={() => openShiftMutation.mutate(openingCash)}
               loading={openShiftMutation.isPending}
+              className="bg-green-600 hover:bg-green-700"
             >
               فتح الوردية
             </Button>
@@ -1232,17 +1355,39 @@ export default function POSPage() {
                       </Button>
                     )}
                     {canRefund && ['paid', 'partial'].includes(order.payment_status) && (
-                      <Button size="sm" variant="secondary" onClick={() => refundOrderMutation.mutate(order.id)} loading={refundOrderMutation.isPending}>
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        onClick={() => {
+                          setRefundOrderTarget(order)
+                          setRefundAmount(
+                            Math.max(
+                              0,
+                              Number(order.amount_paid || 0) - Number(order.change_due || 0)
+                            )
+                          )
+                          setRefundReason('استرداد من نقطة البيع')
+                        }}
+                        loading={refundOrderMutation.isPending}
+                      >
                         <RotateCcw className="h-4 w-4" /> استرداد
                       </Button>
                     )}
-                    {canDeleteOrders && order.status !== 'completed' && Number(order.amount_paid || 0) <= 0 && (
+                    {canDeleteOrders && order.status !== 'cancelled' && order.payment_status !== 'refunded' && (
                       <Button
                         size="sm"
                         variant="danger"
                         onClick={() => {
-                          if (window.confirm(`هل تريد حذف الطلب ${order.order_number}؟`)) {
-                            deleteOrderMutation.mutate(order.id)
+                          const paid = Math.max(
+                            0,
+                            Number(order.amount_paid || 0) - Number(order.change_due || 0)
+                          )
+                          const message =
+                            paid > 0
+                              ? `سيتم استرداد ${formatMoney(paid, currencySymbol)} ثم حذف الطلب ${order.order_number}. هل تريد المتابعة؟`
+                              : `هل تريد حذف الطلب ${order.order_number}؟`
+                          if (window.confirm(message)) {
+                            deleteOrderMutation.mutate(order)
                           }
                         }}
                         loading={deleteOrderMutation.isPending}
@@ -1254,15 +1399,31 @@ export default function POSPage() {
                 </div>
                 {items.length > 0 && (
                   <div className="mt-3 space-y-2 border-t border-gray-100 pt-3 dark:border-gray-800">
-                    {items.map((item: any, index: number) => (
-                      <div key={item.id || `${order.id}-${index}`} className="flex items-center justify-between gap-3 text-sm">
-                        <span className="flex min-w-0 items-center gap-2 truncate">
-                          {item.product?.image && <img src={mediaUrl(item.product.image)} alt="" className="h-8 w-8 shrink-0 rounded object-cover" />}
-                          {item.product?.name || item.name || 'منتج'} × {item.quantity}
-                        </span>
-                        <span className="shrink-0">{formatMoney(item.total_price ?? item.subtotal ?? 0, currencySymbol)}</span>
-                      </div>
-                    ))}
+                    {items.map((item: any, index: number) => {
+                      const itemModifiers = item.modifiers || []
+                      return (
+                        <div key={item.id || `${order.id}-${index}`} className="flex items-center justify-between gap-3 text-sm">
+                          <span className="flex min-w-0 flex-col">
+                            <span className="flex min-w-0 items-center gap-2 truncate">
+                              {item.product?.image && <img src={mediaUrl(item.product.image)} alt="" className="h-8 w-8 shrink-0 rounded object-cover" />}
+                              {item.product?.name || item.name || 'منتج'} × {item.quantity}
+                              {item.size?.name && <span className="text-xs text-gray-400">({item.size.name})</span>}
+                            </span>
+                            {itemModifiers.length > 0 && (
+                              <span className="text-xs text-gray-400">
+                                {itemModifiers
+                                  .map((modifier: any) =>
+                                    [modifier.modifier, modifier.option].filter(Boolean).join(': ') ||
+                                    modifier.name
+                                  )
+                                  .join('، ')}
+                              </span>
+                            )}
+                          </span>
+                          <span className="shrink-0">{formatMoney(item.total_price ?? item.subtotal ?? 0, currencySymbol)}</span>
+                        </div>
+                      )
+                    })}
                   </div>
                 )}
               </div>
@@ -1337,7 +1498,24 @@ export default function POSPage() {
                   </div>
                 )}
               </div>
-              <div className="flex justify-end gap-2">
+              <div className="flex flex-wrap justify-end gap-2">
+                {canRefund && ['paid', 'partial'].includes(order.payment_status) && (
+                  <Button
+                    variant="secondary"
+                    onClick={() => {
+                      setRefundOrderTarget(order)
+                      setRefundAmount(
+                        Math.max(
+                          0,
+                          Number(order.amount_paid || 0) - Number(order.change_due || 0)
+                        )
+                      )
+                      setRefundReason('استرداد من نقطة البيع')
+                    }}
+                  >
+                    <RotateCcw className="h-4 w-4" /> استرداد كلي / جزئي
+                  </Button>
+                )}
                 {canEditOrders && order.status !== 'cancelled' && (
                   <Button onClick={() => loadOrderForEditing(order)}><Pencil className="h-4 w-4" /> تعديل الطلب</Button>
                 )}
@@ -1362,41 +1540,53 @@ export default function POSPage() {
             {orderProductsLoading && <p className="text-sm text-gray-500">جاري تحميل المنتجات...</p>}
             {orderProductsError && <p className="text-sm text-red-600">تعذر تحميل المنتجات اللازمة للتعديل</p>}
             <div className="max-h-[45vh] space-y-3 overflow-y-auto">
-              {orderDraftItems.map((item, index) => (
-                <div key={item.key} className="grid grid-cols-[minmax(0,1fr)_6rem_auto] items-center gap-2">
-                  <select
-                    value={item.product_id}
-                    onChange={(e) => setOrderDraftItems((current) => current.map((line, lineIndex) =>
-                      lineIndex === index
-                        ? { ...line, product_id: Number(e.target.value), size_id: '', modifier_options: [] }
-                        : line
-                    ))}
-                    className="min-w-0 rounded-lg border border-gray-300 bg-white px-3 py-2 dark:border-gray-700 dark:bg-gray-900"
-                  >
-                    <option value="">اختر منتجاً</option>
-                    {(orderProducts || []).map((product: any) => (
-                      <option key={product.id} value={product.id}>{product.name} — {formatMoney(product.sale_price, currencySymbol)}</option>
-                    ))}
-                  </select>
-                  <input
-                    type="number"
-                    min="1"
-                    value={item.quantity}
-                    onChange={(e) => setOrderDraftItems((current) => current.map((line, lineIndex) =>
-                      lineIndex === index ? { ...line, quantity: Math.max(1, Number(e.target.value) || 1) } : line
-                    ))}
-                    className="w-full rounded-lg border border-gray-300 px-3 py-2 dark:border-gray-700 dark:bg-gray-900"
-                    aria-label="الكمية"
-                  />
-                  <button
-                    onClick={() => setOrderDraftItems((current) => current.filter((_, lineIndex) => lineIndex !== index))}
-                    className="rounded-lg p-2 text-red-600 hover:bg-red-50"
-                    aria-label="حذف المنتج من الطلب"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </button>
-                </div>
-              ))}
+              {orderDraftItems.map((item, index) => {
+                const modifierNames = (item.modifier_options || [])
+                  .map((option: any) => option.name)
+                  .filter(Boolean)
+                return (
+                  <div key={item.key} className="space-y-1 rounded-lg border border-gray-100 p-2 dark:border-gray-800">
+                    <div className="grid grid-cols-[minmax(0,1fr)_6rem_auto] items-center gap-2">
+                      <select
+                        value={item.product_id}
+                        onChange={(e) => setOrderDraftItems((current) => current.map((line, lineIndex) =>
+                          lineIndex === index
+                            ? { ...line, product_id: Number(e.target.value), size_id: '', size_name: '', modifier_options: [] }
+                            : line
+                        ))}
+                        className="min-w-0 rounded-lg border border-gray-300 bg-white px-3 py-2 dark:border-gray-700 dark:bg-gray-900"
+                      >
+                        <option value="">اختر منتجاً</option>
+                        {(orderProducts || []).map((product: any) => (
+                          <option key={product.id} value={product.id}>{product.name} — {formatMoney(product.sale_price, currencySymbol)}</option>
+                        ))}
+                      </select>
+                      <input
+                        type="number"
+                        min="1"
+                        value={item.quantity}
+                        onChange={(e) => setOrderDraftItems((current) => current.map((line, lineIndex) =>
+                          lineIndex === index ? { ...line, quantity: Math.max(1, Number(e.target.value) || 1) } : line
+                        ))}
+                        className="w-full rounded-lg border border-gray-300 px-3 py-2 dark:border-gray-700 dark:bg-gray-900"
+                        aria-label="الكمية"
+                      />
+                      <button
+                        onClick={() => setOrderDraftItems((current) => current.filter((_, lineIndex) => lineIndex !== index))}
+                        className="rounded-lg p-2 text-red-600 hover:bg-red-50"
+                        aria-label="حذف المنتج من الطلب"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    </div>
+                    {(item.size_name || modifierNames.length > 0) && (
+                      <p className="px-1 text-xs text-gray-500">
+                        {[item.size_name, ...modifierNames].filter(Boolean).join('، ')}
+                      </p>
+                    )}
+                  </div>
+                )
+              })}
             </div>
             <Button
               variant="secondary"
@@ -1410,16 +1600,49 @@ export default function POSPage() {
             >
               <Plus className="h-4 w-4" /> إضافة منتج
             </Button>
-            <div>
-              <label className="mb-1 block text-sm font-medium">طريقة دفع الفرق عند زيادة الإجمالي</label>
-              <select
-                value={orderEditPaymentMethod}
-                onChange={(e) => setOrderEditPaymentMethod(e.target.value)}
-                className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 dark:border-gray-700 dark:bg-gray-900"
+            <div className="space-y-2 rounded-xl border border-gray-200 bg-gray-50 p-3 text-sm dark:border-gray-700 dark:bg-gray-800/60">
+              <div className="flex items-center justify-between">
+                <span className="text-gray-500">إجمالي الطلب بعد التعديل</span>
+                <span className="font-semibold">{formatMoney(orderDraftTotal, currencySymbol)}</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-gray-500">المبلغ المدفوع</span>
+                <span className="font-semibold">{formatMoney(orderPaidAmount, currencySymbol)}</span>
+              </div>
+              <div
+                className={`flex items-center justify-between border-t border-gray-200 pt-2 font-semibold dark:border-gray-700 ${
+                  orderDifference > 0
+                    ? 'text-green-600 dark:text-green-400'
+                    : orderDifference < 0
+                      ? 'text-red-600 dark:text-red-400'
+                      : 'text-gray-600 dark:text-gray-300'
+                }`}
               >
-                {paymentMethods.map((method) => <option key={method.value} value={method.value}>{method.label}</option>)}
-              </select>
+                <span>
+                  {orderDifference > 0
+                    ? 'فرق مطلوب تحصيله من العميل'
+                    : orderDifference < 0
+                      ? 'فرق سيتم استرداده للعميل'
+                      : 'لا يوجد فرق'}
+                </span>
+                <span dir="ltr">
+                  {orderDifference > 0 ? '+' : orderDifference < 0 ? '-' : ''}
+                  {formatMoney(Math.abs(orderDifference), currencySymbol)}
+                </span>
+              </div>
             </div>
+            {orderDifference > 0 && (
+              <div>
+                <label className="mb-1 block text-sm font-medium">طريقة دفع الفرق عند زيادة الإجمالي</label>
+                <select
+                  value={orderEditPaymentMethod}
+                  onChange={(e) => setOrderEditPaymentMethod(e.target.value)}
+                  className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 dark:border-gray-700 dark:bg-gray-900"
+                >
+                  {paymentMethods.map((method) => <option key={method.value} value={method.value}>{method.label}</option>)}
+                </select>
+              </div>
+            )}
             <div className="flex justify-end gap-2">
               <Button variant="secondary" onClick={() => setEditingOrder(null)}>إلغاء</Button>
               <Button
@@ -1432,6 +1655,74 @@ export default function POSPage() {
             </div>
           </div>
         )}
+      </Modal>
+
+      <Modal
+        isOpen={!!refundOrderTarget}
+        onClose={() => setRefundOrderTarget(null)}
+        title={`استرداد مبلغ الطلب ${refundOrderTarget?.order_number || ''}`}
+      >
+        {refundOrderTarget && (() => {
+          const refundable = Math.max(
+            0,
+            Number(refundOrderTarget.amount_paid || 0) - Number(refundOrderTarget.change_due || 0)
+          )
+          const isFullRefund = refundAmount >= refundable - 0.0001
+          return (
+            <div className="space-y-4">
+              <div className="rounded-lg bg-gray-50 p-3 text-sm dark:bg-gray-800">
+                <div className="flex items-center justify-between">
+                  <span className="text-gray-500">المبلغ القابل للاسترداد</span>
+                  <span className="font-semibold">{formatMoney(refundable, currencySymbol)}</span>
+                </div>
+              </div>
+              <Input
+                label="مبلغ الاسترداد"
+                type="number"
+                min={0}
+                max={refundable}
+                step="0.01"
+                value={refundAmount}
+                onChange={(e) =>
+                  setRefundAmount(Math.min(Math.max(Number(e.target.value) || 0, 0), refundable))
+                }
+              />
+              <div>
+                <label className="mb-1 block text-sm font-medium">سبب الاسترداد</label>
+                <textarea
+                  value={refundReason}
+                  onChange={(e) => setRefundReason(e.target.value)}
+                  rows={2}
+                  className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-900"
+                />
+              </div>
+              <p className={`text-sm ${isFullRefund ? 'text-red-600' : 'text-amber-600'}`}>
+                {isFullRefund
+                  ? 'استرداد كلي: سيتم إلغاء الطلب وإرجاع الكمية إلى المخزون.'
+                  : 'استرداد جزئي: سيبقى الطلب فعّالاً ويُخصم المبلغ من المدفوع.'}
+              </p>
+              <div className="flex justify-end gap-2">
+                <Button variant="secondary" onClick={() => setRefundOrderTarget(null)}>
+                  إلغاء
+                </Button>
+                <Button
+                  variant="danger"
+                  disabled={refundAmount <= 0 || refundAmount > refundable}
+                  loading={refundOrderMutation.isPending}
+                  onClick={() =>
+                    refundOrderMutation.mutate({
+                      id: refundOrderTarget.id,
+                      amount: refundAmount,
+                      reason: refundReason || 'استرداد من نقطة البيع',
+                    })
+                  }
+                >
+                  <RotateCcw className="h-4 w-4" /> تنفيذ الاسترداد
+                </Button>
+              </div>
+            </div>
+          )
+        })()}
       </Modal>
     </div>
   )

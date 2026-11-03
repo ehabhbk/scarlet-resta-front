@@ -171,7 +171,21 @@ export default function OrdersPage() {
                       {item.product?.image && (
                         <img src={mediaUrl(item.product.image)} alt="" className="h-10 w-10 shrink-0 rounded object-cover" />
                       )}
-                      <span className="truncate">{item.product?.name} × {item.quantity}</span>
+                      <div className="min-w-0">
+                        <p className="truncate">
+                          {item.product?.name} × {item.quantity}
+                          {item.size?.name && <span className="text-xs text-gray-400"> ({item.size.name})</span>}
+                        </p>
+                        {item.modifiers?.length > 0 && (
+                          <p className="truncate text-xs text-gray-500">
+                            {item.modifiers
+                              .map((modifier: any) =>
+                                [modifier.modifier, modifier.option].filter(Boolean).join(': ') || modifier.name
+                              )
+                              .join('، ')}
+                          </p>
+                        )}
+                      </div>
                     </div>
                     <span className="shrink-0">{formatMoney(item.total_price, symbol)}</span>
                   </div>
