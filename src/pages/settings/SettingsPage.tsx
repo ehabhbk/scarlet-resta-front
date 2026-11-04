@@ -953,52 +953,82 @@ export default function SettingsPage() {
 }
 
 const PERMISSION_LABELS: Record<string, string> = {
+  // لوحة التحكم
   view_dashboard: 'عرض لوحة التحكم',
+  // المنتجات
   view_products: 'عرض المنتجات',
   create_products: 'إضافة منتج',
   edit_products: 'تعديل منتج',
   delete_products: 'حذف منتج',
+  // التصنيفات
   view_categories: 'عرض التصنيفات',
   create_categories: 'إضافة تصنيف',
   edit_categories: 'تعديل تصنيف',
   delete_categories: 'حذف تصنيف',
+  // الوصفات
   view_recipes: 'عرض الوصفات',
   create_recipes: 'إضافة وصفة',
   edit_recipes: 'تعديل وصفة',
   delete_recipes: 'حذف وصفة',
+  // الطلبات
   view_orders: 'عرض الطلبات',
+  view_all_orders: 'عرض جميع الطلبات',
   create_orders: 'إنشاء طلب',
   edit_orders: 'تعديل طلب',
   cancel_orders: 'إلغاء طلب',
   delete_orders: 'حذف طلب',
+  refund_orders: 'استرداد طلبات',
+  // الطاولات
   view_tables: 'عرض الطاولات',
   create_tables: 'إضافة طاولة',
   edit_tables: 'تعديل طاولة',
   delete_tables: 'حذف طاولة',
+  // المطبخ
   view_kitchen: 'عرض المطبخ',
+  view_all_kitchen_orders: 'عرض جميع طلبات المطبخ',
+  view_station_kitchen_orders: 'عرض طلبات محطة المطبخ',
   update_kitchen_order: 'تحديث حالة طلب المطبخ',
+  // المخزون
   view_inventory: 'عرض المخزون',
   create_inventory: 'إضافة صنف مخزون',
   edit_inventory: 'تعديل صنف مخزون',
   delete_inventory: 'حذف صنف مخزون',
-  view_customers: 'عرض العملاء',
-  create_customers: 'إضافة عميل',
-  edit_customers: 'تعديل عميل',
-  view_employees: 'عرض الموظفين',
-  create_employees: 'إضافة موظف',
-  edit_employees: 'تعديل موظف',
-  delete_employees: 'حذف موظف',
-  view_finance: 'عرض المالية',
-  manage_chart_of_accounts: 'إدارة شجرة الحسابات',
+  // المشتريات والموردون
   view_purchases: 'عرض المشتريات',
   create_purchases: 'إضافة مشتريات',
   edit_purchases: 'تعديل مشتريات',
   delete_purchases: 'حذف مشتريات',
+  view_suppliers: 'عرض الموردين',
+  create_suppliers: 'إضافة مورد',
+  edit_suppliers: 'تعديل مورد',
+  delete_suppliers: 'حذف مورد',
+  // العملاء
+  view_customers: 'عرض العملاء',
+  create_customers: 'إضافة عميل',
+  edit_customers: 'تعديل عميل',
+  delete_customers: 'حذف عميل',
+  // الموظفون
+  view_employees: 'عرض الموظفين',
+  create_employees: 'إضافة موظف',
+  edit_employees: 'تعديل موظف',
+  delete_employees: 'حذف موظف',
+  // المالية والمحاسبة
+  view_finance: 'عرض المالية',
+  manage_chart_of_accounts: 'إدارة شجرة الحسابات',
+  create_expenses: 'إضافة مصروف',
+  edit_expenses: 'تعديل مصروف',
   delete_expenses: 'حذف مصروف',
+  view_payments: 'عرض المدفوعات',
+  create_payments: 'إضافة دفعة',
+  edit_payments: 'تعديل دفعة',
+  delete_payments: 'حذف دفعة',
+  // التقارير
   view_reports: 'عرض التقارير',
   export_reports: 'تصدير التقارير',
+  // الإعدادات
   view_settings: 'عرض الإعدادات',
   edit_settings: 'تعديل الإعدادات',
+  // المستخدمون والأدوار
   view_users: 'عرض المستخدمين',
   create_users: 'إضافة مستخدم',
   edit_users: 'تعديل مستخدم',
@@ -1007,17 +1037,16 @@ const PERMISSION_LABELS: Record<string, string> = {
   create_roles: 'إضافة دور',
   edit_roles: 'تعديل دور',
   delete_roles: 'حذف دور',
-  view_payments: 'عرض المدفوعات',
-  view_suppliers: 'عرض الموردين',
-  create_suppliers: 'إضافة مورد',
-  edit_suppliers: 'تعديل مورد',
-  delete_suppliers: 'حذف مورد',
+  // الورديات ونقطة البيع
+  view_pos: 'عرض نقطة البيع',
   open_shift: 'فتح وردية',
   close_shift: 'إغلاق وردية',
   manage_multi_cashier_shifts: 'إدارة الورديات المشتركة',
   manage_shift_employees: 'تحديد موظفي الوردية',
   pay_employee_wages: 'صرف أجور الوردية',
   view_all_shifts: 'عرض جميع الورديات',
+  // الإشعارات
+  view_notifications: 'عرض الإشعارات',
 }
 
 function permissionLabel(name: string) {
@@ -1029,6 +1058,7 @@ function RolesPermissionsPanel() {
   const [newRoleName, setNewRoleName] = useState('')
   const [editingRole, setEditingRole] = useState<any>(null)
   const [selectedPerms, setSelectedPerms] = useState<string[]>([])
+  const [permSearch, setPermSearch] = useState('')
   const currentPermissions = useAuthStore((state) => state.user?.permissions || [])
   const canCreateRole = currentPermissions.includes('create_roles')
   const canEditRole = currentPermissions.includes('edit_roles')
@@ -1087,10 +1117,19 @@ function RolesPermissionsPanel() {
 
   const roleList = Array.isArray(roles) ? roles : []
   const permList = Array.isArray(permissions) ? permissions : []
+  const permTerm = permSearch.trim().toLowerCase()
+  const filteredPerms = permTerm
+    ? permList.filter(
+        (p: any) =>
+          permissionLabel(p.name).toLowerCase().includes(permTerm) ||
+          String(p.name).toLowerCase().includes(permTerm)
+      )
+    : permList
 
   const openEdit = (role: any) => {
     setEditingRole(role)
     setSelectedPerms((role.permissions || []).map((p: any) => p.name))
+    setPermSearch('')
   }
 
   const togglePerm = (name: string) => {
@@ -1160,8 +1199,20 @@ function RolesPermissionsPanel() {
       {canEditRole && <Modal isOpen={!!editingRole} onClose={() => setEditingRole(null)} title={`صلاحيات: ${editingRole?.name}`}>
         {editingRole && (
           <div className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-2 max-h-96 overflow-y-auto">
-              {permList.map((p: any) => (
+            <div className="flex flex-wrap items-center gap-2">
+              <div className="flex-1 min-w-[14rem]">
+                <Input
+                  placeholder="ابحث عن صلاحية بالاسم العربي أو الإنجليزي..."
+                  value={permSearch}
+                  onChange={(e) => setPermSearch(e.target.value)}
+                />
+              </div>
+              <span className="text-xs text-gray-500">
+                {filteredPerms.length} من {permList.length} صلاحية
+              </span>
+            </div>
+            <div className="grid grid-cols-1 gap-2 md:grid-cols-2 max-h-96 overflow-y-auto">
+              {filteredPerms.map((p: any) => (
                 <label key={p.id} className="flex items-center gap-2 p-2 border border-gray-200 dark:border-gray-700 rounded-lg cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800">
                   <input
                     type="checkbox"
@@ -1172,20 +1223,9 @@ function RolesPermissionsPanel() {
                   <span className="text-sm text-gray-700 dark:text-gray-200">{permissionLabel(p.name)}</span>
                 </label>
               ))}
-            </div>
-            <div className="col-span-2 flex items-center gap-2 mb-3">
-              <input
-                type="text"
-                placeholder="ابحث عن صلاحية..."
-                onChange={(e) => {
-                  const value = e.target.value.toLowerCase()
-                  const filtered = permList.filter((p: any) => 
-                    permissionLabel(p.name).toLowerCase().includes(value) || p.name.toLowerCase().includes(value)
-                  )
-                  setSelectedPerms(filtered.map((p: any) => p.name))
-                }}
-                className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100 rounded-lg text-sm"
-              />
+              {filteredPerms.length === 0 && (
+                <p className="col-span-full py-6 text-center text-sm text-gray-500">لا توجد صلاحيات مطابقة للبحث.</p>
+              )}
             </div>
             <div className="flex gap-3 justify-end pt-4">
               <Button variant="secondary" onClick={() => setEditingRole(null)}>

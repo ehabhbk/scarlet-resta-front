@@ -1,12 +1,13 @@
 import { useState, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '../../services/api'
-import { Plus, Pencil, Trash2, ChevronRight, ChevronDown } from 'lucide-react'
+import { Plus, Pencil, Trash2, ChevronRight, ChevronDown, Printer } from 'lucide-react'
 import Button from '../../components/common/buttons/Button'
 import Input from '../../components/common/inputs/Input'
 import Card from '../../components/common/cards/Card'
 import Modal from '../../components/common/modals/Modal'
-import { useSettingsStore, formatMoney } from '../../store/settingsStore'
+import { useSettingsStore, formatMoney, mediaUrl } from '../../store/settingsStore'
+import { printReport } from '../../utils/printReport'
 
 const TYPE_LABELS: Record<string, string> = {
   asset: 'أصل',
@@ -25,7 +26,7 @@ const TYPE_COLORS: Record<string, string> = {
 }
 
 export default function ChartOfAccountsPage() {
-  const { symbol } = useSettingsStore()
+  const { symbol, restaurant } = useSettingsStore()
   const queryClient = useQueryClient()
   const [showModal, setShowModal] = useState(false)
   const [editing, setEditing] = useState<any>(null)
@@ -126,11 +127,66 @@ export default function ChartOfAccountsPage() {
 
   const roots = childrenOf(null)
 
+  const handlePrint = () => {
+    const sorted = [...accounts].sort((a: any, b: any) => String(a.code).localeCompare(String(b.code)))
+    const rows = sorted.map((account: any) => [
+      account.code,
+      account.name,
+      TYPE_LABELS[account.type] || account.type || '-',
+      formatMoney(account.balance, symbol),
+    ])
+    const totalsByType = Object.keys(TYPE_LABELS).map((type) => ({
+      type,
+      total: sorted
+        .filter((account: any) => account.type === type)
+        .reduce((sum: number, account: any) => sum + (Number(account.balance) || 0), 0),
+    }))
+
+    printReport({
+      title: 'شجرة الحسابات',
+      subtitle: 'دليل الحسابات والأرصدة الحالية',
+      restaurant,
+      logo: mediaUrl(restaurant?.logo),
+      meta: [
+        { label: 'عدد الحسابات', value: String(sorted.length) },
+        { label: 'العملة', value: symbol },
+        { label: 'تاريخ الإصدار', value: new Date().toLocaleDateString('ar-EG') },
+      ],
+      kpis: totalsByType.map((item) => ({
+        label: `إجمالي ${TYPE_LABELS[item.type]}`,
+        value: formatMoney(item.total, symbol),
+        tone: item.type === 'asset' ? 'blue' : item.type === 'liability' || item.type === 'expense' ? 'red' : 'green',
+      })),
+      sections: [
+        {
+          title: 'دليل الحسابات',
+          columns: [
+            { label: 'الرمز', nowrap: true },
+            { label: 'اسم الحساب' },
+            { label: 'النوع', nowrap: true },
+            { label: 'الرصيد', align: 'left', nowrap: true },
+          ],
+          rows,
+          emptyText: 'لا توجد حسابات مسجلة',
+        },
+      ],
+      summaryTitle: 'ملخص الأرصدة حسب النوع',
+      summary: totalsByType.map((item) => ({ label: `إجمالي ${TYPE_LABELS[item.type]}`, value: formatMoney(item.total, symbol) })),
+      signatures: ['المحاسب', 'المدير المالي'],
+      footerNote: 'شجرة الحسابات',
+    })
+  }
+
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">شجرة الحسابات</h1>
-        <Button onClick={() => openNew(null)}><Plus className="w-4 h-4" /> إضافة حساب</Button>
+        <div className="flex flex-wrap gap-2">
+          <Button variant="outline" onClick={handlePrint} disabled={accounts.length === 0}>
+            <Printer className="w-4 h-4" /> تصدير PDF
+          </Button>
+          <Button onClick={() => openNew(null)}><Plus className="w-4 h-4" /> إضافة حساب</Button>
+        </div>
       </div>
       <Card>
         {isLoading && <p className="text-sm text-gray-500">جاري التحميل...</p>}

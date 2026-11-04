@@ -12,7 +12,7 @@ interface MainLayoutProps {
 }
 
 export default function MainLayout({ children }: MainLayoutProps) {
-  const { sidebarOpen } = useUiStore()
+  const { sidebarOpen, darkMode } = useUiStore()
   const user = useAuthStore((state) => state.user)
   const location = useLocation()
   const loadSettings = useSettingsStore((state) => state.load)
@@ -59,6 +59,10 @@ export default function MainLayout({ children }: MainLayoutProps) {
   useEffect(() => {
     void loadSettings()
   }, [loadSettings])
+
+  useEffect(() => {
+    document.documentElement.classList.toggle('dark', darkMode)
+  }, [darkMode])
 
   return (
     <div className="flex h-screen bg-gray-50 dark:bg-gray-950">

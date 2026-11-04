@@ -937,7 +937,7 @@ export default function POSPage() {
   }
 
   return (
-    <div className="h-[calc(100vh-8rem)] flex flex-col -m-6 bg-gray-50 dark:bg-gray-950 overflow-hidden">
+    <div className="h-[calc(100vh-8rem)] flex flex-col -m-6 bg-gray-50 dark:bg-gray-950 overflow-hidden text-gray-900 dark:text-gray-100">
       {settingsError && (
         <div className="border-b border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">{settingsError}</div>
       )}
@@ -979,7 +979,7 @@ export default function POSPage() {
           <div className="flex flex-wrap items-center gap-2">
             {can('view_pos') && (
               <Button
-                variant="secondary"
+                variant="success"
                 size="sm"
                 onClick={() => {
                   queryClient.invalidateQueries({ queryKey: ['shifts-current'] })
@@ -990,12 +990,20 @@ export default function POSPage() {
               </Button>
             )}
             {can('view_orders') && (
-              <Button variant="secondary" size="sm" onClick={() => setShowOrdersModal(true)}>
+              <Button
+                variant="info"
+                size="sm"
+                onClick={() => setShowOrdersModal(true)}
+              >
                 الطلبات
               </Button>
             )}
             {can('pay_employee_wages') && openShift && (
-              <Button variant="secondary" size="sm" onClick={() => setShowEmployeeWagesModal(true)}>
+              <Button
+                variant="warning"
+                size="sm"
+                onClick={() => setShowEmployeeWagesModal(true)}
+              >
                 <Wallet className="w-4 h-4" />
                 أجر الموظفين
               </Button>
@@ -1018,10 +1026,10 @@ export default function POSPage() {
         </div>
 
         {can('view_pos') && (
-          <div className="bg-gradient-to-l from-primary/10 to-accent/10 dark:from-primary/20 dark:to-accent/20 border border-primary/20 rounded-xl p-3">
+          <div className="bg-gradient-to-l from-emerald-50 to-teal-50 dark:from-emerald-950/40 dark:to-teal-950/30 border border-emerald-200 dark:border-emerald-800 rounded-xl p-3">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div className="flex items-center gap-2">
-                <DollarSign className="w-5 h-5 text-primary" />
+                <DollarSign className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
                 <span className="font-semibold text-gray-900 dark:text-gray-100">
                   {openShift ? 'إيرادات الوردية' : 'إيرادات اليوم'}
                 </span>
@@ -1029,7 +1037,7 @@ export default function POSPage() {
                   ({shiftData?.orders_count || 0} طلب)
                 </span>
               </div>
-              <div className="text-2xl font-bold text-primary">
+              <div className="text-2xl font-bold text-emerald-600 dark:text-emerald-400">
                 {formatMoney(shiftRevenue.total, currencySymbol)}
               </div>
             </div>
@@ -1039,7 +1047,7 @@ export default function POSPage() {
                   key={method.value}
                   className="flex items-center gap-2 px-3 py-1.5 bg-white/70 dark:bg-gray-900/60 rounded-lg"
                 >
-                  <PaymentIcon method={method.value} className="w-4 h-4 text-primary" />
+                  <PaymentIcon method={method.value} className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
                   <span className="text-gray-600 dark:text-gray-300">{method.label}:</span>
                   <span className="font-semibold text-gray-900 dark:text-gray-100">
                     {formatMoney(method.amount, currencySymbol)}
@@ -1124,7 +1132,7 @@ export default function POSPage() {
                     <h3 className="font-medium text-gray-900 dark:text-gray-100 truncate">
                       {product.name}
                     </h3>
-                    <p className="text-lg font-bold text-primary mt-1">
+                    <p className="text-lg font-bold text-primary dark:text-blue-400 mt-1">
                       {formatMoney(product.sale_price, currencySymbol)}
                     </p>
                   </button>
@@ -1257,22 +1265,22 @@ export default function POSPage() {
               />
             </div>
             <div className="flex justify-between text-sm">
-              <span className="text-gray-500">المجموع الفرعي</span>
-              <span>{formatMoney(subtotal, currencySymbol)}</span>
+              <span className="text-gray-500 dark:text-gray-400">المجموع الفرعي</span>
+              <span className="font-medium text-gray-900 dark:text-gray-100">{formatMoney(subtotal, currencySymbol)}</span>
             </div>
             <div className="flex justify-between text-sm">
-              <span className="text-gray-500">الضريبة ({(taxRate * 100).toFixed(0)}%)</span>
-              <span>{formatMoney(tax, currencySymbol)}</span>
+              <span className="text-gray-500 dark:text-gray-400">الضريبة ({(taxRate * 100).toFixed(0)}%)</span>
+              <span className="font-medium text-gray-900 dark:text-gray-100">{formatMoney(tax, currencySymbol)}</span>
             </div>
             {discount > 0 && (
-              <div className="flex justify-between text-sm text-red-600">
+              <div className="flex justify-between text-sm text-red-600 dark:text-red-400">
                 <span>الخصم</span>
                 <span>-{formatMoney(discount, currencySymbol)}</span>
               </div>
             )}
             <div className="flex justify-between text-lg font-bold border-t border-gray-200 dark:border-gray-700 pt-2">
-              <span>الإجمالي</span>
-              <span className="text-primary">{formatMoney(total, currencySymbol)}</span>
+              <span className="text-gray-900 dark:text-gray-100">الإجمالي</span>
+              <span className="text-emerald-600 dark:text-emerald-400">{formatMoney(total, currencySymbol)}</span>
             </div>
           </div>
 
@@ -1289,7 +1297,7 @@ export default function POSPage() {
                   }
                   setSplitPayment((prev) => !prev)
                 }}
-                className="text-xs text-primary hover:underline"
+                className="text-xs text-primary dark:text-blue-400 hover:underline"
               >
                 {splitPayment ? 'دفع بطريقة واحدة' : 'تقسيم الدفع'}
               </button>
@@ -1299,7 +1307,7 @@ export default function POSPage() {
               <div className="relative">
                 <PaymentIcon
                   method={paymentMethod}
-                  className="pointer-events-none absolute right-3 top-1/2 h-5 w-5 -translate-y-1/2 text-primary"
+                  className="pointer-events-none absolute right-3 top-1/2 h-5 w-5 -translate-y-1/2 text-primary dark:text-blue-400"
                 />
                 <select
                   value={paymentMethod}
@@ -1596,7 +1604,7 @@ export default function POSPage() {
             </div>}
             {can('view_pos') && <div className="p-3 bg-gray-50 dark:bg-gray-800 rounded-lg col-span-2">
               <p className="text-gray-500">النقد المتوقع في الدرج</p>
-              <p className="font-bold text-primary text-lg">
+              <p className="font-bold text-primary dark:text-blue-400 text-lg">
                 {formatMoney(expectedCash, currencySymbol)}
               </p>
             </div>}

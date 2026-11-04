@@ -1,13 +1,15 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { api } from '../../services/api'
-import { useSettingsStore, formatMoney } from '../../store/settingsStore'
-import { DollarSign, TrendingUp, TrendingDown, CreditCard } from 'lucide-react'
+import { useSettingsStore, formatMoney, mediaUrl } from '../../store/settingsStore'
+import { DollarSign, TrendingUp, TrendingDown, CreditCard, Printer } from 'lucide-react'
 import Card from '../../components/common/cards/Card'
+import Button from '../../components/common/buttons/Button'
 import StatCard from '../../components/common/data-display/StatCard'
+import { printReport } from '../../utils/printReport'
 
 export default function FinancePage() {
-  const { symbol, paymentMethods } = useSettingsStore()
+  const { symbol, paymentMethods, restaurant } = useSettingsStore()
   const [period, setPeriod] = useState('month')
 
   const { data: profitLoss } = useQuery({
@@ -26,23 +28,75 @@ export default function FinancePage() {
     },
   })
 
+  const paymentRows = (paymentMethodStats || []).map((method: any) => [
+    paymentMethods.find((m) => m.value === method.payment_method)?.label || method.payment_method,
+    formatMoney(method.total, symbol),
+    String(method.count ?? method.transactions ?? ''),
+  ])
+
+  const handlePrint = () => {
+    printReport({
+      title: 'التقرير المالي',
+      subtitle: 'نظرة عامة على الأداء المالي',
+      restaurant,
+      logo: mediaUrl(restaurant?.logo),
+      meta: [
+        { label: 'الفترة', value: period === 'today' ? 'اليوم' : period === 'week' ? 'هذا الأسبوع' : period === 'year' ? 'هذا العام' : 'هذا الشهر' },
+        { label: 'العملة', value: symbol },
+        { label: 'تاريخ الإصدار', value: new Date().toLocaleDateString('ar-EG') },
+      ],
+      kpis: [
+        { label: 'الإيرادات', value: formatMoney(profitLoss?.revenue, symbol), tone: 'green' },
+        { label: 'المصروفات', value: formatMoney(profitLoss?.expense, symbol), tone: 'red' },
+        { label: 'المشتريات', value: formatMoney(profitLoss?.purchase, symbol), tone: 'blue' },
+        { label: 'صافي الربح', value: formatMoney(profitLoss?.profit, symbol), tone: Number(profitLoss?.profit) >= 0 ? 'green' : 'red' },
+      ],
+      sections: [
+        {
+          title: 'طرق الدفع',
+          columns: [
+            { label: 'طريقة الدفع' },
+            { label: 'الإجمالي', align: 'left', nowrap: true },
+            { label: 'عدد العمليات', align: 'left', nowrap: true },
+          ],
+          rows: paymentRows,
+          emptyText: 'لا توجد عمليات دفع مسجلة',
+        },
+      ],
+      summaryTitle: 'الملخص المالي',
+      summary: [
+        { label: 'الإيرادات', value: formatMoney(profitLoss?.revenue, symbol), tone: 'green' },
+        { label: 'المصروفات', value: formatMoney(profitLoss?.expense, symbol), tone: 'red' },
+        { label: 'المشتريات', value: formatMoney(profitLoss?.purchase, symbol) },
+        { label: 'صافي الربح', value: formatMoney(profitLoss?.profit, symbol), tone: Number(profitLoss?.profit) >= 0 ? 'green' : 'red' },
+      ],
+      signatures: ['المحاسب', 'المدير المالي'],
+      footerNote: 'التقرير المالي',
+    })
+  }
+
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-gray-900">المالية</h1>
-        <select
-          value={period}
-          onChange={(e) => setPeriod(e.target.value)}
-          className="px-4 py-2 border border-gray-300 rounded-lg"
-        >
-          <option value="today">اليوم</option>
-          <option value="week">هذا الأسبوع</option>
-          <option value="month">هذا الشهر</option>
-          <option value="year">هذا العام</option>
-        </select>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">المالية</h1>
+        <div className="flex flex-wrap items-center gap-2">
+          <select
+            value={period}
+            onChange={(e) => setPeriod(e.target.value)}
+            className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-gray-900 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
+          >
+            <option value="today">اليوم</option>
+            <option value="week">هذا الأسبوع</option>
+            <option value="month">هذا الشهر</option>
+            <option value="year">هذا العام</option>
+          </select>
+          <Button variant="outline" onClick={handlePrint}>
+            <Printer className="w-4 h-4" /> تصدير PDF
+          </Button>
+        </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-4">
         <StatCard
           label="الإيرادات"
           value={formatMoney(profitLoss?.revenue, symbol)}
@@ -69,19 +123,26 @@ export default function FinancePage() {
         />
       </div>
 
-      <Card>
-        <h2 className="text-lg font-semibold mb-4">طرق الدفع</h2>
+      <Card className="dark:border-gray-800 dark:bg-gray-900">
+        <h2 className="mb-4 text-lg font-semibold text-gray-900 dark:text-gray-100">طرق الدفع</h2>
         <div className="space-y-3">
-          {paymentMethodStats?.map((method: any) => (
-            <div key={method.payment_method} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-              <span className="font-medium">
+          {(paymentMethodStats || []).map((method: any) => (
+            <div
+              key={method.payment_method}
+              className="flex items-center justify-between rounded-lg bg-gray-50 p-3 dark:bg-gray-800/60"
+            >
+              <span className="font-medium text-gray-800 dark:text-gray-200">
                 {paymentMethods.find((m) => m.value === method.payment_method)?.label || method.payment_method}
               </span>
               <div className="text-right">
-                <p className="font-bold">{formatMoney(method.total, symbol)}عملية</p>
+                <p className="font-bold text-gray-900 dark:text-gray-100">{formatMoney(method.total, symbol)}</p>
+                <p className="text-xs text-gray-500">{Number(method.count ?? method.transactions ?? 0)} عملية</p>
               </div>
             </div>
           ))}
+          {(paymentMethodStats || []).length === 0 && (
+            <p className="text-sm text-gray-500">لا توجد عمليات دفع مسجلة.</p>
+          )}
         </div>
       </Card>
     </div>
