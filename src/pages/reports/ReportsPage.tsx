@@ -7,6 +7,7 @@ import Button from '../../components/common/buttons/Button'
 import { useSettingsStore, formatMoney, mediaUrl } from '../../store/settingsStore'
 import { useAuthStore } from '../../store/authStore'
 import { formatDate, formatTime, formatDateTime, formatNumber } from '../../utils/format'
+import { printReport } from '../../utils/printReport'
 
 interface ReportDefinition {
   id: string
@@ -407,75 +408,32 @@ export default function ReportsPage() {
   }
 
   const handlePrint = () => {
-    const win = window.open('', '_blank', 'width=900,height=700')
-    if (!win) return
+    const rangeLabel = `${fromDate ? formatDate(fromDate) : 'كل الفترات'} — ${
+      toDate ? formatDate(toDate) : 'اليوم'
+    }`
 
-    const metricsHtml = metrics.length
-      ? `<div class="metrics">${metrics
-          .map(
-            (metric) =>
-              `<div class="metric"><span>${escapeHtml(metric.label)}</span><strong>${escapeHtml(
-                formatValue(metric.value, metric.key)
-              )}</strong></div>`
-          )
-          .join('')}</div>`
-      : ''
-
-    const sectionsHtml = sections
-      .map(
-        (section) => `
-          <h2>${escapeHtml(section.label)}</h2>
-          ${
-            section.rows.length
-              ? `<table><thead><tr>${section.columns
-                  .map((column) => `<th>${escapeHtml(column.label)}</th>`)
-                  .join('')}</tr></thead><tbody>${section.rows
-                  .map(
-                    (row) =>
-                      `<tr>${section.columns
-                        .map(
-                          (column) =>
-                            `<td>${escapeHtml(formatValue(row[column.key], column.key))}</td>`
-                        )
-                        .join('')}</tr>`
-                  )
-                  .join('')}</tbody></table>`
-              : '<p class="muted">لا توجد بيانات</p>'
-          }
-        `
-      )
-      .join('')
-
-    win.document.write(`
-      <html dir="rtl"><head><title>${escapeHtml(report.label)}</title>
-      <style>
-        body{font-family:Tahoma,Arial,sans-serif;padding:24px;color:#111;}
-        h1{margin:0 0 4px;font-size:22px;}
-        h2{margin:24px 0 8px;font-size:16px;}
-        .muted{color:#666;font-size:12px;}
-        .metrics{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:16px;}
-        .metric{border:1px solid #ddd;border-radius:8px;padding:10px;display:flex;flex-direction:column;gap:4px;}
-        .metric span{font-size:12px;color:#666;}
-        .metric strong{font-size:16px;}
-        table{width:100%;border-collapse:collapse;font-size:12px;margin-top:8px;}
-        th,td{border-bottom:1px solid #e5e5e5;padding:8px;text-align:right;}
-        th{background:#f5f5f5;}
-        @media print{body{padding:8px;}}
-      </style></head><body>
-        <h1>${escapeHtml(report.label)}</h1>
-        <p class="muted">الفترة: ${escapeHtml(fromDate || 'كل الفترات')} إلى ${escapeHtml(
-          toDate || 'اليوم'
-        )}</p>
-        <p class="muted">${escapeHtml(report.description)}</p>
-        ${metricsHtml}
-        ${sectionsHtml}
-        <p class="muted" style="margin-top:24px;">تم إنشاء التقرير في ${escapeHtml(
-          formatDateTime(new Date())
-        )}</p>
-        <script>window.onload = function(){ window.print(); };</script>
-      </body></html>
-    `)
-    win.document.close()
+    printReport({
+      title: report.label,
+      subtitle: report.description,
+      restaurant,
+      logo: mediaUrl(restaurant?.logo),
+      meta: [
+        { label: 'الفترة', value: rangeLabel },
+        { label: 'نوع التقرير', value: report.label },
+      ],
+      kpis: metrics.map((metric) => ({
+        label: metric.label,
+        value: formatValue(metric.value, metric.key),
+      })),
+      sections: sections.map((section) => ({
+        title: section.label,
+        columns: section.columns.map((column) => ({ label: column.label })),
+        rows: section.rows.map((row) =>
+          section.columns.map((column) => formatValue(row[column.key], column.key))
+        ),
+      })),
+      generatedAt: new Date(),
+    })
   }
 
   const handlePrintShift = () => {
@@ -948,23 +906,26 @@ export default function ReportsPage() {
       {mode === 'reports' ? (
         <>
       <Card>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">
-              نوع التقرير
-            </label>
-            <select
-              value={report.id}
-              onChange={(e) => setReportType(e.target.value)}
-              className="w-full px-4 py-2 border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100"
-            >
-              {visibleReports.map((item) => (
-                <option key={item.id} value={item.id}>
-                  {item.label}
-                </option>
-              ))}
-            </select>
-          </div>
+        <div className="mb-5 flex gap-2 overflow-x-auto pb-1">
+          {visibleReports.map((item) => {
+            const active = item.id === report.id
+            return (
+              <button
+                key={item.id}
+                type="button"
+                onClick={() => setReportType(item.id)}
+                className={`whitespace-nowrap rounded-lg border px-4 py-2 text-sm font-medium transition-colors ${
+                  active
+                    ? 'border-primary bg-primary text-white dark:border-accent dark:bg-accent dark:text-white'
+                    : 'border-gray-200 bg-white text-gray-600 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 dark:hover:bg-gray-800'
+                }`}
+              >
+                {item.label}
+              </button>
+            )
+          })}
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">
               من تاريخ

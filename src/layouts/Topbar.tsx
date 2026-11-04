@@ -1,4 +1,4 @@
-import { Bell, Moon, Sun, Search, ChevronDown, LogOut, Settings, BarChart3, Users } from 'lucide-react'
+import { Bell, Moon, Sun, ChevronDown, LogOut, Settings, BarChart3, Users } from 'lucide-react'
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
@@ -7,7 +7,6 @@ import { useUiStore } from '../store/uiStore'
 import { useLangStore } from '../store/langStore'
 import { useSettingsStore, mediaUrl } from '../store/settingsStore'
 import { api } from '../services/api'
-import { t } from '../i18n'
 
 export default function Topbar() {
   const { user, logout } = useAuthStore()
@@ -73,17 +72,6 @@ export default function Topbar() {
 
   return (
     <header className="bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 px-6 py-3 flex items-center justify-between">
-      <div className="flex items-center gap-4">
-        <div className="relative">
-          <Search className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-          <input
-            type="text"
-            placeholder={t('search', lang)}
-            className="pr-10 pl-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-accent w-64 bg-white dark:bg-gray-800 dark:text-gray-100"
-          />
-        </div>
-      </div>
-
       <div className="flex items-center gap-3">
         {/* Notifications bell */}
         <div className="relative">
