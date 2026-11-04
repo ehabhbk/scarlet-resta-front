@@ -5,7 +5,6 @@ import Topbar from './Topbar'
 import { useAuthStore } from '../store/authStore'
 import { useUiStore } from '../store/uiStore'
 import { useSettingsStore } from '../store/settingsStore'
-import { useLangStore } from '../store/langStore'
 import type { ReactNode } from 'react'
 
 interface MainLayoutProps {
@@ -15,7 +14,6 @@ interface MainLayoutProps {
 export default function MainLayout({ children }: MainLayoutProps) {
   const { sidebarOpen, darkMode, mobileSidebarOpen, setMobileSidebarOpen } = useUiStore()
   const user = useAuthStore((state) => state.user)
-  const lang = useLangStore((state) => state.lang)
   const location = useLocation()
   const loadSettings = useSettingsStore((state) => state.load)
 
@@ -82,7 +80,7 @@ export default function MainLayout({ children }: MainLayoutProps) {
         group can stay pinned to the far left in both Arabic (RTL) and English
         (LTR). In LTR the row is reversed to mirror the RTL shell.
       */}
-      <div className={`flex min-h-0 flex-1 overflow-hidden ${lang === 'en' ? 'lg:flex-row-reverse' : ''}`}>
+      <div className="flex min-h-0 flex-1 overflow-hidden">
         <Sidebar
           open={sidebarOpen}
           mobileOpen={mobileSidebarOpen}

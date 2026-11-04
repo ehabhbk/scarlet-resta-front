@@ -65,6 +65,7 @@ export default function Sidebar({ open, mobileOpen, onClose }: SidebarProps) {
   // The drawer is always fully expanded on phones/tablets.
   const expanded = isDesktop ? open : true
   const { lang } = useLangStore()
+  const isRtl = lang === 'ar'
   const { restaurant } = useSettingsStore()
   const permissions = useAuthStore((state) => state.user?.permissions || [])
   const can = (required: string[] = [], any: string[] = []) =>
@@ -134,9 +135,11 @@ export default function Sidebar({ open, mobileOpen, onClose }: SidebarProps) {
         />
       )}
       <aside
-        className={`fixed inset-y-0 right-0 z-50 flex h-full w-64 shrink-0 flex-col overflow-hidden border-l border-slate-800 bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950 shadow-2xl transition-transform duration-300 lg:static lg:z-auto lg:translate-x-0 ${
-          open ? 'lg:w-64' : 'lg:w-20'
-        } ${mobileOpen ? 'translate-x-0' : 'translate-x-full'}`}
+        className={`fixed inset-y-0 z-50 flex h-full w-64 shrink-0 flex-col overflow-hidden border-e border-slate-800 bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950 shadow-2xl transition-transform duration-300 lg:static lg:z-auto lg:translate-x-0 ${
+          isRtl ? 'right-0' : 'left-0'
+        } ${open ? 'lg:w-64' : 'lg:w-20'} ${
+          mobileOpen ? 'translate-x-0' : isRtl ? 'translate-x-full' : '-translate-x-full'
+        }`}
       >
       <div className="px-4 py-5 border-b border-white/10">
         <Link to="/dashboard" onClick={onClose} className="flex items-center gap-3">
@@ -187,7 +190,7 @@ export default function Sidebar({ open, mobileOpen, onClose }: SidebarProps) {
                   }`}
                 >
                   {isSectionActive && (
-                    <span className="absolute right-0 top-1/2 h-7 w-1 -translate-y-1/2 rounded-l-full bg-sky-300" />
+                    <span className="absolute start-0 top-1/2 h-7 w-1 -translate-y-1/2 rounded-e-full bg-sky-300" />
                   )}
                   <Icon className={`w-5 h-5 shrink-0 transition-colors ${isSectionActive ? 'text-sky-200' : 'group-hover:text-sky-200'}`} />
                   {expanded && (
