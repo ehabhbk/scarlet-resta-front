@@ -38,8 +38,8 @@ export default function CategoriesPage() {
     { key: 'is_active', header: 'الحالة', render: (c: any) => c.is_active ? 'نشط' : 'معطل' },
     ...(canEdit || canDelete ? [{ key: 'actions', header: 'الإجراءات', render: (c: any) => (
       <div className="flex gap-2">
-        {canEdit && <button onClick={() => { setEditing(c); setShowModal(true) }} className="p-1 text-blue-600 hover:bg-blue-50 rounded"><Edit className="w-4 h-4" /></button>}
-        {canDelete && <button onClick={() => deleteMutation.mutate(c.id)} className="p-1 text-red-600 hover:bg-red-50 rounded"><Trash2 className="w-4 h-4" /></button>}
+        {canEdit && <button onClick={() => { setEditing(c); setShowModal(true) }} className="p-1 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-950/40 rounded"><Edit className="w-4 h-4" /></button>}
+        {canDelete && <button onClick={() => deleteMutation.mutate(c.id)} className="p-1 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/40 rounded"><Trash2 className="w-4 h-4" /></button>}
       </div>
     )}] : []),
   ]
@@ -47,7 +47,7 @@ export default function CategoriesPage() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-gray-900">التصنيفات</h1>
+        <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">التصنيفات</h1>
         {canCreate && <Button onClick={() => { setEditing(null); setShowModal(true) }}><Plus className="w-4 h-4" /> إضافة تصنيف</Button>}
       </div>
       <Card>

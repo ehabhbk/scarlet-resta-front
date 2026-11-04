@@ -11,6 +11,7 @@ import Card from '../../components/common/cards/Card'
 import DataTable from '../../components/common/tables/DataTable'
 import Modal from '../../components/common/modals/Modal'
 import Pagination from '../../components/common/Pagination'
+import { formatDate, formatTime } from '../../utils/format'
 
 export default function ShiftsPage() {
   const [showModal, setShowModal] = useState(false)
@@ -52,12 +53,11 @@ export default function ShiftsPage() {
   })
 
   const columns = [
-    { key: 'name', header: 'اسم الوردية' },
+    { key: 'name', header: 'الوردية', render: (s: any) => `#${s.id} - ${formatDate(s.shift_date)}` },
     { key: 'user', header: 'المستخدم', render: (s: any) => s.user?.name || '-' },
     { key: 'employees', header: 'الموظفون', render: (s: any) => (s.employees || []).map((employee: any) => employee.name).join('، ') || '-' },
-    { key: 'shift_date', header: 'التاريخ' },
-    { key: 'start_time', header: 'بداية' },
-    { key: 'end_time', header: 'نهاية' },
+    { key: 'start_time', header: 'بداية', render: (s: any) => formatTime(s.start_time) },
+    { key: 'end_time', header: 'نهاية', render: (s: any) => formatTime(s.end_time) },
     { key: 'status', header: 'الحالة' },
     { key: 'actions', header: 'الإجراءات', render: (s: any) => (
       <div className="flex gap-2">
@@ -67,14 +67,14 @@ export default function ShiftsPage() {
                 setClosingShift(s)
                 setActualCash(String(s.expected_cash || s.opening_cash || 0))
               }}
-            className="p-1 text-amber-600 hover:bg-amber-50 rounded"
+            className="p-1 text-amber-600 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-950/40 rounded"
             title="إغلاق الوردية"
           >
             <Lock className="w-4 h-4" />
           </button>
         )}
         {user?.permissions?.includes('view_all_shifts') && (
-          <button onClick={() => deleteMutation.mutate(s.id)} className="p-1 text-red-600 hover:bg-red-50 rounded" title="حذف الوردية">
+          <button onClick={() => deleteMutation.mutate(s.id)} className="p-1 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/40 rounded" title="حذف الوردية">
             <Trash2 className="w-4 h-4" />
           </button>
         )}
@@ -85,7 +85,7 @@ export default function ShiftsPage() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-gray-900">الورديات</h1>
+        <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">الورديات</h1>
         {user?.permissions?.includes('open_shift') && (
           <Button onClick={() => setShowModal(true)}><Plus className="w-4 h-4" /> فتح وردية</Button>
         )}
@@ -97,7 +97,7 @@ export default function ShiftsPage() {
       <Modal isOpen={showModal} onClose={() => setShowModal(false)} title="فتح وردية">
         <ShiftForm onClose={() => setShowModal(false)} onSuccess={() => { setShowModal(false); queryClient.invalidateQueries({ queryKey: ['shifts'] }) }} />
       </Modal>
-      <Modal isOpen={!!closingShift} onClose={() => setClosingShift(null)} title={`إغلاق وردية ${closingShift?.user?.name || ''}`}>
+      <Modal isOpen={!!closingShift} onClose={() => setClosingShift(null)} title={`إغلاق الوردية #${closingShift?.id ?? ''}`}>
         <div className="space-y-4">
           <Input label="النقد الفعلي" type="number" min={0} value={actualCash} onChange={(event) => setActualCash(event.target.value)} />
           <div className="flex justify-end gap-3">
@@ -124,7 +124,7 @@ function ShiftForm({ onClose, onSuccess }: any) {
   })
   const employees = options?.employees || []
   const [formData, setFormData] = useState({
-    name: '',
+    name: 'وردية',
     shift_date: new Date().toISOString().split('T')[0],
     start_time: '09:00',
     end_time: '17:00',
@@ -155,18 +155,18 @@ function ShiftForm({ onClose, onSuccess }: any) {
   }
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
-      {optionsLoading && <p className="text-sm text-gray-500">جارٍ تحميل الكاشيرين والموظفين...</p>}
+      {optionsLoading && <p className="text-sm text-gray-500 dark:text-gray-400">جارٍ تحميل الكاشيرين والموظفين...</p>}
       {optionsError && (
-        <div className="flex items-center justify-between gap-2 text-sm text-red-600">
+        <div className="flex items-center justify-between gap-2 text-sm text-red-600 dark:text-red-400">
           <span>تعذر تحميل بيانات الوردية من الخادم.</span>
           <button type="button" className="underline" onClick={() => void refetchOptions()}>إعادة المحاولة</button>
         </div>
       )}
       {options?.permissions?.manage_shift_employees && (
         <fieldset className="space-y-1">
-          <legend className="text-sm font-medium text-gray-700">الموظفون العاملون في هذه الوردية</legend>
+          <legend className="text-sm font-medium text-gray-700 dark:text-gray-300">الموظفون العاملون في هذه الوردية</legend>
           {employees.length === 0 && !optionsLoading && !optionsError && (
-            <p className="text-sm text-gray-500">لا يوجد موظفون يوميون أو بنظام النسبة متاحون للاختيار.</p>
+            <p className="text-sm text-gray-500 dark:text-gray-400">لا يوجد موظفون يوميون أو بنظام النسبة متاحون للاختيار.</p>
           )}
           {employees.map((employee: any) => (
             <label key={employee.id} className="flex items-center gap-2 text-sm">
@@ -182,7 +182,6 @@ function ShiftForm({ onClose, onSuccess }: any) {
           ))}
         </fieldset>
       )}
-      <Input label="اسم الوردية" value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} required />
       <Input label="التاريخ" type="date" value={formData.shift_date} onChange={(e) => setFormData({ ...formData, shift_date: e.target.value })} required />
       <div className="grid grid-cols-2 gap-4">
         <Input label="بداية" type="time" value={formData.start_time} onChange={(e) => setFormData({ ...formData, start_time: e.target.value })} required />

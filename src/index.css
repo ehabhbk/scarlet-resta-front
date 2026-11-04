@@ -17,8 +17,27 @@
   html {
     scroll-behavior: smooth;
   }
+  :root {
+    color-scheme: light;
+  }
+  .dark {
+    color-scheme: dark;
+  }
   body {
     @apply bg-gray-50 text-gray-900 dark:bg-gray-950 dark:text-gray-100;
+  }
+  /* Native form controls stay readable in dark mode even without explicit classes. */
+  input:not([type='checkbox']):not([type='radio']):not([type='submit']):not([type='button']),
+  select,
+  textarea {
+    @apply bg-white text-gray-900 dark:bg-gray-800 dark:text-gray-100 dark:border-gray-700;
+  }
+  input::placeholder,
+  textarea::placeholder {
+    @apply text-gray-400 dark:text-gray-500;
+  }
+  option {
+    @apply bg-white text-gray-900 dark:bg-gray-800 dark:text-gray-100;
   }
   [dir="rtl"] {
     direction: rtl;

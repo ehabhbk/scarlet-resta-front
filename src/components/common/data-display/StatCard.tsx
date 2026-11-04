@@ -14,15 +14,15 @@ interface StatCardProps {
 
 export default function StatCard({ label, value, icon, color = 'bg-primary', trend }: StatCardProps) {
   return (
-    <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
+    <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm p-6 border border-gray-100 dark:border-gray-800">
       <div className="flex items-center justify-between">
         <div>
-          <p className="text-sm text-gray-500">{label}</p>
+          <p className="text-sm text-gray-500 dark:text-gray-400">{label}</p>
           <p className="text-2xl font-bold mt-1">{value}</p>
           {trend && (
             <p className={clsx(
               'text-sm mt-1',
-              trend.isPositive ? 'text-green-600' : 'text-red-600'
+              trend.isPositive ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'
             )}>
               {trend.isPositive ? '↑' : '↓'} {Math.abs(trend.value)}%
             </p>

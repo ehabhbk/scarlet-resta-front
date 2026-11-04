@@ -20,6 +20,7 @@ import {
 import StatCard from '../../components/common/data-display/StatCard'
 import Card from '../../components/common/cards/Card'
 import { useSettingsStore, formatMoney } from '../../store/settingsStore'
+import { formatDate } from '../../utils/format'
 import { useEffect } from 'react'
 
 export default function DashboardPage() {
@@ -73,12 +74,7 @@ export default function DashboardPage() {
           </p>
         </div>
         <div className="text-sm text-gray-500 dark:text-gray-400">
-          {new Date().toLocaleDateString('ar-EG', {
-            weekday: 'long',
-            year: 'numeric',
-            month: 'long',
-            day: 'numeric',
-          })}
+          {formatDate(new Date())}
         </div>
       </div>
 
@@ -144,7 +140,7 @@ export default function DashboardPage() {
                       <span
                         className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${
                           index === 0
-                            ? 'bg-amber-100 text-amber-700'
+                            ? 'bg-amber-100 text-amber-700 dark:bg-amber-950/50'
                             : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300'
                         }`}
                       >
@@ -206,7 +202,7 @@ export default function DashboardPage() {
 
       {stats?.low_stock_alerts > 0 && (
         <div className="bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/30 rounded-xl p-4 flex items-center gap-3">
-          <AlertTriangle className="w-5 h-5 text-amber-600" />
+          <AlertTriangle className="w-5 h-5 text-amber-600 dark:text-amber-400" />
           <span className="text-amber-800 dark:text-amber-200">
             يوجد {stats.low_stock_alerts} صنف بمخزون منخفض. يرجى التحقق من المخزون.
           </span>

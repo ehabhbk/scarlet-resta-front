@@ -41,7 +41,7 @@ export default function Topbar() {
   const userRoleName = user?.roles?.[0]?.name
   const userRole = (Array.isArray(rolesData) ? rolesData : []).find((r: any) => r.name === userRoleName)
   const userPerms = (userRole?.permissions || []).map((p: any) => p.name)
-  const isAdmin = ['Super Admin', 'Admin'].includes(userRoleName || '')
+  const isAdmin = ['admin', 'Super Admin', 'Admin'].includes(userRoleName || '')
 
   const can = (perm: string) => isAdmin || userPerms.includes(perm)
   const canSettings = can('edit_settings') || isAdmin
@@ -222,7 +222,7 @@ export default function Topbar() {
                   <button
                     type="button"
                     onClick={handleLogout}
-                    className="flex w-full items-center gap-3 px-4 py-3 text-sm text-red-600 hover:bg-red-50 dark:hover:bg-red-500/10"
+                    className="flex w-full items-center gap-3 px-4 py-3 text-sm text-red-600 hover:bg-red-50 dark:hover:bg-red-500/10 dark:text-red-400"
                   >
                     <LogOut className="w-4 h-4" />
                     تسجيل الخروج

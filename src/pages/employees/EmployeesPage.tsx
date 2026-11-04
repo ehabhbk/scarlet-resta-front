@@ -94,14 +94,14 @@ export default function EmployeesPage() {
     { key: 'actions', header: 'الإجراءات', render: (item: any) => (
       <div className="flex gap-2">
         {canPayEmployeeWages && item.pay_type === 'monthly' && (
-          <button onClick={() => paySalaryMutation.mutate(item.id)} className="p-1 text-green-600 hover:bg-green-50 rounded" title="دفع الراتب">
+          <button onClick={() => paySalaryMutation.mutate(item.id)} className="p-1 text-green-600 dark:text-green-400 hover:bg-green-50 dark:hover:bg-green-950/40 rounded" title="دفع الراتب">
             <DollarSign className="w-4 h-4" />
           </button>
         )}
-        <button onClick={() => { setEditingEmployee(item); setShowModal(true) }} className="p-1 text-blue-600 hover:bg-blue-50 rounded">
+        <button onClick={() => { setEditingEmployee(item); setShowModal(true) }} className="p-1 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-950/40 rounded">
           <Edit className="w-4 h-4" />
         </button>
-        <button onClick={() => deleteMutation.mutate(item.id)} className="p-1 text-red-600 hover:bg-red-50 rounded">
+        <button onClick={() => deleteMutation.mutate(item.id)} className="p-1 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/40 rounded">
           <Trash2 className="w-4 h-4" />
         </button>
       </div>
@@ -111,7 +111,7 @@ export default function EmployeesPage() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-gray-900">الموظفون</h1>
+        <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">الموظفون</h1>
         <Button onClick={() => { setEditingEmployee(null); setShowModal(true) }}>
           <Plus className="w-4 h-4" />
           إضافة موظف
@@ -216,11 +216,11 @@ function EmployeeForm({ employee, accounts, users, onClose, onSuccess }: any) {
       />
 
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">حساب المستخدم المرتبط</label>
+        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">حساب المستخدم المرتبط</label>
         <select
           value={formData.user_id}
           onChange={(e) => setFormData({ ...formData, user_id: e.target.value ? Number(e.target.value) : '' })}
-          className="w-full px-4 py-2 border border-gray-300 rounded-lg"
+          className="w-full px-4 py-2 border border-gray-300 dark:border-gray-700 rounded-lg"
         >
           <option value="">بدون مستخدم</option>
           {users.map((user: any) => (
@@ -260,11 +260,11 @@ function EmployeeForm({ employee, accounts, users, onClose, onSuccess }: any) {
       </div>
 
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">نوع الأجر</label>
+        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">نوع الأجر</label>
         <select
           value={formData.pay_type}
           onChange={(e) => setFormData({ ...formData, pay_type: e.target.value })}
-          className="w-full px-4 py-2 border border-gray-300 rounded-lg"
+          className="w-full px-4 py-2 border border-gray-300 dark:border-gray-700 rounded-lg"
         >
           <option value="monthly">راتب شهري</option>
           <option value="daily">يومية</option>
@@ -301,11 +301,11 @@ function EmployeeForm({ employee, accounts, users, onClose, onSuccess }: any) {
       )}
 
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">حساب مصروف الأجر ({formData.pay_type === 'monthly' ? 'راتب' : formData.pay_type === 'daily' ? 'يومية' : 'نسبة'})</label>
+        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">حساب مصروف الأجر ({formData.pay_type === 'monthly' ? 'راتب' : formData.pay_type === 'daily' ? 'يومية' : 'نسبة'})</label>
         <select
           value={formData.pay_account_id}
           onChange={(e) => setFormData({ ...formData, pay_account_id: e.target.value ? Number(e.target.value) : '' })}
-          className="w-full px-4 py-2 border border-gray-300 rounded-lg"
+          className="w-full px-4 py-2 border border-gray-300 dark:border-gray-700 rounded-lg"
         >
           <option value="">الحساب الافتراضي</option>
           {(accounts || []).map((a: any) => (
@@ -326,11 +326,11 @@ function EmployeeForm({ employee, accounts, users, onClose, onSuccess }: any) {
       </div>}
 
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">الحالة</label>
+        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">الحالة</label>
         <select
           value={formData.status}
           onChange={(e) => setFormData({ ...formData, status: e.target.value })}
-          className="w-full px-4 py-2 border border-gray-300 rounded-lg"
+          className="w-full px-4 py-2 border border-gray-300 dark:border-gray-700 rounded-lg"
         >
           <option value="active">نشط</option>
           <option value="on_leave">في إجازة</option>

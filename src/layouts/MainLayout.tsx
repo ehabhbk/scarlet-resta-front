@@ -71,7 +71,7 @@ export default function MainLayout({ children }: MainLayoutProps) {
         <Topbar />
         <main className="flex-1 overflow-y-auto p-4 lg:p-6">
           {canAccessRoute ? children : (
-            <div className="rounded-xl border border-amber-200 bg-amber-50 p-6 text-center text-amber-900">
+            <div className="rounded-xl border border-amber-200 bg-amber-50 p-6 text-center text-amber-900 dark:bg-amber-950/40 dark:border-amber-900">
               لا تملك الصلاحية اللازمة لعرض هذه الصفحة.
             </div>
           )}

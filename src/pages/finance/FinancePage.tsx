@@ -7,6 +7,7 @@ import Card from '../../components/common/cards/Card'
 import Button from '../../components/common/buttons/Button'
 import StatCard from '../../components/common/data-display/StatCard'
 import { printReport } from '../../utils/printReport'
+import { formatDate } from '../../utils/format'
 
 export default function FinancePage() {
   const { symbol, paymentMethods, restaurant } = useSettingsStore()
@@ -43,7 +44,7 @@ export default function FinancePage() {
       meta: [
         { label: 'الفترة', value: period === 'today' ? 'اليوم' : period === 'week' ? 'هذا الأسبوع' : period === 'year' ? 'هذا العام' : 'هذا الشهر' },
         { label: 'العملة', value: symbol },
-        { label: 'تاريخ الإصدار', value: new Date().toLocaleDateString('ar-EG') },
+        { label: 'تاريخ الإصدار', value: formatDate(new Date()) },
       ],
       kpis: [
         { label: 'الإيرادات', value: formatMoney(profitLoss?.revenue, symbol), tone: 'green' },

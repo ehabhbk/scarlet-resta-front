@@ -137,7 +137,7 @@ export default function TablesManagementPanel() {
                     setEditingTable(table)
                     setShowModal(true)
                   }}
-                  className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg dark:hover:bg-blue-500/10"
+                  className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg dark:hover:bg-blue-500/10 dark:text-blue-400"
                   title="تعديل"
                 >
                   <Pencil className="w-4 h-4" />
@@ -148,7 +148,7 @@ export default function TablesManagementPanel() {
                       deleteMutation.mutate(table.id)
                     }
                   }}
-                  className="p-2 text-red-600 hover:bg-red-50 rounded-lg dark:hover:bg-red-500/10"
+                  className="p-2 text-red-600 hover:bg-red-50 rounded-lg dark:hover:bg-red-500/10 dark:text-red-400"
                   title="حذف"
                 >
                   <Trash2 className="w-4 h-4" />

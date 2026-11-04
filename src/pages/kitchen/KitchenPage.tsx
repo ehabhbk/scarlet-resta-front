@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { api } from '../../services/api'
+import { formatTime } from '../../utils/format'
 import { useAuthStore } from '../../store/authStore'
 import {
   ChefHat,
@@ -147,7 +148,7 @@ export default function KitchenPage() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-gray-500 dark:text-gray-400">بانتظار البدء</p>
-              <p className="text-2xl font-bold text-amber-600">{counters.pending}</p>
+              <p className="text-2xl font-bold text-amber-600 dark:text-amber-400">{counters.pending}</p>
             </div>
             <Clock className="w-6 h-6 text-amber-500" />
           </div>
@@ -156,7 +157,7 @@ export default function KitchenPage() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-gray-500 dark:text-gray-400">قيد التحضير</p>
-              <p className="text-2xl font-bold text-blue-600">{counters.preparing}</p>
+              <p className="text-2xl font-bold text-blue-600 dark:text-blue-400">{counters.preparing}</p>
             </div>
             <Flame className="w-6 h-6 text-blue-500" />
           </div>
@@ -165,7 +166,7 @@ export default function KitchenPage() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-gray-500 dark:text-gray-400">أصناف جاهزة</p>
-              <p className="text-2xl font-bold text-green-600">{counters.ready}</p>
+              <p className="text-2xl font-bold text-green-600 dark:text-green-400">{counters.ready}</p>
             </div>
             <CheckCircle className="w-6 h-6 text-green-500" />
           </div>
@@ -183,7 +184,7 @@ export default function KitchenPage() {
             <p className="font-medium text-gray-700 dark:text-gray-200">لا توجد طلبات في المطبخ</p>
             <p className="text-sm mt-1">ستظهر الطلبات الجديدة هنا تلقائياً</p>
             <p className="text-xs text-gray-400 mt-3">
-              آخر تحديث: {lastUpdated.toLocaleTimeString('ar-EG')}
+              آخر تحديث: {formatTime(lastUpdated)}
             </p>
           </div>
         </Card>
@@ -249,14 +250,14 @@ export default function KitchenPage() {
                     </span>
                     <p
                       className={`text-xs mt-2 flex items-center justify-end gap-1 ${
-                        urgent ? 'text-red-600 font-semibold' : 'text-gray-500'
+                        urgent ? 'text-red-600 font-semibold dark:text-red-400' : 'text-gray-500'
                       }`}
                     >
                       <Clock className="w-3.5 h-3.5" />
                       {minutes} دقيقة
                     </p>
                     <p className="text-[11px] text-gray-400 mt-0.5">
-                      {new Date(order.created_at).toLocaleTimeString('ar-EG', {
+                      {formatTime(order.created_at, {
                         hour: '2-digit',
                         minute: '2-digit',
                       })}
@@ -340,7 +341,7 @@ export default function KitchenPage() {
                           </Button>
                         )}
                         {item.kitchen_status === 'ready' && (
-                          <span className="inline-flex items-center gap-1 text-sm text-green-600">
+                          <span className="inline-flex items-center gap-1 text-sm text-green-600 dark:text-green-400">
                             <CheckCircle className="w-4 h-4" />
                             جاهز للتقديم
                           </span>
@@ -364,7 +365,7 @@ export default function KitchenPage() {
                     </Button>
                   </div>
                 ) : urgent ? (
-                  <div className="pt-2 border-t border-gray-100 dark:border-gray-800 flex items-center gap-2 text-sm text-red-600">
+                  <div className="pt-2 border-t border-gray-100 dark:border-gray-800 flex items-center gap-2 text-sm text-red-600 dark:text-red-400">
                     <AlertCircle className="w-4 h-4" />
                     الطلب متأخر، يرجى الإسراع
                   </div>

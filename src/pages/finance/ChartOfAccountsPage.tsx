@@ -8,6 +8,7 @@ import Card from '../../components/common/cards/Card'
 import Modal from '../../components/common/modals/Modal'
 import { useSettingsStore, formatMoney, mediaUrl } from '../../store/settingsStore'
 import { printReport } from '../../utils/printReport'
+import { formatDate } from '../../utils/format'
 
 const TYPE_LABELS: Record<string, string> = {
   asset: 'أصل',
@@ -18,11 +19,11 @@ const TYPE_LABELS: Record<string, string> = {
 }
 
 const TYPE_COLORS: Record<string, string> = {
-  asset: 'text-blue-600',
-  liability: 'text-red-600',
-  equity: 'text-purple-600',
-  revenue: 'text-green-600',
-  expense: 'text-amber-600',
+  asset: 'text-blue-600 dark:text-blue-400',
+  liability: 'text-red-600 dark:text-red-400',
+  equity: 'text-purple-600 dark:text-purple-400',
+  revenue: 'text-green-600 dark:text-green-400',
+  expense: 'text-amber-600 dark:text-amber-400',
 }
 
 export default function ChartOfAccountsPage() {
@@ -111,9 +112,9 @@ export default function ChartOfAccountsPage() {
           </div>
           <div className="flex items-center gap-3">
             <span className="text-sm font-semibold">{formatMoney(account.balance, symbol)}</span>
-            <button onClick={() => openEdit(account)} className="p-1 text-blue-600 hover:bg-blue-50 rounded" title="تعديل"><Pencil className="w-4 h-4" /></button>
-            <button onClick={() => { if (window.confirm(`حذف ${account.name}؟`)) deleteMutation.mutate(account.id) }} className="p-1 text-red-600 hover:bg-red-50 rounded" title="حذف"><Trash2 className="w-4 h-4" /></button>
-            <button onClick={() => openNew(account.id)} className="p-1 text-green-600 hover:bg-green-50 rounded" title="إضافة فرعي"><Plus className="w-4 h-4" /></button>
+            <button onClick={() => openEdit(account)} className="p-1 text-blue-600 hover:bg-blue-50 rounded dark:text-blue-400 dark:hover:bg-blue-950/40" title="تعديل"><Pencil className="w-4 h-4" /></button>
+            <button onClick={() => { if (window.confirm(`حذف ${account.name}؟`)) deleteMutation.mutate(account.id) }} className="p-1 text-red-600 hover:bg-red-50 rounded dark:text-red-400 dark:hover:bg-red-950/40" title="حذف"><Trash2 className="w-4 h-4" /></button>
+            <button onClick={() => openNew(account.id)} className="p-1 text-green-600 hover:bg-green-50 rounded dark:text-green-400 dark:hover:bg-green-950/40" title="إضافة فرعي"><Plus className="w-4 h-4" /></button>
           </div>
         </div>
         {hasKids && isExpanded && (
@@ -150,7 +151,7 @@ export default function ChartOfAccountsPage() {
       meta: [
         { label: 'عدد الحسابات', value: String(sorted.length) },
         { label: 'العملة', value: symbol },
-        { label: 'تاريخ الإصدار', value: new Date().toLocaleDateString('ar-EG') },
+        { label: 'تاريخ الإصدار', value: formatDate(new Date()) },
       ],
       kpis: totalsByType.map((item) => ({
         label: `إجمالي ${TYPE_LABELS[item.type]}`,

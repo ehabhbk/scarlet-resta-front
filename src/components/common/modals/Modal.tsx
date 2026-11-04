@@ -37,13 +37,13 @@ export default function Modal({ isOpen, onClose, title, children, size = 'md' }:
         className="absolute inset-0 bg-black/50" 
         onClick={onClose}
       />
-      <div className={`relative bg-white rounded-xl shadow-2xl w-full ${sizes[size]} mx-4 max-h-[90vh] overflow-y-auto`}>
+      <div className={`relative bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 rounded-xl shadow-2xl w-full ${sizes[size]} mx-4 max-h-[90vh] overflow-y-auto border border-transparent dark:border-gray-800`}>
         {title && (
-          <div className="flex items-center justify-between p-6 border-b border-gray-200">
+          <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-800">
             <h2 className="text-xl font-semibold">{title}</h2>
             <button 
               onClick={onClose}
-              className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg"
+              className="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg"
             >
               <X className="w-5 h-5" />
             </button>

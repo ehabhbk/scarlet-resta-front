@@ -76,8 +76,8 @@ export default function KitchenStationsManagementPanel() {
                 <p className="font-medium text-gray-900 dark:text-gray-100">{s.name}</p>
               </div>
               {canManageStations && <div className="flex gap-2">
-                <button onClick={() => openEdit(s)} className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg" title="تعديل"><Pencil className="w-4 h-4" /></button>
-                <button onClick={() => { if (window.confirm(`حذف ${s.name}؟`)) deleteMutation.mutate(s.id) }} className="p-2 text-red-600 hover:bg-red-50 rounded-lg" title="حذف"><Trash2 className="w-4 h-4" /></button>
+                <button onClick={() => openEdit(s)} className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg dark:text-blue-400 dark:hover:bg-blue-950/40" title="تعديل"><Pencil className="w-4 h-4" /></button>
+                <button onClick={() => { if (window.confirm(`حذف ${s.name}؟`)) deleteMutation.mutate(s.id) }} className="p-2 text-red-600 hover:bg-red-50 rounded-lg dark:text-red-400 dark:hover:bg-red-950/40" title="حذف"><Trash2 className="w-4 h-4" /></button>
               </div>}
             </div>
           ))}

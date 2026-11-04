@@ -6,6 +6,7 @@ import Card from '../../components/common/cards/Card'
 import Button from '../../components/common/buttons/Button'
 import { useSettingsStore, formatMoney, mediaUrl } from '../../store/settingsStore'
 import { useAuthStore } from '../../store/authStore'
+import { formatDate, formatTime, formatDateTime, formatNumber } from '../../utils/format'
 
 interface ReportDefinition {
   id: string
@@ -146,7 +147,7 @@ const COLUMNS: Record<string, { key: string; label: string }[]> = {
   ],
   shifts: [
     { key: 'shift_date_formatted', label: 'التاريخ' },
-    { key: 'name', label: 'الوردية' },
+    { key: 'id', label: 'رقم الوردية' },
     { key: 'user_name', label: 'الكاشير' },
     { key: 'time_range', label: 'الوقت' },
     { key: 'status_label', label: 'الحالة' },
@@ -191,22 +192,6 @@ const toInputDate = (date: Date) => {
 const defaultFrom = () => {
   const now = new Date()
   return toInputDate(new Date(now.getFullYear(), now.getMonth(), 1))
-}
-
-const formatDate = (value: unknown) => {
-  if (!value) return '-'
-  const date = new Date(String(value))
-  if (Number.isNaN(date.getTime())) return String(value)
-  return date.toLocaleDateString('ar-EG')
-}
-
-const formatTime = (value: unknown) => {
-  if (!value) return ''
-  const text = String(value)
-  if (/^\d{2}:\d{2}/.test(text)) return text.slice(0, 5)
-  const date = new Date(text)
-  if (Number.isNaN(date.getTime())) return text
-  return date.toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' })
 }
 
 const escapeHtml = (value: unknown) =>
@@ -375,7 +360,7 @@ export default function ReportsPage() {
           : NaN
     if (!Number.isNaN(numeric)) {
       if (MONEY_KEYS.has(key)) return formatMoney(numeric, symbol)
-      return new Intl.NumberFormat('ar-EG').format(numeric)
+      return formatNumber(numeric)
     }
     if (typeof value === 'object') return JSON.stringify(value)
     return String(value)
@@ -485,7 +470,7 @@ export default function ReportsPage() {
         ${metricsHtml}
         ${sectionsHtml}
         <p class="muted" style="margin-top:24px;">تم إنشاء التقرير في ${escapeHtml(
-          new Date().toLocaleString('ar-EG')
+          formatDateTime(new Date())
         )}</p>
         <script>window.onload = function(){ window.print(); };</script>
       </body></html>
@@ -534,7 +519,7 @@ export default function ReportsPage() {
         return `<tr>
           <td>${escapeHtml(paymentLabel(method))}</td>
           <td class="num">${money(value)}</td>
-          <td class="num">${percent.toFixed(1)}%</td>
+          <td class="num">${formatNumber(percent, { maximumFractionDigits: 1 })}%</td>
         </tr>`
       })
       .join('')
@@ -717,7 +702,7 @@ export default function ReportsPage() {
         </section>
 
         <footer class="footer">
-          <span>تم إنشاء التقرير في ${escapeHtml(new Date().toLocaleString('ar-EG'))}</span>
+          <span>تم إنشاء التقرير في ${escapeHtml(formatDateTime(new Date()))}</span>
           <span>${escapeHtml(restaurantName)} — تقرير الوردية رقم ${escapeHtml(shiftDetail?.id || '-')}</span>
         </footer>
         <script>window.onload = function(){ window.print(); };</script>
@@ -766,7 +751,7 @@ export default function ReportsPage() {
                 <option value="">-- اختر --</option>
                 {(Array.isArray(shiftsData) ? shiftsData : []).map((s: any) => (
                   <option key={s.id} value={s.id}>
-                    #{s.id} - {s.user?.name || s.user_name || '-'} - {s.shift_date ? new Date(s.shift_date).toLocaleDateString('ar-EG') : '-'}
+                    #{s.id} - {formatDate(s.shift_date)}
                   </option>
                 ))}
               </select>
@@ -832,7 +817,7 @@ export default function ReportsPage() {
                       {Object.entries(shiftByPayment).map(([m, amt]) => (
                         <tr key={m} className="border-b border-gray-100 dark:border-gray-800">
                           <td className="px-3 py-2">{paymentLabel(m)}</td>
-                          <td className="px-3 py-2">{Number(amt).toFixed(2)}</td>
+                          <td className="px-3 py-2">{formatNumber(Number(amt))}</td>
                         </tr>
                       ))}
                     </tbody>

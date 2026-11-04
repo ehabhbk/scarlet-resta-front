@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import api from '@/services/api'
+import { formatNumber } from '@/utils/format'
 
 export interface RestaurantSettings {
   id?: number
@@ -250,12 +251,7 @@ export function formatMoney(
   symbol: string,
   withSymbol = true
 ): string {
-  const amount = Number(value ?? 0)
-  const safe = Number.isFinite(amount) ? amount : 0
-  const formatted = safe.toLocaleString('en-US', {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  })
+  const formatted = formatNumber(value)
   return withSymbol ? `${formatted} ${symbol}` : formatted
 }
 

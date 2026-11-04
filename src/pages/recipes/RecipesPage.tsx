@@ -45,8 +45,8 @@ export default function RecipesPage() {
     { key: 'is_active', header: 'الحالة', render: (item: any) => item.is_active ? 'نشط' : 'معطل' },
     { key: 'actions', header: 'الإجراءات', render: (item: any) => (
       <div className="flex gap-2">
-        <button onClick={() => { setEditing(item); setShowModal(true) }} className="p-1 text-blue-600 hover:bg-blue-50 rounded"><Edit className="w-4 h-4" /></button>
-        <button onClick={() => deleteMutation.mutate(item.id)} className="p-1 text-red-600 hover:bg-red-50 rounded"><Trash2 className="w-4 h-4" /></button>
+        <button onClick={() => { setEditing(item); setShowModal(true) }} className="p-1 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-950/40 rounded"><Edit className="w-4 h-4" /></button>
+        <button onClick={() => deleteMutation.mutate(item.id)} className="p-1 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/40 rounded"><Trash2 className="w-4 h-4" /></button>
       </div>
     )},
   ]
@@ -56,7 +56,7 @@ export default function RecipesPage() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-gray-900">الوصفات</h1>
+        <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">الوصفات</h1>
         <Button onClick={() => { setEditing(null); setShowModal(true) }}><Plus className="w-4 h-4" /> إضافة وصفة</Button>
       </div>
       <Card>
@@ -91,8 +91,8 @@ function RecipeForm({ recipe, products, onClose, onSuccess }: any) {
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">المنتج</label>
-        <select value={formData.product_id} onChange={(e) => setFormData({ ...formData, product_id: e.target.value })} className="w-full px-4 py-2 border border-gray-300 rounded-lg" required>
+        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">المنتج</label>
+        <select value={formData.product_id} onChange={(e) => setFormData({ ...formData, product_id: e.target.value })} className="w-full px-4 py-2 border border-gray-300 dark:border-gray-700 rounded-lg" required>
           <option value="">اختر المنتج</option>
           {products.map((p: any) => <option key={p.id} value={p.id}>{p.name}</option>)}
         </select>
@@ -100,8 +100,8 @@ function RecipeForm({ recipe, products, onClose, onSuccess }: any) {
       <Input label="اسم الوصفة" value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} required />
       <Input label="كمية الإنتاج" type="number" value={formData.yield_qty} onChange={(e) => setFormData({ ...formData, yield_qty: e.target.value })} />
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">التعليمات</label>
-        <textarea value={formData.instructions} onChange={(e) => setFormData({ ...formData, instructions: e.target.value })} className="w-full px-4 py-2 border border-gray-300 rounded-lg" rows={3} />
+        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">التعليمات</label>
+        <textarea value={formData.instructions} onChange={(e) => setFormData({ ...formData, instructions: e.target.value })} className="w-full px-4 py-2 border border-gray-300 dark:border-gray-700 rounded-lg" rows={3} />
       </div>
       <div className="flex gap-3 justify-end pt-4">
         <Button variant="secondary" onClick={onClose}>إلغاء</Button>

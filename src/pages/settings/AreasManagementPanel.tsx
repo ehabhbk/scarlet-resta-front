@@ -73,8 +73,8 @@ export default function AreasManagementPanel() {
                 <p className="font-medium text-gray-900 dark:text-gray-100">{area.name}</p>
               </div>
               {(canEdit || canDelete) && <div className="flex gap-2">
-                {canEdit && <button onClick={() => openEdit(area)} className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg" title="تعديل"><Pencil className="w-4 h-4" /></button>}
-                {canDelete && <button onClick={() => { if (window.confirm(`حذف ${area.name}؟`)) deleteMutation.mutate(area.id) }} className="p-2 text-red-600 hover:bg-red-50 rounded-lg" title="حذف"><Trash2 className="w-4 h-4" /></button>}
+                {canEdit && <button onClick={() => openEdit(area)} className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg dark:text-blue-400 dark:hover:bg-blue-950/40" title="تعديل"><Pencil className="w-4 h-4" /></button>}
+                {canDelete && <button onClick={() => { if (window.confirm(`حذف ${area.name}؟`)) deleteMutation.mutate(area.id) }} className="p-2 text-red-600 hover:bg-red-50 rounded-lg dark:text-red-400 dark:hover:bg-red-950/40" title="حذف"><Trash2 className="w-4 h-4" /></button>}
               </div>}
             </div>
           ))}

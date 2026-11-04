@@ -48,14 +48,14 @@ export default function RolesPage() {
     { key: 'name', header: 'اسم الدور' },
     { key: 'permissions', header: 'الصلاحيات', render: (r: any) => (r.permissions || []).length },
     ...(canDeleteRole ? [{ key: 'actions', header: 'الإجراءات', render: (r: any) => (
-      <button onClick={() => deleteMutation.mutate(r.id)} className="p-1 text-red-600 hover:bg-red-50 rounded"><Trash2 className="w-4 h-4" /></button>
+      <button onClick={() => deleteMutation.mutate(r.id)} className="p-1 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/40 rounded"><Trash2 className="w-4 h-4" /></button>
     )}] : []),
   ]
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-gray-900">الأدوار والصلاحيات</h1>
+        <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">الأدوار والصلاحيات</h1>
         {canCreateRole && <Button onClick={() => setShowModal(true)}><Plus className="w-4 h-4" /> إضافة دور</Button>}
       </div>
       <Card>
@@ -101,11 +101,11 @@ function RoleForm({
     <form onSubmit={handleSubmit} className="space-y-4">
       <Input label="اسم الدور" value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} required />
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">الصلاحيات</label>
-        <div className="max-h-[28rem] overflow-y-auto space-y-4 border border-gray-200 rounded-lg p-3">
+        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">الصلاحيات</label>
+        <div className="max-h-[28rem] overflow-y-auto space-y-4 border border-gray-200 dark:border-gray-800 rounded-lg p-3">
           {Object.entries(groupedPermissions).map(([group, groupPermissions]) => (
             <section key={group}>
-              <h3 className="mb-2 border-b border-gray-100 pb-1 text-sm font-semibold text-gray-800">{group}</h3>
+              <h3 className="mb-2 border-b border-gray-100 dark:border-gray-800 pb-1 text-sm font-semibold text-gray-800 dark:text-gray-200">{group}</h3>
               <div className="grid gap-2 sm:grid-cols-2">
                 {groupPermissions.map((permission) => (
                   <label key={permission.id} className="flex items-center gap-2 text-sm">

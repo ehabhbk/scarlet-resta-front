@@ -10,6 +10,7 @@ import DataTable from '../../components/common/tables/DataTable'
 import Modal from '../../components/common/modals/Modal'
 import Pagination from '../../components/common/Pagination'
 import { useAuthStore } from '../../store/authStore'
+import { formatDate } from '../../utils/format'
 
 export default function ExpensesPage() {
   const { symbol, paymentMethods } = useSettingsStore()
@@ -43,18 +44,18 @@ export default function ExpensesPage() {
     { key: 'category', header: 'الفئة' },
     { key: 'amount', header: 'المبلغ', render: (e: any) => formatMoney(e.amount, symbol) },
     { key: 'account', header: 'الحساب', render: (e: any) => e.account?.name || '-' },
-    { key: 'expense_date', header: 'التاريخ' },
+    { key: 'expense_date', header: 'التاريخ', render: (e: any) => formatDate(e.expense_date) },
     { key: 'description', header: 'الوصف' },
     { key: 'is_approved', header: 'معتمد', render: (e: any) => e.is_approved ? 'نعم' : 'لا' },
     ...(canDelete ? [{ key: 'actions', header: 'الإجراءات', render: (e: any) => (
-      <button onClick={() => deleteMutation.mutate(e.id)} className="p-1 text-red-600 hover:bg-red-50 rounded"><Trash2 className="w-4 h-4" /></button>
+      <button onClick={() => deleteMutation.mutate(e.id)} className="p-1 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/40 rounded"><Trash2 className="w-4 h-4" /></button>
     )}] : []),
   ]
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-gray-900">المصروفات</h1>
+        <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">المصروفات</h1>
         {canCreate && <Button onClick={() => setShowModal(true)}><Plus className="w-4 h-4" /> إضافة مصروف</Button>}
       </div>
       <Card>
@@ -94,15 +95,15 @@ function ExpenseForm({ accounts, paymentMethods, onClose, onSuccess }: any) {
       <Input label="الفئة" value={formData.category} onChange={(e) => setFormData({ ...formData, category: e.target.value })} required />
       <Input label="المبلغ" type="number" value={formData.amount} onChange={(e) => setFormData({ ...formData, amount: e.target.value })} required />
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">حساب المصروف</label>
-        <select value={formData.account_id} onChange={(e) => setFormData({ ...formData, account_id: e.target.value })} className="w-full px-4 py-2 border border-gray-300 rounded-lg" required>
+        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">حساب المصروف</label>
+        <select value={formData.account_id} onChange={(e) => setFormData({ ...formData, account_id: e.target.value })} className="w-full px-4 py-2 border border-gray-300 dark:border-gray-700 rounded-lg" required>
           <option value="">اختر حساب المصروف</option>
           {accounts.filter((a: any) => a.type === 'expense' && a.is_active).map((a: any) => <option key={a.id} value={a.id}>{a.code} - {a.name}</option>)}
         </select>
       </div>
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">طريقة الدفع</label>
-        <select value={formData.payment_method} onChange={(e) => setFormData({ ...formData, payment_method: e.target.value })} className="w-full px-4 py-2 border border-gray-300 rounded-lg" required>
+        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">طريقة الدفع</label>
+        <select value={formData.payment_method} onChange={(e) => setFormData({ ...formData, payment_method: e.target.value })} className="w-full px-4 py-2 border border-gray-300 dark:border-gray-700 rounded-lg" required>
           {paymentMethods.map((method: any) => <option key={method.value} value={method.value}>{method.label}</option>)}
         </select>
       </div>

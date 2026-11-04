@@ -59,7 +59,7 @@ export default function InventoryPage() {
     { key: 'sku', header: 'SKU' },
     { key: 'unit', header: 'الوحدة', render: (item: any) => item.unit?.abbreviation || '-' },
     { key: 'current_stock', header: 'المخزون', render: (item: any) => (
-      <span className={item.current_stock <= item.min_stock ? 'text-red-600 font-bold' : ''}>
+      <span className={item.current_stock <= item.min_stock ? 'text-red-600 dark:text-red-400 font-bold' : ''}>
         {item.current_stock}
       </span>
     )},
@@ -74,10 +74,10 @@ export default function InventoryPage() {
     )},
     { key: 'actions', header: 'الإجراءات', render: (item: any) => (
       <div className="flex gap-2">
-        <button onClick={() => { setEditingItem(item); setShowModal(true) }} className="p-1 text-blue-600 hover:bg-blue-50 rounded">
+        <button onClick={() => { setEditingItem(item); setShowModal(true) }} className="p-1 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-950/40 rounded">
           <Edit className="w-4 h-4" />
         </button>
-        <button onClick={() => deleteMutation.mutate(item.id)} className="p-1 text-red-600 hover:bg-red-50 rounded">
+        <button onClick={() => deleteMutation.mutate(item.id)} className="p-1 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/40 rounded">
           <Trash2 className="w-4 h-4" />
         </button>
       </div>
@@ -89,7 +89,7 @@ export default function InventoryPage() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-gray-900">المخزون</h1>
+        <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">المخزون</h1>
         <Button onClick={() => { setEditingItem(null); setShowModal(true) }}>
           <Plus className="w-4 h-4" />
           إضافة صنف
@@ -97,9 +97,9 @@ export default function InventoryPage() {
       </div>
 
       {lowStockCount > 0 && (
-        <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 flex items-center gap-3">
-          <AlertTriangle className="w-5 h-5 text-amber-600" />
-          <span className="text-amber-800">
+        <div className="bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-900 rounded-xl p-4 flex items-center gap-3">
+          <AlertTriangle className="w-5 h-5 text-amber-600 dark:text-amber-400" />
+          <span className="text-amber-800 dark:text-amber-300">
             يوجد {lowStockCount} صنف بمخزون منخفض
           </span>
         </div>
@@ -183,11 +183,11 @@ function InventoryForm({ item, units, suppliers, onClose, onSuccess }: any) {
       
       <div className="grid grid-cols-2 gap-4">
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">الوحدة</label>
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">الوحدة</label>
           <select
             value={formData.unit_id}
             onChange={(e) => setFormData({ ...formData, unit_id: e.target.value })}
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg"
+            className="w-full px-4 py-2 border border-gray-300 dark:border-gray-700 rounded-lg"
             required
           >
             <option value="">اختر الوحدة</option>
@@ -197,11 +197,11 @@ function InventoryForm({ item, units, suppliers, onClose, onSuccess }: any) {
           </select>
         </div>
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">المورد</label>
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">المورد</label>
           <select
             value={formData.supplier_id}
             onChange={(e) => setFormData({ ...formData, supplier_id: e.target.value })}
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg"
+            className="w-full px-4 py-2 border border-gray-300 dark:border-gray-700 rounded-lg"
           >
             <option value="">اختر المورد</option>
             {suppliers.map((s: any) => (

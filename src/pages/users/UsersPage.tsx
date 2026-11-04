@@ -163,8 +163,8 @@ export default function UsersPage() {
             onClick={() => toggleMutation.mutate({ id: u.id, is_active: !u.is_active })}
             className={`p-1.5 rounded ${
               u.is_active
-                ? 'text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-500/10'
-                : 'text-green-600 hover:bg-green-50 dark:hover:bg-green-500/10'
+                ? 'text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-500/10 dark:text-amber-400'
+                : 'text-green-600 hover:bg-green-50 dark:hover:bg-green-500/10 dark:text-green-400'
             }`}
             title={u.is_active ? 'تعطيل' : 'تفعيل'}
           >
@@ -172,7 +172,7 @@ export default function UsersPage() {
           </button>
           <button
             onClick={() => setEditingUser(u)}
-            className="p-1.5 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-500/10 rounded"
+            className="p-1.5 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-500/10 rounded dark:text-blue-400"
             title="تعديل"
           >
             <Pencil className="w-4 h-4" />
@@ -183,7 +183,7 @@ export default function UsersPage() {
                 deleteMutation.mutate(u.id)
               }
             }}
-            className="p-1.5 text-red-600 hover:bg-red-50 dark:hover:bg-red-500/10 rounded"
+            className="p-1.5 text-red-600 hover:bg-red-50 dark:hover:bg-red-500/10 rounded dark:text-red-400"
             title="حذف"
           >
             <Trash2 className="w-4 h-4" />
@@ -461,7 +461,7 @@ function UserForm({ roles, accounts, kitchenStations, onClose, onSuccess }: any)
           type="checkbox"
           checked={formData.is_active}
           onChange={(e) => setFormData({ ...formData, is_active: e.target.checked })}
-          className="rounded border-gray-300"
+          className="rounded border-gray-300 dark:border-gray-700"
         />
         الحساب نشط
       </label>
@@ -623,7 +623,7 @@ function EditUserForm({ user, roles, accounts, kitchenStations, onClose, onSucce
           type="checkbox"
           checked={formData.is_active}
           onChange={(e) => setFormData({ ...formData, is_active: e.target.checked })}
-          className="rounded border-gray-300"
+          className="rounded border-gray-300 dark:border-gray-700"
         />
         الحساب نشط
       </label>

@@ -30,14 +30,14 @@ export default function AreasPage() {
     { key: 'description', header: 'الوصف' },
     { key: 'sort_order', header: 'الترتيب' },
     { key: 'actions', header: 'الإجراءات', render: (a: any) => (
-      <button onClick={() => deleteMutation.mutate(a.id)} className="p-1 text-red-600 hover:bg-red-50 rounded"><Trash2 className="w-4 h-4" /></button>
+      <button onClick={() => deleteMutation.mutate(a.id)} className="p-1 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/40 rounded"><Trash2 className="w-4 h-4" /></button>
     )},
   ]
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-gray-900">المناطق</h1>
+        <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">المناطق</h1>
         <Button onClick={() => setShowModal(true)}><Plus className="w-4 h-4" /> إضافة منطقة</Button>
       </div>
       <Card>

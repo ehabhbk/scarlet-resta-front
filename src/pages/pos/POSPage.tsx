@@ -4,6 +4,7 @@ import { toast } from 'sonner'
 import { api } from '../../services/api'
 import { useAuthStore } from '../../store/authStore'
 import { useSettingsStore, formatMoney, mediaUrl } from '../../store/settingsStore'
+import { formatDate, formatTime, formatDateTime, formatNumber } from '../../utils/format'
 import {
   ShoppingCart,
   Plus,
@@ -190,22 +191,16 @@ export default function POSPage() {
 
   const formatShiftDate = (value?: string | null) => {
     if (!value) return '-'
-    const parsed = new Date(value)
-    return Number.isNaN(parsed.getTime())
-      ? String(value).slice(0, 10)
-      : parsed.toLocaleDateString('ar-EG')
+    return formatDate(value)
   }
 
   const formatShiftTime = (value?: string | null) => {
     if (!value) return '-'
-    if (String(value).includes('T')) {
-      const parsed = new Date(value)
-      if (!Number.isNaN(parsed.getTime())) {
-        return parsed.toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' })
-      }
-    }
-    return String(value).slice(0, 5)
+    return formatTime(value)
   }
+
+  const shiftTitle = (shift: any) =>
+    shift ? `وردية #${shift.id} - ${formatShiftDate(shift.shift_date)}` : ''
 
   const { data: ordersData, isLoading: ordersLoading, isError: ordersError, refetch: refetchOrders } = useQuery({
     queryKey: ['pos-orders', openShift?.id],
@@ -275,13 +270,13 @@ export default function POSPage() {
     return (role?.permissions || []).map((p: any) => p.name)
   })()
 
-  const canCancel = userPermissions.includes('cancel_orders') || ['Super Admin', 'Admin'].includes(authUser?.roles?.[0]?.name || '')
-  const canRefund = userPermissions.includes('delete_orders') || userPermissions.includes('edit_orders') || ['Super Admin', 'Admin'].includes(authUser?.roles?.[0]?.name || '')
-  const canEditOrders = userPermissions.includes('edit_orders') || ['Super Admin', 'Admin'].includes(authUser?.roles?.[0]?.name || '')
+  const canCancel = userPermissions.includes('cancel_orders') || ['admin', 'Super Admin', 'Admin'].includes(authUser?.roles?.[0]?.name || '')
+  const canRefund = userPermissions.includes('delete_orders') || userPermissions.includes('edit_orders') || ['admin', 'Super Admin', 'Admin'].includes(authUser?.roles?.[0]?.name || '')
+  const canEditOrders = userPermissions.includes('edit_orders') || ['admin', 'Super Admin', 'Admin'].includes(authUser?.roles?.[0]?.name || '')
   const canEditOrderPayment = user?.permissions?.includes('edit_order_payment')
     || userPermissions.includes('edit_order_payment')
-    || ['Super Admin', 'Admin'].includes(authUser?.roles?.[0]?.name || '')
-  const canDeleteOrders = userPermissions.includes('delete_orders') || ['Super Admin', 'Admin'].includes(authUser?.roles?.[0]?.name || '')
+    || ['admin', 'Super Admin', 'Admin'].includes(authUser?.roles?.[0]?.name || '')
+  const canDeleteOrders = userPermissions.includes('delete_orders') || ['admin', 'Super Admin', 'Admin'].includes(authUser?.roles?.[0]?.name || '')
 
   const cancelOrderMutation = useMutation({
     mutationFn: async (id: number) => {
@@ -456,7 +451,7 @@ export default function POSPage() {
       const now = new Date()
       const res = await api.post('/shifts/open', {
         employee_ids: employeeIds,
-        name: `وردية ${now.toLocaleDateString('ar-EG')} ${now.toTimeString().slice(0, 5)}`,
+        name: `وردية #${nextShiftNumber} - ${formatDate(now)}`,
         shift_date: now.toISOString().split('T')[0],
         start_time: now.toTimeString().slice(0, 5),
         end_time: '23:59',
@@ -620,7 +615,7 @@ export default function POSPage() {
       const receiptPaymentLabel = splitPayment && splitPayments.length
         ? splitPayments
             .filter((p) => Number(p.amount) > 0)
-            .map((p) => `${paymentMethods.find((m) => m.value === p.method)?.label || p.method} ${Number(p.amount).toFixed(2)}`)
+            .map((p) => `${paymentMethods.find((m) => m.value === p.method)?.label || p.method} ${formatNumber(p.amount)}`)
             .join(' + ')
         : paymentMethods.find((m) => m.value === paymentMethod)?.label || paymentMethod
       const receipt: Receipt = {
@@ -638,7 +633,7 @@ export default function POSPage() {
         customerName,
         customerPhone,
         currency: currencySymbol,
-        date: new Date().toLocaleString('ar-EG'),
+        date: formatDateTime(new Date()),
         cashier: user?.name || '-',
       }
       setCart([])
@@ -735,7 +730,7 @@ export default function POSPage() {
       discount: Number(order.discount_amount) || 0,
       paymentMethod: order.payment_method || paymentMethods[0]?.value || '',
       paymentLabel: (order.payments || []).length
-        ? (order.payments as any[]).map((p: any) => `${p.method || p.method_name || ''} ${Number(p.amount).toFixed(2)}`).join(' + ')
+        ? (order.payments as any[]).map((p: any) => `${p.method || p.method_name || ''} ${formatNumber(p.amount)}`).join(' + ')
         : order.payment_method || '-',
       tableId: order.table_id || null,
       tableName: order.table?.name,
@@ -744,7 +739,7 @@ export default function POSPage() {
       customerName: order.customer?.name || order.customer_name || '',
       customerPhone: order.customer?.phone || order.customer_phone || '',
       currency: currencySymbol,
-      date: order.created_at ? new Date(order.created_at).toLocaleString('ar-EG') : new Date().toLocaleString('ar-EG'),
+      date: order.created_at ? formatDateTime(order.created_at) : formatDateTime(new Date()),
       cashier: order.cashier?.name || user?.name || '-',
     }
     printReceipt(receipt)
@@ -831,9 +826,9 @@ export default function POSPage() {
         (it) =>
           `<tr><td>${escapeHtml(it.name)}<br/><small>${escapeHtml(
             it.modifiers.map((m) => m.name).join(', ')
-          )}</small></td><td>${it.quantity}</td><td>${(
+          )}</small></td><td>${it.quantity}</td><td>${formatNumber(
             it.price * it.quantity
-          ).toFixed(2)} ${escapeHtml(receipt.currency)}</td></tr>`
+          )} ${escapeHtml(receipt.currency)}</td></tr>`
       )
       .join('')
 
@@ -870,10 +865,10 @@ export default function POSPage() {
       <hr/>
       <table><thead><tr><th>المنتج</th><th>الكمية</th><th>المبلغ</th></tr></thead><tbody>${itemsHtml}</tbody></table>
       <hr/>
-      <p>المجموع الفرعي: ${receipt.subtotal.toFixed(2)} ${escapeHtml(receipt.currency)}</p>
-      <p>الضريبة: ${receipt.tax.toFixed(2)} ${escapeHtml(receipt.currency)}</p>
-      ${receipt.discount > 0 ? `<p>الخصم: -${receipt.discount.toFixed(2)} ${escapeHtml(receipt.currency)}</p>` : ''}
-      <h3>الإجمالي: ${receipt.total.toFixed(2)} ${escapeHtml(receipt.currency)}</h3>
+      <p>المجموع الفرعي: ${formatNumber(receipt.subtotal)} ${escapeHtml(receipt.currency)}</p>
+      <p>الضريبة: ${formatNumber(receipt.tax)} ${escapeHtml(receipt.currency)}</p>
+      ${receipt.discount > 0 ? `<p>الخصم: -${formatNumber(receipt.discount)} ${escapeHtml(receipt.currency)}</p>` : ''}
+      <h3>الإجمالي: ${formatNumber(receipt.total)} ${escapeHtml(receipt.currency)}</h3>
       <p>طريقة الدفع: ${escapeHtml(receipt.paymentLabel)}</p>
       <hr/>
       <p class="center">شكراً لزيارتكم</p>
@@ -947,15 +942,15 @@ export default function POSPage() {
   return (
     <div className="h-[calc(100vh-8rem)] flex flex-col -m-6 bg-gray-50 dark:bg-gray-950 overflow-hidden text-gray-900 dark:text-gray-100">
       {settingsError && (
-        <div className="border-b border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">{settingsError}</div>
+        <div className="border-b border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700 dark:bg-red-950/40 dark:border-red-900">{settingsError}</div>
       )}
       {!settingsError && paymentMethods.length === 0 && (
-        <div className="border-b border-amber-200 bg-amber-50 px-4 py-2 text-sm text-amber-800">
+        <div className="border-b border-amber-200 bg-amber-50 px-4 py-2 text-sm text-amber-800 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-900">
           لا توجد طرق دفع مهيأة. أضف طرق الدفع واربطها بحسابات الأصول من الإعدادات قبل تسجيل الطلبات.
         </div>
       )}
       {!can('create_orders') && (
-        <div className="border-b border-amber-200 bg-amber-50 px-4 py-2 text-sm text-amber-800">
+        <div className="border-b border-amber-200 bg-amber-50 px-4 py-2 text-sm text-amber-800 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-900">
           لديك صلاحية عرض نقطة البيع فقط، ولا تملك صلاحية إنشاء الطلبات.
         </div>
       )}
@@ -1364,7 +1359,7 @@ export default function POSPage() {
                     <button
                       type="button"
                       onClick={() => setSplitPayments((prev) => prev.filter((_, i) => i !== index))}
-                      className="rounded-lg p-2 text-red-600 hover:bg-red-50"
+                      className="rounded-lg p-2 text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950/40"
                       aria-label="حذف طريقة الدفع"
                     >
                       <Trash2 className="h-4 w-4" />
@@ -1379,7 +1374,7 @@ export default function POSPage() {
                   <Plus className="h-4 w-4" /> إضافة طريقة دفع
                 </Button>
                 <p className="text-xs text-gray-500">
-                  المجموع: {splitPayments.reduce((s, p) => s + Number(p.amount), 0).toFixed(2)} / {total.toFixed(2)}
+                  المجموع: {formatNumber(splitPayments.reduce((s, p) => s + Number(p.amount), 0))} / {formatNumber(total)}
                 </p>
               </div>
             )}
@@ -1501,7 +1496,7 @@ export default function POSPage() {
         <div className="space-y-4">
           {shiftOptionsLoading && <p className="text-sm text-gray-500">جارٍ تحميل بيانات الوردية...</p>}
           {shiftOptionsError && (
-            <div className="flex items-center justify-between gap-2 text-sm text-red-600">
+            <div className="flex items-center justify-between gap-2 text-sm text-red-600 dark:text-red-400">
               <span>تعذر تحميل الكاشيرين والموظفين من الخادم.</span>
               <button type="button" className="underline" onClick={() => void refetchShiftOptions()}>إعادة المحاولة</button>
             </div>
@@ -1518,13 +1513,13 @@ export default function POSPage() {
             <div className="rounded-lg bg-gray-50 p-3 dark:bg-gray-800">
               <p className="text-gray-500">التاريخ</p>
               <p className="font-semibold text-gray-900 dark:text-gray-100">
-                {shiftNow.toLocaleDateString('ar-EG')}
+                {formatDate(shiftNow)}
               </p>
             </div>
             <div className="rounded-lg bg-gray-50 p-3 dark:bg-gray-800">
               <p className="text-gray-500">وقت الفتح</p>
               <p className="font-semibold text-gray-900 dark:text-gray-100">
-                {shiftNow.toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' })}
+                {formatTime(shiftNow)}
               </p>
             </div>
           </div>
@@ -1693,13 +1688,13 @@ export default function POSPage() {
       <Modal
         isOpen={showOrdersModal && !selectedOrder}
         onClose={() => setShowOrdersModal(false)}
-        title={`طلبات الوردية${openShift?.name ? `: ${openShift.name}` : ''}`}
+        title={`طلبات ${shiftTitle(openShift)}`}
         size="xl"
       >
         <div className="max-h-[70vh] space-y-3 overflow-y-auto">
           {!openShift && <p className="py-6 text-center text-gray-500">افتح وردية لعرض طلباتها</p>}
           {openShift && ordersLoading && <p className="py-6 text-center text-gray-500">جاري تحميل طلبات الوردية...</p>}
-          {openShift && ordersError && <p className="py-6 text-center text-red-600">تعذر تحميل طلبات الوردية</p>}
+          {openShift && ordersError && <p className="py-6 text-center text-red-600 dark:text-red-400">تعذر تحميل طلبات الوردية</p>}
           {openShift && !ordersLoading && !ordersError && (ordersData || []).length === 0 && (
             <p className="py-6 text-center text-gray-500">لا توجد طلبات في هذه الوردية</p>
           )}
@@ -1714,7 +1709,7 @@ export default function POSPage() {
                       {order.status} • {formatMoney(order.total_amount, currencySymbol)} • {order.payment_status}
                     </p>
                     <p className="text-xs text-gray-500">
-                      {order.created_at ? new Date(order.created_at).toLocaleString('ar-EG') : ''}
+                      {order.created_at ? formatDateTime(order.created_at) : ''}
                     </p>
                   </button>
                   <div className="flex flex-wrap gap-2">
@@ -1829,7 +1824,7 @@ export default function POSPage() {
           return (
             <div className="space-y-4">
               {orderDetailsLoading && <p className="text-sm text-gray-500">جاري تحميل تفاصيل الطلب...</p>}
-              {orderDetailsError && <p className="text-sm text-red-600">تعذر تحميل التفاصيل الكاملة للطلب</p>}
+              {orderDetailsError && <p className="text-sm text-red-600 dark:text-red-400">تعذر تحميل التفاصيل الكاملة للطلب</p>}
               <div className="grid grid-cols-2 gap-3 text-sm">
                 <p>الحالة: <strong>{order.status}</strong></p>
                 <p>الدفع: <strong>{order.payment_status}</strong></p>
@@ -1837,7 +1832,7 @@ export default function POSPage() {
                 <p>النوع: <strong>{order.type || '-'}</strong></p>
                 <p>الإجمالي: <strong>{formatMoney(order.total_amount, currencySymbol)}</strong></p>
                 <p>المدفوع: <strong>{formatMoney(order.amount_paid, currencySymbol)}</strong></p>
-                <p>التاريخ: <strong>{order.created_at ? new Date(order.created_at).toLocaleString('ar-EG') : '-'}</strong></p>
+                <p>التاريخ: <strong>{order.created_at ? formatDateTime(order.created_at) : '-'}</strong></p>
                 {order.customer?.name && <p>العميل: <strong>{order.customer.name}</strong></p>}
                 {order.customer?.phone && <p>الجوال: <strong>{order.customer.phone}</strong></p>}
                 {order.table?.name && <p>الطاولة: <strong>{order.table.name}</strong></p>}
@@ -1928,7 +1923,7 @@ export default function POSPage() {
               أضف المنتجات أو استبدلها؛ سيعيد الخادم حساب إجمالي الطلب. تعديل الدفعات يتم بشكل منفصل من زر «تعديل الدفع».
             </p>
             {orderProductsLoading && <p className="text-sm text-gray-500">جاري تحميل المنتجات...</p>}
-            {orderProductsError && <p className="text-sm text-red-600">تعذر تحميل المنتجات اللازمة للتعديل</p>}
+            {orderProductsError && <p className="text-sm text-red-600 dark:text-red-400">تعذر تحميل المنتجات اللازمة للتعديل</p>}
             <div className="max-h-[45vh] space-y-3 overflow-y-auto">
               {orderDraftItems.map((item, index) => {
                 const modifierNames = (item.modifier_options || [])
@@ -1963,7 +1958,7 @@ export default function POSPage() {
                       />
                       <button
                         onClick={() => setOrderDraftItems((current) => current.filter((_, lineIndex) => lineIndex !== index))}
-                        className="rounded-lg p-2 text-red-600 hover:bg-red-50"
+                        className="rounded-lg p-2 text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950/40"
                         aria-label="حذف المنتج من الطلب"
                       >
                         <Trash2 className="h-4 w-4" />
@@ -2116,7 +2111,7 @@ export default function POSPage() {
                       type="button"
                       onClick={() => setPaymentDraftRows((current) => current.filter((_, lineIndex) => lineIndex !== index))}
                       disabled={paymentDraftRows.length === 1}
-                      className="rounded-lg p-2 text-red-600 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-40 dark:hover:bg-red-950/40"
+                      className="rounded-lg p-2 text-red-600 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-40 dark:hover:bg-red-950/40 dark:text-red-400"
                       aria-label="حذف الدفعة"
                     >
                       <Trash2 className="h-4 w-4" />
@@ -2137,7 +2132,7 @@ export default function POSPage() {
                 <Plus className="h-4 w-4" /> إضافة دفعة
               </Button>
               {paymentMethods.length === 0 && (
-                <p className="text-xs text-red-600">لا توجد طرق دفع مهيأة في الإعدادات.</p>
+                <p className="text-xs text-red-600 dark:text-red-400">لا توجد طرق دفع مهيأة في الإعدادات.</p>
               )}
               {remaining > 0 && (
                 <p className="text-xs text-amber-600 dark:text-amber-400">
@@ -2217,7 +2212,7 @@ export default function POSPage() {
                   className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-900"
                 />
               </div>
-              <p className={`text-sm ${isFullRefund ? 'text-red-600' : 'text-amber-600'}`}>
+              <p className={`text-sm ${isFullRefund ? 'text-red-600 dark:text-red-400' : 'text-amber-600 dark:text-amber-400'}`}>
                 {isFullRefund
                   ? 'استرداد كلي: سيتم إلغاء الطلب وإرجاع الكمية إلى المخزون.'
                   : 'استرداد جزئي: سيبقى الطلب فعّالاً ويُخصم المبلغ من المدفوع.'}

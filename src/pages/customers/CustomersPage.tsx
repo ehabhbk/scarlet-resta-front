@@ -48,7 +48,7 @@ export default function CustomersPage() {
     { key: 'name', header: 'اسم العميل' },
     { key: 'phone', header: 'الهاتف', render: (item: any) => (
       <div className="flex items-center gap-2">
-        <Phone className="w-4 h-4 text-gray-400" />
+        <Phone className="w-4 h-4 text-gray-400 dark:text-gray-500" />
         {item.phone || '-'}
       </div>
     )},
@@ -61,10 +61,10 @@ export default function CustomersPage() {
     { key: 'loyalty_points', header: 'النقاط' },
     { key: 'actions', header: 'الإجراءات', render: (item: any) => (
       <div className="flex gap-2">
-        <button onClick={() => { setEditingCustomer(item); setShowModal(true) }} className="p-1 text-blue-600 hover:bg-blue-50 rounded">
+        <button onClick={() => { setEditingCustomer(item); setShowModal(true) }} className="p-1 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-950/40 rounded">
           <Edit className="w-4 h-4" />
         </button>
-        <button onClick={() => deleteMutation.mutate(item.id)} className="p-1 text-red-600 hover:bg-red-50 rounded">
+        <button onClick={() => deleteMutation.mutate(item.id)} className="p-1 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/40 rounded">
           <Trash2 className="w-4 h-4" />
         </button>
       </div>
@@ -74,7 +74,7 @@ export default function CustomersPage() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-gray-900">العملاء</h1>
+        <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">العملاء</h1>
         <Button onClick={() => { setEditingCustomer(null); setShowModal(true) }}>
           <Plus className="w-4 h-4" />
           إضافة عميل
@@ -168,11 +168,11 @@ function CustomerForm({ customer, onClose, onSuccess }: any) {
         onChange={(e) => setFormData({ ...formData, address: e.target.value })}
       />
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">نوع العميل</label>
+        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">نوع العميل</label>
         <select
           value={formData.customer_type}
           onChange={(e) => setFormData({ ...formData, customer_type: e.target.value })}
-          className="w-full px-4 py-2 border border-gray-300 rounded-lg"
+          className="w-full px-4 py-2 border border-gray-300 dark:border-gray-700 rounded-lg"
         >
           <option value="regular">عادي</option>
           <option value="vip">VIP</option>

@@ -12,6 +12,7 @@ import Modal from '../../components/common/modals/Modal'
 import Badge from '../../components/common/data-display/Badge'
 import Pagination from '../../components/common/Pagination'
 import { mediaUrl } from '../../store/settingsStore'
+import { formatDateTime } from '../../utils/format'
 
 export default function OrdersPage() {
   const { symbol, paymentMethods, load } = useSettingsStore()
@@ -190,19 +191,19 @@ export default function OrdersPage() {
         {item.payment_status}
       </Badge>
     )},
-    { key: 'created_at', header: 'التاريخ', render: (item: any) => new Date(item.created_at).toLocaleString('ar-SA') },
+    { key: 'created_at', header: 'التاريخ', render: (item: any) => formatDateTime(item.created_at) },
     { key: 'actions', header: 'الإجراءات', render: (item: any) => (
       <div className="flex gap-2">
-        <button onClick={() => openOrderDetails(item)} className="p-1 text-blue-600 hover:bg-blue-50 rounded">
+        <button onClick={() => openOrderDetails(item)} className="p-1 text-blue-600 hover:bg-blue-50 rounded dark:text-blue-400 dark:hover:bg-blue-950/40">
           <Eye className="w-4 h-4" />
         </button>
         {can('cancel_orders') && !['completed', 'cancelled'].includes(item.status) && (
-          <button onClick={() => cancelMutation.mutate({ id: item.id, reason: 'إلغاء من قبل الكاشير' })} className="p-1 text-red-600 hover:bg-red-50 rounded">
+          <button onClick={() => cancelMutation.mutate({ id: item.id, reason: 'إلغاء من قبل الكاشير' })} className="p-1 text-red-600 hover:bg-red-50 rounded dark:text-red-400 dark:hover:bg-red-950/40">
             <XCircle className="w-4 h-4" />
           </button>
         )}
         {can('delete_orders') && (
-          <button onClick={() => deleteMutation.mutate(item.id)} className="p-1 text-red-700 hover:bg-red-50 rounded" title="حذف الطلب">
+          <button onClick={() => deleteMutation.mutate(item.id)} className="p-1 text-red-700 hover:bg-red-50 rounded dark:hover:bg-red-950/40" title="حذف الطلب">
             <Trash2 className="w-4 h-4" />
           </button>
         )}
@@ -213,7 +214,7 @@ export default function OrdersPage() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-gray-900">الطلبات</h1>
+        <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">الطلبات</h1>
       </div>
 
       <Card>
@@ -229,7 +230,7 @@ export default function OrdersPage() {
           <select
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
-            className="px-4 py-2 border border-gray-300 rounded-lg"
+            className="px-4 py-2 border border-gray-300 rounded-lg dark:border-gray-700"
           >
             <option value="">جميع الحالات</option>
             <option value="pending">قيد الانتظار</option>
@@ -277,7 +278,7 @@ export default function OrdersPage() {
               <h3 className="font-semibold mb-2">المنتجات</h3>
               <div className="space-y-2">
                 {selectedOrder.items?.map((item: any) => (
-                  <div key={item.id} className="flex items-center justify-between gap-3 p-2 bg-gray-50 rounded">
+                  <div key={item.id} className="flex items-center justify-between gap-3 p-2 bg-gray-50 rounded dark:bg-gray-800/40">
                     <div className="flex min-w-0 items-center gap-3">
                       {item.product?.image && (
                         <img src={mediaUrl(item.product.image)} alt="" className="h-10 w-10 shrink-0 rounded object-cover" />
@@ -312,7 +313,7 @@ export default function OrdersPage() {
                       <button
                         key={s}
                         onClick={() => statusMutation.mutate({ id: selectedOrder.id, status: s })}
-                        className="px-3 py-1 text-sm border border-gray-300 rounded-lg hover:bg-gray-100"
+                        className="px-3 py-1 text-sm border border-gray-300 rounded-lg hover:bg-gray-100 dark:border-gray-700 dark:hover:bg-gray-800"
                       >
                         {s}
                       </button>
@@ -330,12 +331,12 @@ export default function OrdersPage() {
                     value={paymentAmount}
                     onChange={(e) => setPaymentAmount(e.target.value)}
                     placeholder="المبلغ"
-                    className="flex-1 px-3 py-2 border border-gray-300 rounded-lg"
+                    className="flex-1 px-3 py-2 border border-gray-300 rounded-lg dark:border-gray-700"
                   />
                   <select
                     value={paymentMethod}
                     onChange={(e) => setPaymentMethod(e.target.value)}
-                    className="px-3 py-2 border border-gray-300 rounded-lg"
+                    className="px-3 py-2 border border-gray-300 rounded-lg dark:border-gray-700"
                   >
                     {paymentMethods.map((method) => (
                       <option key={method.value} value={method.value}>{method.label}</option>
@@ -376,7 +377,7 @@ export default function OrdersPage() {
                     </div>
                     <div>
                       <p className="text-xs text-gray-500">المتبقي</p>
-                      <p className={`font-semibold ${remaining > 0 ? 'text-amber-600' : remaining < 0 ? 'text-blue-600' : 'text-green-600'}`}>
+                      <p className={`font-semibold ${remaining > 0 ? 'text-amber-600 dark:text-amber-400' : remaining < 0 ? 'text-blue-600 dark:text-blue-400' : 'text-green-600 dark:text-green-400'}`}>
                         {formatMoney(Math.abs(remaining), symbol)}
                       </p>
                     </div>
@@ -415,7 +416,7 @@ export default function OrdersPage() {
                           type="button"
                           onClick={() => setPaymentDraftRows((current) => current.filter((_, lineIndex) => lineIndex !== index))}
                           disabled={paymentDraftRows.length === 1}
-                          className="rounded-lg p-2 text-red-600 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-40 dark:hover:bg-red-950/40"
+                          className="rounded-lg p-2 text-red-600 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-40 dark:hover:bg-red-950/40 dark:text-red-400"
                           aria-label="حذف الدفعة"
                         >
                           <Trash2 className="w-4 h-4" />
@@ -453,7 +454,7 @@ export default function OrdersPage() {
                     </button>
                   </div>
                   {paymentMethods.length === 0 && (
-                    <p className="mt-2 text-xs text-red-600">لا توجد طرق دفع مهيأة في الإعدادات.</p>
+                    <p className="mt-2 text-xs text-red-600 dark:text-red-400">لا توجد طرق دفع مهيأة في الإعدادات.</p>
                   )}
                 </div>
               )

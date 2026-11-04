@@ -8,6 +8,7 @@ import Card from '../../components/common/cards/Card'
 import DataTable from '../../components/common/tables/DataTable'
 import Modal from '../../components/common/modals/Modal'
 import Pagination from '../../components/common/Pagination'
+import { formatDateTime } from '../../utils/format'
 
 export default function StockMovementsPage() {
   const [showModal, setShowModal] = useState(false)
@@ -44,16 +45,16 @@ export default function StockMovementsPage() {
     { key: 'cost_per_unit', header: 'التكلفة/وحدة' },
     { key: 'total_cost', header: 'الإجمالي' },
     { key: 'reference_type', header: 'المرجع' },
-    { key: 'created_at', header: 'التاريخ', render: (m: any) => new Date(m.created_at).toLocaleString('ar-SA') },
+    { key: 'created_at', header: 'التاريخ', render: (m: any) => formatDateTime(m.created_at) },
     { key: 'actions', header: 'الإجراءات', render: (m: any) => (
-      <button onClick={() => deleteMutation.mutate(m.id)} className="p-1 text-red-600 hover:bg-red-50 rounded"><Trash2 className="w-4 h-4" /></button>
+      <button onClick={() => deleteMutation.mutate(m.id)} className="p-1 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/40 rounded"><Trash2 className="w-4 h-4" /></button>
     )},
   ]
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-gray-900">حركات المخزون</h1>
+        <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">حركات المخزون</h1>
         <Button onClick={() => setShowModal(true)}><Plus className="w-4 h-4" /> تسجيل حركة</Button>
       </div>
       <Card>
@@ -83,15 +84,15 @@ function MovementForm({ items, onClose, onSuccess }: any) {
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">الصنف</label>
-        <select value={formData.inventory_item_id} onChange={(e) => setFormData({ ...formData, inventory_item_id: e.target.value })} className="w-full px-4 py-2 border border-gray-300 rounded-lg" required>
+        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">الصنف</label>
+        <select value={formData.inventory_item_id} onChange={(e) => setFormData({ ...formData, inventory_item_id: e.target.value })} className="w-full px-4 py-2 border border-gray-300 dark:border-gray-700 rounded-lg" required>
           <option value="">اختر الصنف</option>
           {items.map((it: any) => <option key={it.id} value={it.id}>{it.name}</option>)}
         </select>
       </div>
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">النوع</label>
-        <select value={formData.type} onChange={(e) => setFormData({ ...formData, type: e.target.value })} className="w-full px-4 py-2 border border-gray-300 rounded-lg">
+        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">النوع</label>
+        <select value={formData.type} onChange={(e) => setFormData({ ...formData, type: e.target.value })} className="w-full px-4 py-2 border border-gray-300 dark:border-gray-700 rounded-lg">
           <option value="in">إدخال</option>
           <option value="out">إخراج</option>
           <option value="adjustment">تسوية</option>

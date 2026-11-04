@@ -7,13 +7,7 @@ import Button from '../../components/common/buttons/Button'
 import Input from '../../components/common/inputs/Input'
 import { useSettingsStore, formatMoney, mediaUrl } from '../../store/settingsStore'
 import { printReport } from '../../utils/printReport'
-
-const formatDate = (value: unknown) => {
-  if (!value) return '-'
-  const date = new Date(String(value))
-  if (Number.isNaN(date.getTime())) return String(value)
-  return date.toLocaleDateString('ar-EG')
-}
+import { formatDate, formatNumber } from '../../utils/format'
 
 export default function LedgerPage() {
   const { symbol, restaurant } = useSettingsStore()
@@ -165,8 +159,8 @@ export default function LedgerPage() {
                       <td className="py-2">{formatDate(l.date)}</td>
                       <td className="py-2 font-mono text-xs">{l.entry_number}</td>
                       <td className="py-2">{l.description || '-'}</td>
-                      <td className="py-2 text-left tabular-nums">{Number(l.debit).toFixed(2)}</td>
-                      <td className="py-2 text-left tabular-nums">{Number(l.credit).toFixed(2)}</td>
+                      <td className="py-2 text-left tabular-nums">{formatNumber(l.debit)}</td>
+                      <td className="py-2 text-left tabular-nums">{formatNumber(l.credit)}</td>
                       <td className="py-2 text-left font-semibold tabular-nums">{formatMoney(l.balance, symbol)}</td>
                     </tr>
                   ))}

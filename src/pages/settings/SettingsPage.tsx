@@ -707,7 +707,7 @@ export default function SettingsPage() {
                           <button
                             type="button"
                             onClick={() => handleDeleteCurrency(currency.code)}
-                            className="p-2 text-red-600 hover:bg-red-50 dark:hover:bg-red-500/10 rounded-lg"
+                            className="p-2 text-red-600 hover:bg-red-50 dark:hover:bg-red-500/10 rounded-lg dark:text-red-400"
                             title="حذف"
                           >
                             <Trash2 className="w-4 h-4" />
@@ -733,7 +733,7 @@ export default function SettingsPage() {
               </p>
             </div>
             {settingsError && (
-              <div className="flex items-center justify-between gap-2 rounded-lg bg-red-50 p-3 text-sm text-red-700">
+              <div className="flex items-center justify-between gap-2 rounded-lg bg-red-50 p-3 text-sm text-red-700 dark:bg-red-950/40">
                 <span>{settingsError}</span>
                 <button type="button" className="underline" onClick={() => void loadSettings(true)}>إعادة تحميل الإعدادات</button>
               </div>
@@ -756,7 +756,7 @@ export default function SettingsPage() {
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">حساب الربط</label>
                 {accountsError && (
-                  <div className="mb-2 flex items-center justify-between gap-2 text-sm text-red-600">
+                  <div className="mb-2 flex items-center justify-between gap-2 text-sm text-red-600 dark:text-red-400">
                     <span>تعذر تحميل حسابات المطعم.</span>
                     <button type="button" className="underline" onClick={() => void refetchAccounts()}>إعادة المحاولة</button>
                   </div>
@@ -780,11 +780,11 @@ export default function SettingsPage() {
                   ))}
                 </select>
                 {!accountsLoading && !accountsError && !(accountsList || []).length && (
-                  <p className="mt-1 text-xs text-amber-600">لا توجد حسابات للمطعم في قاعدة البيانات؛ أنشئ حسابًا من شجرة الحسابات.</p>
+                  <p className="mt-1 text-xs text-amber-600 dark:text-amber-400">لا توجد حسابات للمطعم في قاعدة البيانات؛ أنشئ حسابًا من شجرة الحسابات.</p>
                 )}
                 {!accountsLoading && !accountsError && (accountsList || []).length > 0
                   && !(accountsList || []).some((account: any) => account.is_active) && (
-                  <p className="mt-1 text-xs text-amber-600">الحسابات ظاهرة، لكن جميعها غير نشطة ولا يمكن ربطها بطريقة الدفع.</p>
+                  <p className="mt-1 text-xs text-amber-600 dark:text-amber-400">الحسابات ظاهرة، لكن جميعها غير نشطة ولا يمكن ربطها بطريقة الدفع.</p>
                 )}
               </div>
               <div className="flex gap-2 md:col-span-1">
@@ -837,7 +837,7 @@ export default function SettingsPage() {
                     <button
                       type="button"
                       onClick={() => handleDeletePayment(method.value)}
-                      className="p-2 text-red-600 hover:bg-red-50 dark:hover:bg-red-500/10 rounded-lg"
+                      className="p-2 text-red-600 hover:bg-red-50 dark:hover:bg-red-500/10 rounded-lg dark:text-red-400"
                       title="حذف"
                     >
                       <Trash2 className="w-4 h-4" />
@@ -1191,7 +1191,7 @@ function RolesPermissionsPanel() {
                       <Pencil className="w-4 h-4" /> تعديل الصلاحيات
                     </Button>
                   )}
-                  {canDeleteRole && role.name !== 'Super Admin' && (
+                  {canDeleteRole && !['admin', 'Super Admin'].includes(role.name) && (
                     <Button
                       size="sm"
                       variant="danger"
@@ -1244,7 +1244,7 @@ function RolesPermissionsPanel() {
                           type="checkbox"
                           checked={selectedPerms.includes(p.name)}
                           onChange={() => togglePerm(p.name)}
-                          className="rounded border-gray-300"
+                          className="rounded border-gray-300 dark:border-gray-700"
                         />
                         <span className="text-sm text-gray-700 dark:text-gray-200">{permissionLabel(p.name)}</span>
                       </label>

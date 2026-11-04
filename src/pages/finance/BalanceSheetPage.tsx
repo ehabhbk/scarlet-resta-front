@@ -7,6 +7,7 @@ import Button from '../../components/common/buttons/Button'
 import Input from '../../components/common/inputs/Input'
 import { useSettingsStore, formatMoney, mediaUrl } from '../../store/settingsStore'
 import { printReport } from '../../utils/printReport'
+import { formatDate } from '../../utils/format'
 
 export default function BalanceSheetPage() {
   const { symbol, restaurant } = useSettingsStore()
@@ -52,7 +53,7 @@ export default function BalanceSheetPage() {
       meta: [
         { label: 'كما في تاريخ', value: asOf },
         { label: 'العملة', value: symbol },
-        { label: 'تاريخ الإصدار', value: new Date().toLocaleDateString('ar-EG') },
+        { label: 'تاريخ الإصدار', value: formatDate(new Date()) },
       ],
       kpis: [
         { label: 'إجمالي الأصول', value: formatMoney(data.total_assets, symbol), tone: 'blue' },

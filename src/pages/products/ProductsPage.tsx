@@ -75,7 +75,7 @@ export default function ProductsPage() {
           {item.image ? (
             <img src={mediaUrl(item.image)} alt="" className="h-10 w-10 rounded-lg object-cover" />
           ) : (
-            <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-gray-100 text-gray-400">
+            <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-gray-100 dark:bg-gray-800 text-gray-400 dark:text-gray-500">
               <ImagePlus className="h-5 w-5" />
             </span>
           )}
@@ -103,7 +103,7 @@ export default function ProductsPage() {
       header: 'الكمية الحالية',
       render: (item: any) => (
         <div>
-          <span className="px-2 py-1 rounded text-xs bg-green-100 text-green-700">
+          <span className="px-2 py-1 rounded text-xs bg-green-100 dark:bg-green-950/50 text-green-700 dark:text-green-300">
             {item.current_stock ?? 0}
           </span>
         </div>
@@ -116,10 +116,10 @@ export default function ProductsPage() {
         <div className="flex gap-2">
           {canEdit && (
             <>
-              <button onClick={() => setManagingProduct(item)} className="p-1 text-purple-600 hover:bg-purple-50 rounded" title="إدارة الأحجام والإضافات">
+              <button onClick={() => setManagingProduct(item)} className="p-1 text-purple-600 dark:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-950/40 rounded" title="إدارة الأحجام والإضافات">
                 <Settings className="w-4 h-4" />
               </button>
-              <button onClick={() => { setEditingProduct(item); setShowModal(true) }} className="p-1 text-blue-600 hover:bg-blue-50 rounded" title="تعديل">
+              <button onClick={() => { setEditingProduct(item); setShowModal(true) }} className="p-1 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-950/40 rounded" title="تعديل">
                 <Edit className="w-4 h-4" />
               </button>
             </>
@@ -127,7 +127,7 @@ export default function ProductsPage() {
           {canDelete && (
             <button onClick={() => {
               if (window.confirm(`هل تريد حذف المنتج ${item.name}؟`)) deleteMutation.mutate(item.id)
-            }} className="p-1 text-red-600 hover:bg-red-50 rounded" title="حذف">
+            }} className="p-1 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/40 rounded" title="حذف">
               <Trash2 className="w-4 h-4" />
             </button>
           )}
@@ -139,7 +139,7 @@ export default function ProductsPage() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-gray-900">المنتجات</h1>
+        <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">المنتجات</h1>
         {canCreate && (
           <Button onClick={() => { setEditingProduct(null); setShowModal(true) }}>
             <Plus className="w-4 h-4" /> إضافة منتج
@@ -260,7 +260,7 @@ function ProductForm({ product, categories, kitchenStations, onClose, onSuccess 
         <select
           value={formData.category_id}
           onChange={(e) => setFormData({ ...formData, category_id: e.target.value })}
-          className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2"
+          className="w-full rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-2"
         >
           <option value="">بدون قسم</option>
           {categories.map((category: any) => (
@@ -273,7 +273,7 @@ function ProductForm({ product, categories, kitchenStations, onClose, onSuccess 
         <select
           value={formData.kitchen_station_id}
           onChange={(e) => setFormData({ ...formData, kitchen_station_id: e.target.value })}
-          className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2"
+          className="w-full rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-2"
         >
           <option value="">بدون محطة</option>
           {kitchenStations.map((station: any) => (
@@ -382,9 +382,9 @@ function ProductModifiersManager({ product, symbol }: any) {
         <h3 className="font-semibold mb-2">الأحجام</h3>
         <div className="space-y-2 mb-3">
           {(sizes || []).map((s: any) => (
-            <div key={s.id} className="flex items-center justify-between p-2 bg-gray-50 rounded">
+            <div key={s.id} className="flex items-center justify-between p-2 bg-gray-50 dark:bg-gray-800/40 rounded">
               <span>{s.name} ({formatMoney(s.price_modifier, symbol)})</span>
-              <button onClick={() => deleteSizeMutation.mutate(s.id)} className="p-1 text-red-600 hover:bg-red-50 rounded"><Trash2 className="w-4 h-4" /></button>
+              <button onClick={() => deleteSizeMutation.mutate(s.id)} className="p-1 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/40 rounded"><Trash2 className="w-4 h-4" /></button>
             </div>
           ))}
         </div>
@@ -399,9 +399,9 @@ function ProductModifiersManager({ product, symbol }: any) {
         <h3 className="font-semibold mb-2">الإضافات</h3>
         <div className="space-y-2 mb-3">
           {(modifiers || []).map((m: any) => (
-            <div key={m.id} className="flex items-center justify-between p-2 bg-gray-50 rounded">
+            <div key={m.id} className="flex items-center justify-between p-2 bg-gray-50 dark:bg-gray-800/40 rounded">
               <span>{m.name} {m.is_required ? '(مطلوبة)' : ''}</span>
-              <button onClick={() => deleteModifierMutation.mutate(m.id)} className="p-1 text-red-600 hover:bg-red-50 rounded"><Trash2 className="w-4 h-4" /></button>
+              <button onClick={() => deleteModifierMutation.mutate(m.id)} className="p-1 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/40 rounded"><Trash2 className="w-4 h-4" /></button>
             </div>
           ))}
         </div>

@@ -9,15 +9,11 @@ import Modal from '../../components/common/modals/Modal'
 import { useSettingsStore, formatMoney, mediaUrl } from '../../store/settingsStore'
 import { useAuthStore } from '../../store/authStore'
 import { printReport } from '../../utils/printReport'
+import { formatDate } from '../../utils/format'
 
 interface Line { account_id: number | ''; debit: number; credit: number; description: string }
 
-const formatDate = (value: unknown) => {
-  if (!value) return '-'
-  const date = new Date(String(value))
-  if (Number.isNaN(date.getTime())) return String(value)
-  return date.toLocaleDateString('ar-EG')
-}
+
 
 const today = () => new Date().toISOString().slice(0, 10)
 
@@ -175,7 +171,7 @@ export default function JournalEntriesPage() {
         { label: 'الفترة', value: rangeLabel },
         { label: 'عدد القيود', value: String(totalEntries) },
         { label: 'العملة', value: symbol },
-        { label: 'تاريخ الإصدار', value: new Date().toLocaleDateString('ar-EG') },
+        { label: 'تاريخ الإصدار', value: formatDate(new Date()) },
         { label: 'بحث', value: search || 'بدون' },
         { label: 'المستخدم', value: currentUser?.name || 'المستخدم الحالي' },
       ],

@@ -11,6 +11,7 @@ import DataTable from '../../components/common/tables/DataTable'
 import Modal from '../../components/common/modals/Modal'
 import Badge from '../../components/common/data-display/Badge'
 import { useAuthStore } from '../../store/authStore'
+import { formatNumber, formatDate } from '../../utils/format'
 
 export default function PurchasesPage() {
   const { symbol, paymentMethods } = useSettingsStore()
@@ -73,12 +74,12 @@ export default function PurchasesPage() {
     { key: 'amount_paid', header: 'المدفوع', render: (p: any) => formatMoney(p.amount_paid, symbol) },
     { key: 'account', header: 'حساب الشراء', render: (p: any) => p.account?.name || '-' },
     { key: 'payment_status', header: 'الدفع' },
-    { key: 'order_date', header: 'التاريخ' },
+    { key: 'order_date', header: 'التاريخ', render: (p: any) => formatDate(p.order_date) },
     {
       key: 'payment_action',
       header: 'الإجراء',
       render: (p: any) => !canCreate || p.payment_status === 'paid' ? '-' : (
-        <button onClick={() => setPayingPurchase(p)} className="inline-flex items-center gap-1 rounded px-2 py-1 text-sm text-green-700 hover:bg-green-50">
+        <button onClick={() => setPayingPurchase(p)} className="inline-flex items-center gap-1 rounded px-2 py-1 text-sm text-green-700 dark:text-green-300 hover:bg-green-50 dark:hover:bg-green-950/40">
           <DollarSign className="h-4 w-4" /> تسجيل دفعة
         </button>
       ),
@@ -90,7 +91,7 @@ export default function PurchasesPage() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-gray-900">المشتريات</h1>
+        <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">المشتريات</h1>
         {canCreate && <Button onClick={() => setShowModal(true)}><Plus className="w-4 h-4" /> إضافة مشترى</Button>}
       </div>
       <Card>
@@ -120,7 +121,7 @@ export default function PurchasesPage() {
 
 function PurchasePaymentForm({ purchase, paymentMethods, loading, onClose, onSubmit }: any) {
   const remaining = Math.max(0, Number(purchase.total_amount) - Number(purchase.amount_paid))
-  const [amount, setAmount] = useState(remaining.toFixed(2))
+  const [amount, setAmount] = useState(formatNumber(remaining))
   const [method, setMethod] = useState(paymentMethods[0]?.value || '')
 
   const handleSubmit = (event: React.FormEvent) => {
@@ -130,11 +131,11 @@ function PurchasePaymentForm({ purchase, paymentMethods, loading, onClose, onSub
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
-      <Input label="المبلغ المستحق" type="number" value={remaining.toFixed(2)} readOnly />
+      <Input label="المبلغ المستحق" type="number" value={formatNumber(remaining)} readOnly />
       <Input label="مبلغ الدفعة" type="number" min={0.01} max={remaining} step="0.01" value={amount} onChange={(event) => setAmount(event.target.value)} required />
       <div>
-        <label className="mb-2 block text-sm font-medium text-gray-700">طريقة الدفع</label>
-        <select value={method} onChange={(event) => setMethod(event.target.value)} className="w-full rounded-lg border border-gray-300 px-4 py-2" required>
+        <label className="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">طريقة الدفع</label>
+        <select value={method} onChange={(event) => setMethod(event.target.value)} className="w-full rounded-lg border border-gray-300 dark:border-gray-700 px-4 py-2" required>
           {paymentMethods.map((paymentMethod: any) => <option key={paymentMethod.value} value={paymentMethod.value}>{paymentMethod.label}</option>)}
         </select>
       </div>
@@ -207,8 +208,8 @@ function PurchaseForm({ suppliers, items, accounts, paymentMethods, onClose, onS
     <form onSubmit={handleSubmit} className="space-y-4">
       <div className="grid grid-cols-2 gap-4">
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">المورد</label>
-          <select value={formData.supplier_id} onChange={(e) => setFormData({ ...formData, supplier_id: e.target.value })} className="w-full px-4 py-2 border border-gray-300 rounded-lg" required>
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">المورد</label>
+          <select value={formData.supplier_id} onChange={(e) => setFormData({ ...formData, supplier_id: e.target.value })} className="w-full px-4 py-2 border border-gray-300 dark:border-gray-700 rounded-lg" required>
             <option value="">اختر المورد</option>
             {suppliers.map((s: any) => <option key={s.id} value={s.id}>{s.name}</option>)}
           </select>
@@ -218,8 +219,8 @@ function PurchaseForm({ suppliers, items, accounts, paymentMethods, onClose, onS
       <div className="grid grid-cols-2 gap-4">
         <Input label="تاريخ الطلب" type="date" value={formData.order_date} onChange={(e) => setFormData({ ...formData, order_date: e.target.value })} required />
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">الحالة</label>
-          <select value={formData.status} onChange={(e) => setFormData({ ...formData, status: e.target.value })} className="w-full px-4 py-2 border border-gray-300 rounded-lg">
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">الحالة</label>
+          <select value={formData.status} onChange={(e) => setFormData({ ...formData, status: e.target.value })} className="w-full px-4 py-2 border border-gray-300 dark:border-gray-700 rounded-lg">
             <option value="draft">مسودة</option>
             <option value="ordered">تم الطلب</option>
             <option value="received">مستلم</option>
@@ -228,8 +229,8 @@ function PurchaseForm({ suppliers, items, accounts, paymentMethods, onClose, onS
       </div>
       <div className="grid grid-cols-2 gap-4">
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">حساب المشتريات</label>
-          <select value={formData.account_id} onChange={(e) => setFormData({ ...formData, account_id: e.target.value })} className="w-full px-4 py-2 border border-gray-300 rounded-lg" required>
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">حساب المشتريات</label>
+          <select value={formData.account_id} onChange={(e) => setFormData({ ...formData, account_id: e.target.value })} className="w-full px-4 py-2 border border-gray-300 dark:border-gray-700 rounded-lg" required>
             <option value="">اختر حساب المشتريات</option>
             {accounts.filter((a: any) => ['asset', 'expense'].includes(a.type) && a.is_active).map((a: any) => <option key={a.id} value={a.id}>{a.code} - {a.name}</option>)}
           </select>
@@ -237,26 +238,26 @@ function PurchaseForm({ suppliers, items, accounts, paymentMethods, onClose, onS
         <Input label="الضريبة" type="number" min={0} step="0.01" value={formData.tax_amount} onChange={(e) => setFormData({ ...formData, tax_amount: Number(e.target.value) || 0 })} />
       </div>
       <div className="grid grid-cols-2 gap-4">
-        <Input label="الإجمالي" type="number" value={totalAmount.toFixed(2)} readOnly />
+        <Input label="الإجمالي" type="number" value={formatNumber(totalAmount)} readOnly />
         <Input label="المبلغ المدفوع الآن" type="number" min={0} max={totalAmount} step="0.01" value={formData.amount_paid} onChange={(e) => setFormData({ ...formData, amount_paid: Number(e.target.value) || 0 })} />
       </div>
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">طريقة الدفع</label>
-        <select value={formData.payment_method} onChange={(e) => setFormData({ ...formData, payment_method: e.target.value })} className="w-full px-4 py-2 border border-gray-300 rounded-lg" required>
+        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">طريقة الدفع</label>
+        <select value={formData.payment_method} onChange={(e) => setFormData({ ...formData, payment_method: e.target.value })} className="w-full px-4 py-2 border border-gray-300 dark:border-gray-700 rounded-lg" required>
           {paymentMethods.map((method: any) => <option key={method.value} value={method.value}>{method.label}</option>)}
         </select>
       </div>
 
       <div>
         <div className="flex items-center justify-between mb-2">
-          <label className="text-sm font-medium text-gray-700">المنتجات</label>
+          <label className="text-sm font-medium text-gray-700 dark:text-gray-300">المنتجات</label>
           <Button type="button" size="sm" variant="secondary" onClick={addLine}>+ إضافة</Button>
         </div>
         <div className="space-y-2">
           {lineItems.map((li, idx) => (
             <div key={idx} className="grid grid-cols-4 gap-2 items-end">
               <div className="col-span-2">
-                <select value={li.inventory_item_id} onChange={(e) => updateLine(idx, 'inventory_item_id', e.target.value)} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" required>
+                <select value={li.inventory_item_id} onChange={(e) => updateLine(idx, 'inventory_item_id', e.target.value)} className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-lg text-sm" required>
                   <option value="">اختر الصنف</option>
                   {items.map((it: any) => <option key={it.id} value={it.id}>{it.name}</option>)}
                 </select>
@@ -265,7 +266,7 @@ function PurchaseForm({ suppliers, items, accounts, paymentMethods, onClose, onS
               <div className="flex gap-1">
                 <Input type="number" value={li.unit_cost} onChange={(e) => updateLine(idx, 'unit_cost', e.target.value)} />
                 {lineItems.length > 1 && (
-                  <button type="button" onClick={() => removeLine(idx)} className="p-2 text-red-500 hover:bg-red-50 rounded">×</button>
+                  <button type="button" onClick={() => removeLine(idx)} className="p-2 text-red-500 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/40 rounded">×</button>
                 )}
               </div>
             </div>

@@ -1,3 +1,5 @@
+import { formatDateTime } from './format'
+
 export interface PrintRestaurant {
   name?: string | null
   logo?: string | null
@@ -229,7 +231,7 @@ export function printReport(options: PrintReportOptions): boolean {
       ${summaryHtml ? `<section class="summary avoid">${options.summaryTitle ? `<h2>${escapeHtml(options.summaryTitle)}</h2>` : ''}<table><tbody>${summaryHtml}</tbody></table></section>` : ''}
       ${signaturesHtml}
       <footer class="footer">
-        <span>تم إنشاء التقرير في ${escapeHtml(generatedAt.toLocaleString('ar-EG'))}</span>
+        <span>تم إنشاء التقرير في ${escapeHtml(formatDateTime(generatedAt))}</span>
         <span>${escapeHtml(restaurant.name || '')}${options.footerNote ? ` — ${escapeHtml(options.footerNote)}` : ''}</span>
       </footer>
       <script>window.onload = function(){ window.print(); };</script>

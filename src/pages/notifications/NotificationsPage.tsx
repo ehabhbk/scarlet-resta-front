@@ -5,6 +5,7 @@ import { Bell } from 'lucide-react'
 import Card from '../../components/common/cards/Card'
 import DataTable from '../../components/common/tables/DataTable'
 import Pagination from '../../components/common/Pagination'
+import { formatDateTime } from '../../utils/format'
 
 export default function NotificationsPage() {
   const [page, setPage] = useState(1)
@@ -30,10 +31,10 @@ export default function NotificationsPage() {
     { key: 'title', header: 'العنوان', render: (n: any) => n.title || n.message || '-' },
     { key: 'type', header: 'النوع' },
     { key: 'is_read', header: 'مقروء', render: (n: any) => n.is_read ? 'نعم' : 'لا' },
-    { key: 'created_at', header: 'التاريخ', render: (n: any) => new Date(n.created_at).toLocaleString('ar-SA') },
+    { key: 'created_at', header: 'التاريخ', render: (n: any) => formatDateTime(n.created_at) },
     { key: 'actions', header: 'الإجراءات', render: (n: any) => (
       !n.is_read && (
-        <button onClick={() => markReadMutation.mutate(n.id)} className="px-2 py-1 text-xs bg-blue-100 text-blue-700 rounded">تعليم كمقروء</button>
+        <button onClick={() => markReadMutation.mutate(n.id)} className="px-2 py-1 text-xs bg-blue-100 dark:bg-blue-950/50 text-blue-700 dark:text-blue-300 rounded">تعليم كمقروء</button>
       )
     )},
   ]
@@ -41,9 +42,9 @@ export default function NotificationsPage() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-gray-900">الإشعارات</h1>
+        <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">الإشعارات</h1>
         <div className="flex items-center gap-2">
-          <Bell className="w-5 h-5 text-gray-500" />
+          <Bell className="w-5 h-5 text-gray-500 dark:text-gray-400" />
           <label className="flex items-center gap-2 text-sm">
             <input type="checkbox" checked={unreadOnly} onChange={(e) => setUnreadOnly(e.target.checked)} />
             غير مقروءة فقط

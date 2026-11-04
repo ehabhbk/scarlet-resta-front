@@ -45,14 +45,14 @@ export default function AttendancePage() {
     { key: 'work_hours', header: 'ساعات', render: (a: any) => a.work_hours },
     { key: 'status', header: 'الحالة' },
     { key: 'actions', header: 'الإجراءات', render: (a: any) => (
-      <button onClick={() => deleteMutation.mutate(a.id)} className="p-1 text-red-600 hover:bg-red-50 rounded"><Trash2 className="w-4 h-4" /></button>
+      <button onClick={() => deleteMutation.mutate(a.id)} className="p-1 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/40 rounded"><Trash2 className="w-4 h-4" /></button>
     )},
   ]
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-gray-900">الحضور</h1>
+        <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">الحضور</h1>
         <Button onClick={() => setShowModal(true)}><Plus className="w-4 h-4" /> تسجيل حضور</Button>
       </div>
       <Card>
@@ -82,8 +82,8 @@ function AttendanceForm({ employees, onClose, onSuccess }: any) {
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">الموظف</label>
-        <select value={formData.employee_id} onChange={(e) => setFormData({ ...formData, employee_id: e.target.value })} className="w-full px-4 py-2 border border-gray-300 rounded-lg" required>
+        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">الموظف</label>
+        <select value={formData.employee_id} onChange={(e) => setFormData({ ...formData, employee_id: e.target.value })} className="w-full px-4 py-2 border border-gray-300 dark:border-gray-700 rounded-lg" required>
           <option value="">اختر الموظف</option>
           {employees.map((emp: any) => <option key={emp.id} value={emp.id}>{emp.name}</option>)}
         </select>
@@ -94,8 +94,8 @@ function AttendanceForm({ employees, onClose, onSuccess }: any) {
         <Input label="خروج" type="time" value={formData.check_out} onChange={(e) => setFormData({ ...formData, check_out: e.target.value })} />
       </div>
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">الحالة</label>
-        <select value={formData.status} onChange={(e) => setFormData({ ...formData, status: e.target.value })} className="w-full px-4 py-2 border border-gray-300 rounded-lg">
+        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">الحالة</label>
+        <select value={formData.status} onChange={(e) => setFormData({ ...formData, status: e.target.value })} className="w-full px-4 py-2 border border-gray-300 dark:border-gray-700 rounded-lg">
           <option value="present">حاضر</option>
           <option value="absent">غائب</option>
           <option value="late">متأخر</option>

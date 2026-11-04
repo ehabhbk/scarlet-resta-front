@@ -7,6 +7,7 @@ import Button from '../../components/common/buttons/Button'
 import Input from '../../components/common/inputs/Input'
 import { useSettingsStore, formatMoney, mediaUrl } from '../../store/settingsStore'
 import { printReport } from '../../utils/printReport'
+import { formatDate, formatNumber } from '../../utils/format'
 
 export default function IncomeStatementPage() {
   const { symbol, restaurant } = useSettingsStore()
@@ -36,13 +37,13 @@ export default function IncomeStatementPage() {
       meta: [
         { label: 'الفترة', value: rangeLabel },
         { label: 'العملة', value: symbol },
-        { label: 'تاريخ الإصدار', value: new Date().toLocaleDateString('ar-EG') },
+        { label: 'تاريخ الإصدار', value: formatDate(new Date()) },
       ],
       kpis: [
         { label: 'إجمالي الإيرادات', value: formatMoney(data.total_revenue, symbol), tone: 'green' },
         { label: 'إجمالي المصروفات', value: formatMoney(data.total_expense, symbol), tone: 'red' },
         { label: 'صافي الدخل', value: formatMoney(data.net_income, symbol), tone: Number(data.net_income) >= 0 ? 'green' : 'red' },
-        { label: 'هامش الربح', value: `${Number(data.total_revenue) > 0 ? ((Number(data.net_income) / Number(data.total_revenue)) * 100).toFixed(1) : '0.0'}%` },
+        { label: 'هامش الربح', value: `${Number(data.total_revenue) > 0 ? formatNumber((Number(data.net_income) / Number(data.total_revenue)) * 100, { maximumFractionDigits: 1 }) : '0'}%` },
       ],
       sections: [
         {
