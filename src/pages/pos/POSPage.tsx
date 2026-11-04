@@ -550,10 +550,10 @@ export default function POSPage() {
       })
       return res.data
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['shifts-current'] })
+    onSuccess: async (response) => {
+      await queryClient.invalidateQueries({ queryKey: ['shifts-current'] })
       setShowCloseModal(false)
-      toast.success('تم إغلاق الوردية')
+      toast.success(response?.message || 'تم إغلاق الوردية')
     },
     onError: (error: any) => {
       toast.error(error?.response?.data?.message || error?.message || 'تعذر إغلاق الوردية')
@@ -1037,7 +1037,7 @@ export default function POSPage() {
           </div>
         </div>
 
-        {can('view_pos') && (
+        {can('view_pos') && openShift && (
           <div className="bg-gradient-to-l from-emerald-50 to-teal-50 dark:from-emerald-950/40 dark:to-teal-950/30 border border-emerald-200 dark:border-emerald-800 rounded-xl p-3">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div className="flex items-center gap-2">
