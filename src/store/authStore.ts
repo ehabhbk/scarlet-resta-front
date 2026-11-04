@@ -17,15 +17,20 @@ export const useAuthStore = create<AuthState & {
         isLoading: false,
         login: async (username: string, password: string) => {
           set({ isLoading: true })
-          const res = await api.post('/auth/login', { username, password })
-          localStorage.setItem('token', res.data.token)
-          localStorage.setItem('user', JSON.stringify(res.data.user))
-          set({
-            user: res.data.user,
-            token: res.data.token,
-            isAuthenticated: true,
-            isLoading: false,
-          })
+          try {
+            const res = await api.post('/auth/login', { username, password })
+            localStorage.setItem('token', res.data.token)
+            localStorage.setItem('user', JSON.stringify(res.data.user))
+            set({
+              user: res.data.user,
+              token: res.data.token,
+              isAuthenticated: true,
+              isLoading: false,
+            })
+          } catch (error) {
+            set({ isLoading: false })
+            throw error
+          }
         },
         logout: () => {
           localStorage.removeItem('token')

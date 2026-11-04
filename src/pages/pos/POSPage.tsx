@@ -746,6 +746,15 @@ export default function POSPage() {
   }
 
   const openConfigurator = (product: any) => {
+    if (!openShift?.id) {
+      toast.error('لا يمكنك إنشاء الطلب. قم بفتح الوردية أولاً.')
+      return
+    }
+    const alreadyInCart = cart.some((item) => item.product_id === product.id)
+    if (alreadyInCart && !(product.sizes && product.sizes.length > 0) && !(product.modifiers && product.modifiers.length > 0)) {
+      toast.info('لقد قمت باختيار هذا المنتج')
+      return
+    }
     toast.success(`تم اختيار ${product.name}`, { duration: 1500 })
     if ((product.sizes && product.sizes.length > 0) || (product.modifiers && product.modifiers.length > 0)) {
       setConfiguringProduct(product)
