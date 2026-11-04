@@ -74,7 +74,7 @@ export default function Topbar() {
     <header className="bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 px-6 py-3 flex items-center">
       <div className="flex items-center gap-2 sm:gap-3 mr-auto">
         {/* Notifications bell */}
-        <div className="relative order-4">
+        <div className="relative order-1">
           <button
             onClick={() => setNotifOpen((o) => !o)}
             className="relative p-2 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg"
@@ -119,19 +119,19 @@ export default function Topbar() {
 
         <button
           onClick={toggleDarkMode}
-          className="order-3 p-2 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg"
+          className="order-2 p-2 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg"
         >
           {darkMode ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
         </button>
 
         <button
           onClick={toggleLang}
-          className="order-2 px-3 py-2 text-sm font-medium text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg"
+          className="order-3 px-3 py-2 text-sm font-medium text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg"
         >
           {lang === 'ar' ? 'EN' : 'AR'}
         </button>
 
-        <div className="relative order-1">
+        <div className="relative order-4">
           <button
             type="button"
             onClick={() => setMenuOpen((open) => !open)}
