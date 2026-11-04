@@ -6,6 +6,7 @@ interface InputProps extends InputHTMLAttributes<HTMLInputElement> {
   error?: string
   hint?: string
   icon?: ReactNode
+  trailing?: ReactNode
 }
 
 export default function Input({ 
@@ -13,6 +14,7 @@ export default function Input({
   error, 
   hint,
   icon, 
+  trailing,
   className, 
   ...props 
 }: InputProps) {
@@ -25,19 +27,25 @@ export default function Input({
       )}
       <div className="relative">
         {icon && (
-          <div className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400">
+          <div className="absolute start-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none">
             {icon}
           </div>
         )}
         <input
           className={clsx(
             'w-full px-4 py-2 border rounded-lg bg-white text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-accent transition-colors dark:bg-gray-900 dark:text-gray-100 dark:placeholder-gray-500',
-            icon && 'pr-10',
+            icon && 'ps-10',
+            trailing && 'pe-10',
             error ? 'border-red-500' : 'border-gray-300 dark:border-gray-700',
             className
           )}
           {...props}
         />
+        {trailing && (
+          <div className="absolute end-3 top-1/2 -translate-y-1/2 flex items-center">
+            {trailing}
+          </div>
+        )}
       </div>
       {hint && !error && (
         <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">{hint}</p>

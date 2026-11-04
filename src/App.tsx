@@ -37,6 +37,7 @@ import AreasPage from './pages/areas/AreasPage'
 import KitchenStationsPage from './pages/kitchen-stations/KitchenStationsPage'
 import CategoriesPage from './pages/categories/CategoriesPage'
 import RolesPage from './pages/roles/RolesPage'
+import AutoTranslate from './i18n/AutoTranslate'
 
 const queryClient = new QueryClient()
 
@@ -253,6 +254,7 @@ function App() {
           <Route path="/roles" element={isAuthenticated ? (<MainLayout><RolesPage /></MainLayout>) : (<Navigate to="/login" />)} />
         </Routes>
         <Toaster position="top-center" richColors />
+        <AutoTranslate />
       </BrowserRouter>
     </QueryClientProvider>
   )

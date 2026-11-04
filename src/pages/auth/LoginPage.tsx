@@ -1,13 +1,14 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuthStore } from '../../store/authStore'
-import { Utensils, Lock, User } from 'lucide-react'
+import { Utensils, Lock, User, Eye, EyeOff } from 'lucide-react'
 import Button from '../../components/common/buttons/Button'
 import Input from '../../components/common/inputs/Input'
 
 export default function LoginPage() {
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
+  const [showPassword, setShowPassword] = useState(false)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   const navigate = useNavigate()
@@ -57,11 +58,22 @@ export default function LoginPage() {
 
           <Input
             label="كلمة المرور"
-            type="password"
+            type={showPassword ? 'text' : 'password'}
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             placeholder="••••••••"
             icon={<Lock className="w-5 h-5" />}
+            trailing={
+              <button
+                type="button"
+                onClick={() => setShowPassword((visible) => !visible)}
+                className="p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 rounded focus:outline-none focus:ring-2 focus:ring-accent"
+                aria-label={showPassword ? 'إخفاء كلمة المرور' : 'إظهار كلمة المرور'}
+                title={showPassword ? 'إخفاء كلمة المرور' : 'إظهار كلمة المرور'}
+              >
+                {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+              </button>
+            }
             required
           />
 

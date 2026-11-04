@@ -1,4 +1,5 @@
 import { ChevronRight, ChevronLeft } from 'lucide-react'
+import { useLangStore } from '../../store/langStore'
 
 interface PaginationProps {
   meta: { current_page: number; last_page: number; total: number; per_page: number } | null
@@ -6,11 +7,14 @@ interface PaginationProps {
 }
 
 export default function Pagination({ meta, onPageChange }: PaginationProps) {
+  const lang = useLangStore((state) => state.lang)
   if (!meta || meta.last_page <= 1) return null
   return (
     <div className="flex items-center justify-between mt-4">
       <span className="text-sm text-gray-500 dark:text-gray-400">
-        صفحه {meta.current_page} من {meta.last_page} (إجمالي {meta.total})
+        {lang === 'en'
+          ? `Page ${meta.current_page} of ${meta.last_page} (Total ${meta.total})`
+          : `صفحه ${meta.current_page} من ${meta.last_page} (إجمالي ${meta.total})`}
       </span>
       <div className="flex gap-2">
         <button

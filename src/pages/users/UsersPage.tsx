@@ -418,7 +418,6 @@ function UserForm({ roles, accounts, kitchenStations, onClose, onSuccess }: any)
         type="password"
         value={formData.password}
         onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-        minLength={6}
         autoComplete="new-password"
         required
       />
@@ -581,7 +580,6 @@ function EditUserForm({ user, roles, accounts, kitchenStations, onClose, onSucce
         type="password"
         value={formData.password}
         onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-        minLength={6}
         autoComplete="new-password"
       />
       <div>

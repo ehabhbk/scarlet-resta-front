@@ -71,10 +71,10 @@ export default function Topbar() {
   const avatarSrc = user?.avatar || user?.image
 
   return (
-    <header className="bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 px-6 py-3 flex items-center justify-between">
-      <div className="flex items-center gap-3">
+    <header className="bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 px-6 py-3 flex items-center">
+      <div className="flex items-center gap-2 sm:gap-3 mr-auto">
         {/* Notifications bell */}
-        <div className="relative">
+        <div className="relative order-4">
           <button
             onClick={() => setNotifOpen((o) => !o)}
             className="relative p-2 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg"
@@ -89,7 +89,7 @@ export default function Topbar() {
           {notifOpen && (
             <>
               <div className="fixed inset-0 z-40" onClick={() => setNotifOpen(false)} />
-              <div className="absolute left-0 mt-2 w-80 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl shadow-xl z-50 overflow-hidden">
+              <div className="absolute end-0 mt-2 w-80 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl shadow-xl z-50 overflow-hidden">
                 <div className="px-4 py-3 border-b border-gray-100 dark:border-gray-800">
                   <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">الإشعارات</p>
                 </div>
@@ -119,19 +119,19 @@ export default function Topbar() {
 
         <button
           onClick={toggleDarkMode}
-          className="p-2 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg"
+          className="order-3 p-2 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg"
         >
           {darkMode ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
         </button>
 
         <button
           onClick={toggleLang}
-          className="px-3 py-2 text-sm font-medium text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg"
+          className="order-2 px-3 py-2 text-sm font-medium text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg"
         >
           {lang === 'ar' ? 'EN' : 'AR'}
         </button>
 
-        <div className="relative">
+        <div className="relative order-1">
           <button
             type="button"
             onClick={() => setMenuOpen((open) => !open)}
@@ -162,7 +162,7 @@ export default function Topbar() {
           {menuOpen && (
             <>
               <div className="fixed inset-0 z-40" onClick={() => setMenuOpen(false)} />
-              <div className="absolute left-0 mt-2 w-60 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl shadow-xl z-50 overflow-hidden">
+              <div className="absolute end-0 mt-2 w-60 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl shadow-xl z-50 overflow-hidden">
                 <div className="px-4 py-3 border-b border-gray-100 dark:border-gray-800">
                   <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">{user?.name}</p>
                   <p className="text-xs text-gray-500 dark:text-gray-400">
