@@ -933,14 +933,14 @@ export default function POSPage() {
 
   if (shiftsLoading) {
     return (
-      <div className="h-screen flex items-center justify-center">
+      <div className="flex min-h-[50vh] items-center justify-center">
         <p className="text-gray-500">جاري تحميل الوردية...</p>
       </div>
     )
   }
 
   return (
-    <div className="h-[calc(100vh-8rem)] flex flex-col -m-6 bg-gray-50 dark:bg-gray-950 overflow-hidden text-gray-900 dark:text-gray-100">
+    <div className="-m-4 flex flex-col bg-gray-50 text-gray-900 dark:bg-gray-950 dark:text-gray-100 md:h-[calc(100dvh-7rem)] md:overflow-hidden lg:-m-6 lg:h-[calc(100dvh-8rem)]">
       {settingsError && (
         <div className="border-b border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700 dark:bg-red-950/40 dark:border-red-900">{settingsError}</div>
       )}
@@ -954,7 +954,7 @@ export default function POSPage() {
           لديك صلاحية عرض نقطة البيع فقط، ولا تملك صلاحية إنشاء الطلبات.
         </div>
       )}
-      <div className="bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800 px-4 py-3">
+      <div className="border-b border-gray-200 bg-white px-3 py-3 dark:border-gray-800 dark:bg-gray-900 sm:px-4">
         <div className="flex flex-wrap items-center justify-between gap-3 mb-2">
           <div className="flex flex-wrap items-center gap-3">
             <h1 className="text-xl font-bold text-gray-900 dark:text-gray-100">نقطة البيع</h1>
@@ -1062,22 +1062,23 @@ export default function POSPage() {
         )}
       </div>
 
-      <div className="flex-1 flex flex-col md:flex-row min-h-0 overflow-hidden">
-        <div className="flex-1 flex flex-col p-4 min-w-0 min-h-0">
+      <div className="flex min-h-0 flex-1 flex-col md:flex-row md:overflow-hidden">
+        <div className="flex min-w-0 flex-col p-3 sm:p-4 md:min-h-0 md:flex-1">
           <div className="mb-4">
             <div className="relative">
-              <Search className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+              <Search className="absolute start-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
               <input
                 type="text"
                 placeholder="بحث عن منتج بالاسم أو الباركود..."
                 value={productSearch}
                 onChange={(e) => setProductSearch(e.target.value)}
-                className="w-full pr-10 pl-4 py-2.5 border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-primary"
+                className="w-full rounded-lg border border-gray-300 bg-white py-2.5 pe-10 ps-10 text-gray-900 focus:outline-none focus:ring-2 focus:ring-primary dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
               />
               {productSearch && (
                 <button
                   onClick={() => setProductSearch('')}
-                  className="absolute left-3 top-1/2 -translate-y-1/2"
+                  className="absolute end-3 top-1/2 -translate-y-1/2"
+                  aria-label="مسح البحث"
                 >
                   <X className="w-4 h-4 text-gray-400" />
                 </button>
@@ -1111,9 +1112,9 @@ export default function POSPage() {
             ))}
           </div>
 
-          <div className="flex-1 overflow-y-auto">
+          <div className="md:flex-1 md:overflow-y-auto">
             {filteredProducts?.length ? (
-              <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4">
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 xl:grid-cols-4">
                 {filteredProducts.map((product: any) => (
                   <button
                     key={product.id}
@@ -1150,7 +1151,7 @@ export default function POSPage() {
           </div>
         </div>
 
-        <div className="w-full h-[48%] md:h-auto md:w-[27rem] md:max-w-[42%] md:flex-none bg-white dark:bg-gray-900 border-t md:border-t-0 md:border-r border-gray-200 dark:border-gray-800 flex flex-col min-h-0 overflow-y-auto">
+        <div className="flex min-h-0 w-full flex-col border-t border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-900 md:h-auto md:w-[27rem] md:max-w-[42%] md:flex-none md:border-s md:border-t-0 md:overflow-y-auto">
           <div className="p-4 border-b border-gray-200 dark:border-gray-800">
             <h2 className="text-lg font-semibold flex items-center gap-2 text-gray-900 dark:text-gray-100">
               <ShoppingCart className="w-5 h-5" />
@@ -1251,7 +1252,7 @@ export default function POSPage() {
           </div>
 
           <div className="p-4 border-t border-gray-200 dark:border-gray-800 space-y-3">
-            <div className="flex items-center justify-between gap-3">
+            <div className="flex flex-wrap items-center justify-between gap-2 gap-3">
               <label className="text-sm font-medium text-gray-700 dark:text-gray-200">
                 خصم
               </label>
@@ -1288,7 +1289,7 @@ export default function POSPage() {
           </div>
 
           <div className="p-4 border-t border-gray-200 dark:border-gray-800 space-y-3">
-            <div className="flex items-center justify-between">
+            <div className="flex flex-wrap items-center justify-between gap-2">
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-200">
                 طريقة الدفع
               </label>
@@ -1310,12 +1311,12 @@ export default function POSPage() {
               <div className="relative">
                 <PaymentIcon
                   method={paymentMethod}
-                  className="pointer-events-none absolute right-3 top-1/2 h-5 w-5 -translate-y-1/2 text-primary dark:text-blue-400"
+                  className="pointer-events-none absolute start-3 top-1/2 h-5 w-5 -translate-y-1/2 text-primary dark:text-blue-400"
                 />
                 <select
                   value={paymentMethod}
                   onChange={(e) => setPaymentMethod(e.target.value)}
-                  className="w-full appearance-none rounded-lg border border-gray-300 bg-white px-10 py-2.5 text-gray-900 focus:outline-none focus:ring-2 focus:ring-primary dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
+                  className="w-full appearance-none rounded-lg border border-gray-300 bg-white py-2.5 pe-10 ps-10 text-gray-900 focus:outline-none focus:ring-2 focus:ring-primary dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
                 >
                   {paymentMethods.map((method) => (
                     <option key={method.value} value={method.value}>
@@ -1323,7 +1324,7 @@ export default function POSPage() {
                     </option>
                   ))}
                 </select>
-                <ChevronDown className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+                <ChevronDown className="pointer-events-none absolute end-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
               </div>
             ) : (
               <div className="space-y-2">
@@ -1496,7 +1497,7 @@ export default function POSPage() {
         <div className="space-y-4">
           {shiftOptionsLoading && <p className="text-sm text-gray-500">جارٍ تحميل بيانات الوردية...</p>}
           {shiftOptionsError && (
-            <div className="flex items-center justify-between gap-2 text-sm text-red-600 dark:text-red-400">
+            <div className="flex flex-wrap items-center justify-between gap-2 gap-2 text-sm text-red-600 dark:text-red-400">
               <span>تعذر تحميل الكاشيرين والموظفين من الخادم.</span>
               <button type="button" className="underline" onClick={() => void refetchShiftOptions()}>إعادة المحاولة</button>
             </div>
@@ -1782,7 +1783,7 @@ export default function POSPage() {
                     {items.map((item: any, index: number) => {
                       const itemModifiers = item.modifiers || []
                       return (
-                        <div key={item.id || `${order.id}-${index}`} className="flex items-center justify-between gap-3 text-sm">
+                        <div key={item.id || `${order.id}-${index}`} className="flex flex-wrap items-center justify-between gap-2 gap-3 text-sm">
                           <span className="flex min-w-0 flex-col">
                             <span className="flex min-w-0 items-center gap-2 truncate">
                               {item.product?.image && <img src={mediaUrl(item.product.image)} alt="" className="h-8 w-8 shrink-0 rounded object-cover" />}
@@ -1986,16 +1987,16 @@ export default function POSPage() {
               <Plus className="h-4 w-4" /> إضافة منتج
             </Button>
             <div className="space-y-2 rounded-xl border border-gray-200 bg-gray-50 p-3 text-sm dark:border-gray-700 dark:bg-gray-800/60">
-              <div className="flex items-center justify-between">
+              <div className="flex flex-wrap items-center justify-between gap-2">
                 <span className="text-gray-500">إجمالي الطلب بعد التعديل</span>
                 <span className="font-semibold">{formatMoney(orderDraftTotal, currencySymbol)}</span>
               </div>
-              <div className="flex items-center justify-between">
+              <div className="flex flex-wrap items-center justify-between gap-2">
                 <span className="text-gray-500">المبلغ المدفوع</span>
                 <span className="font-semibold">{formatMoney(orderPaidAmount, currencySymbol)}</span>
               </div>
               <div
-                className={`flex items-center justify-between border-t border-gray-200 pt-2 font-semibold dark:border-gray-700 ${
+                className={`flex flex-wrap items-center justify-between gap-2 border-t border-gray-200 pt-2 font-semibold dark:border-gray-700 ${
                   orderDifference > 0
                     ? 'text-green-600 dark:text-green-400'
                     : orderDifference < 0
@@ -2187,7 +2188,7 @@ export default function POSPage() {
           return (
             <div className="space-y-4">
               <div className="rounded-lg bg-gray-50 p-3 text-sm dark:bg-gray-800">
-                <div className="flex items-center justify-between">
+                <div className="flex flex-wrap items-center justify-between gap-2">
                   <span className="text-gray-500">المبلغ القابل للاسترداد</span>
                   <span className="font-semibold">{formatMoney(refundable, currencySymbol)}</span>
                 </div>

@@ -5,6 +5,7 @@ import Topbar from './Topbar'
 import { useAuthStore } from '../store/authStore'
 import { useUiStore } from '../store/uiStore'
 import { useSettingsStore } from '../store/settingsStore'
+import { useLangStore } from '../store/langStore'
 import type { ReactNode } from 'react'
 
 interface MainLayoutProps {
@@ -12,8 +13,9 @@ interface MainLayoutProps {
 }
 
 export default function MainLayout({ children }: MainLayoutProps) {
-  const { sidebarOpen, darkMode } = useUiStore()
+  const { sidebarOpen, darkMode, mobileSidebarOpen, setMobileSidebarOpen } = useUiStore()
   const user = useAuthStore((state) => state.user)
+  const lang = useLangStore((state) => state.lang)
   const location = useLocation()
   const loadSettings = useSettingsStore((state) => state.load)
 
@@ -64,18 +66,38 @@ export default function MainLayout({ children }: MainLayoutProps) {
     document.documentElement.classList.toggle('dark', darkMode)
   }, [darkMode])
 
+  // Close the mobile drawer whenever the user navigates or the layout mounts.
+  useEffect(() => {
+    setMobileSidebarOpen(false)
+  }, [location.pathname, setMobileSidebarOpen])
+
+  useEffect(() => {
+    setMobileSidebarOpen(false)
+  }, [setMobileSidebarOpen])
+
   return (
-    <div className="flex h-screen bg-gray-50 dark:bg-gray-950">
-      <Sidebar open={sidebarOpen} />
-      <div className="flex-1 flex flex-col overflow-hidden">
-        <Topbar />
-        <main className="flex-1 overflow-y-auto p-4 lg:p-6">
-          {canAccessRoute ? children : (
-            <div className="rounded-xl border border-amber-200 bg-amber-50 p-6 text-center text-amber-900 dark:bg-amber-950/40 dark:border-amber-900">
-              لا تملك الصلاحية اللازمة لعرض هذه الصفحة.
-            </div>
-          )}
-        </main>
+    <div className="flex h-[100dvh] overflow-hidden bg-gray-50 dark:bg-gray-950">
+      {/*
+        The sidebar always sits on the physical right so the Topbar control
+        group can stay pinned to the far left in both Arabic (RTL) and English
+        (LTR). In LTR the row is reversed to mirror the RTL shell.
+      */}
+      <div className={`flex min-h-0 flex-1 overflow-hidden ${lang === 'en' ? 'lg:flex-row-reverse' : ''}`}>
+        <Sidebar
+          open={sidebarOpen}
+          mobileOpen={mobileSidebarOpen}
+          onClose={() => setMobileSidebarOpen(false)}
+        />
+        <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
+          <Topbar />
+          <main className="flex-1 overflow-y-auto p-4 lg:p-6">
+            {canAccessRoute ? children : (
+              <div className="rounded-xl border border-amber-200 bg-amber-50 p-6 text-center text-amber-900 dark:bg-amber-950/40 dark:border-amber-900">
+                لا تملك الصلاحية اللازمة لعرض هذه الصفحة.
+              </div>
+            )}
+          </main>
+        </div>
       </div>
     </div>
   )

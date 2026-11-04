@@ -74,7 +74,7 @@ export default function TablesManagementPanel() {
   return (
     <div className="space-y-6">
       <Card>
-        <div className="flex items-center justify-between gap-3">
+        <div className="flex flex-wrap items-center justify-between gap-2 gap-3">
           <div>
             <h2 className="text-lg font-semibold dark:text-gray-100">إدارة الطاولات</h2>
             <p className="text-sm text-gray-500 dark:text-gray-400">

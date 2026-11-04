@@ -51,7 +51,7 @@ export default function AttendancePage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-2">
         <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">الحضور</h1>
         <Button onClick={() => setShowModal(true)}><Plus className="w-4 h-4" /> تسجيل حضور</Button>
       </div>
@@ -89,7 +89,7 @@ function AttendanceForm({ employees, onClose, onSuccess }: any) {
         </select>
       </div>
       <Input label="التاريخ" type="date" value={formData.work_date} onChange={(e) => setFormData({ ...formData, work_date: e.target.value })} required />
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <Input label="دخول" type="time" value={formData.check_in} onChange={(e) => setFormData({ ...formData, check_in: e.target.value })} />
         <Input label="خروج" type="time" value={formData.check_out} onChange={(e) => setFormData({ ...formData, check_out: e.target.value })} />
       </div>

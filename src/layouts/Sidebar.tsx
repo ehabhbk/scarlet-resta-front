@@ -1,4 +1,5 @@
 import { Link, useLocation } from 'react-router-dom'
+import { useEffect, useState } from 'react'
 import {
   LayoutDashboard,
   Utensils,
@@ -27,6 +28,8 @@ import { t } from '../i18n'
 
 interface SidebarProps {
   open: boolean
+  mobileOpen: boolean
+  onClose: () => void
 }
 
 interface NavChild {
@@ -45,8 +48,22 @@ interface NavItem {
   anyPermissions?: string[]
 }
 
-export default function Sidebar({ open }: SidebarProps) {
+export default function Sidebar({ open, mobileOpen, onClose }: SidebarProps) {
   const location = useLocation()
+  const [isDesktop, setIsDesktop] = useState(() =>
+    typeof window === 'undefined' ? true : window.matchMedia('(min-width: 1024px)').matches
+  )
+
+  useEffect(() => {
+    const media = window.matchMedia('(min-width: 1024px)')
+    const onChange = () => setIsDesktop(media.matches)
+    onChange()
+    media.addEventListener('change', onChange)
+    return () => media.removeEventListener('change', onChange)
+  }, [])
+
+  // The drawer is always fully expanded on phones/tablets.
+  const expanded = isDesktop ? open : true
   const { lang } = useLangStore()
   const { restaurant } = useSettingsStore()
   const permissions = useAuthStore((state) => state.user?.permissions || [])
@@ -108,13 +125,21 @@ export default function Sidebar({ open }: SidebarProps) {
   ]
 
   return (
-    <aside
-      className={`${
-        open ? 'w-64' : 'w-20'
-      } transition-all duration-300 bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950 border-l border-slate-800 flex flex-col shadow-2xl`}
-    >
+    <>
+      {mobileOpen && (
+        <div
+          className="fixed inset-0 z-40 bg-black/60 backdrop-blur-[1px] lg:hidden"
+          onClick={onClose}
+          aria-hidden="true"
+        />
+      )}
+      <aside
+        className={`fixed inset-y-0 right-0 z-50 flex h-full w-64 shrink-0 flex-col overflow-hidden border-l border-slate-800 bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950 shadow-2xl transition-transform duration-300 lg:static lg:z-auto lg:translate-x-0 ${
+          open ? 'lg:w-64' : 'lg:w-20'
+        } ${mobileOpen ? 'translate-x-0' : 'translate-x-full'}`}
+      >
       <div className="px-4 py-5 border-b border-white/10">
-        <Link to="/dashboard" className="flex items-center gap-3">
+        <Link to="/dashboard" onClick={onClose} className="flex items-center gap-3">
           {restaurant?.logo ? (
             <img
               src={mediaUrl(restaurant.logo)}
@@ -126,7 +151,7 @@ export default function Sidebar({ open }: SidebarProps) {
               {(restaurant?.name || 'S').trim().charAt(0).toUpperCase()}
             </div>
           )}
-          {open && (
+          {expanded && (
             <div className="min-w-0">
               <h1 className="font-bold text-base text-white truncate">
                 {restaurant?.name || 'scarlet restaurant'}
@@ -153,6 +178,7 @@ export default function Sidebar({ open }: SidebarProps) {
               {canOpenItem ? (
                 <Link
                   to={item.path}
+                  onClick={onClose}
                   aria-current={isActive ? 'page' : undefined}
                   className={`group relative flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 ${
                     isSectionActive
@@ -164,7 +190,7 @@ export default function Sidebar({ open }: SidebarProps) {
                     <span className="absolute right-0 top-1/2 h-7 w-1 -translate-y-1/2 rounded-l-full bg-sky-300" />
                   )}
                   <Icon className={`w-5 h-5 shrink-0 transition-colors ${isSectionActive ? 'text-sky-200' : 'group-hover:text-sky-200'}`} />
-                  {open && (
+                  {expanded && (
                     <span className={`truncate transition-all duration-200 ${
                       isSectionActive ? 'text-base font-bold' : 'text-sm font-medium group-hover:text-base'
                     }`}>
@@ -175,12 +201,12 @@ export default function Sidebar({ open }: SidebarProps) {
               ) : (
                 <div className="flex items-center gap-3 px-3 py-2.5 text-slate-400">
                   <Icon className="w-5 h-5 shrink-0" />
-                  {open && <span className="text-sm font-medium">{item.label}</span>}
+                  {expanded && <span className="text-sm font-medium">{item.label}</span>}
                 </div>
               )}
 
-              {open && isSectionActive && visibleChildren.length > 0 && (
-                <div className="mt-1 mr-5 space-y-1 border-r border-white/10 pr-3">
+              {expanded && isSectionActive && visibleChildren.length > 0 && (
+                <div className="mt-1 ms-5 space-y-1 border-s border-white/10 ps-3">
                   {visibleChildren.map((child) => {
                     const ChildIcon = child.icon
                     const childActive = location.pathname === child.path
@@ -188,6 +214,7 @@ export default function Sidebar({ open }: SidebarProps) {
                       <Link
                         key={child.path}
                         to={child.path}
+                        onClick={onClose}
                         aria-current={childActive ? 'page' : undefined}
                         className={`group flex items-center gap-2 px-2 py-1.5 rounded-lg transition-all duration-200 ${
                           childActive
@@ -209,13 +236,14 @@ export default function Sidebar({ open }: SidebarProps) {
         })}
       </nav>
 
-      {open && (
+      {expanded && (
         <div className="px-4 py-4 border-t border-white/10">
           <p className="text-[11px] text-slate-500">
             {new Date().getFullYear()} © {restaurant?.name || 'Scarlet Restaurant'}
           </p>
         </div>
       )}
-    </aside>
+      </aside>
+    </>
   )
 }

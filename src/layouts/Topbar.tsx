@@ -1,4 +1,4 @@
-import { Bell, Moon, Sun, ChevronDown, LogOut, Settings, BarChart3, Users } from 'lucide-react'
+import { Bell, Moon, Sun, ChevronDown, LogOut, Settings, BarChart3, Users, Menu } from 'lucide-react'
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
@@ -10,7 +10,7 @@ import { api } from '../services/api'
 
 export default function Topbar() {
   const { user, logout } = useAuthStore()
-  const { darkMode, toggleDarkMode } = useUiStore()
+  const { darkMode, toggleDarkMode, setMobileSidebarOpen } = useUiStore()
   const { lang, toggleLang } = useLangStore()
   const { restaurant } = useSettingsStore()
   const [menuOpen, setMenuOpen] = useState(false)
@@ -71,8 +71,8 @@ export default function Topbar() {
   const avatarSrc = user?.avatar || user?.image
 
   return (
-    <header className="bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 px-6 py-3 flex items-center">
-      <div className="flex items-center gap-2 sm:gap-3 mr-auto">
+    <header className="flex min-h-14 items-center border-b border-gray-200 bg-white px-3 py-2 dark:border-gray-700 dark:bg-gray-900 sm:px-6 sm:py-3">
+      <div className={lang === 'ar' ? 'mr-auto flex min-w-0 items-center gap-1.5 sm:gap-3' : 'ml-auto flex min-w-0 items-center gap-1.5 sm:gap-3'}>
         {/* Notifications bell */}
         <div className="relative order-1">
           <button
@@ -89,7 +89,7 @@ export default function Topbar() {
           {notifOpen && (
             <>
               <div className="fixed inset-0 z-40" onClick={() => setNotifOpen(false)} />
-              <div className="absolute end-0 mt-2 w-80 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl shadow-xl z-50 overflow-hidden">
+              <div className="absolute end-0 mt-2 w-[min(20rem,calc(100vw-2rem))] bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl shadow-xl z-50 overflow-hidden">
                 <div className="px-4 py-3 border-b border-gray-100 dark:border-gray-800">
                   <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">الإشعارات</p>
                 </div>
@@ -150,7 +150,7 @@ export default function Topbar() {
                 {initial}
               </div>
             )}
-            <div className="text-right hidden sm:block">
+            <div className="hidden text-start sm:block">
               <p className="text-sm font-medium dark:text-gray-100">{user?.name}</p>
               <p className="text-xs text-gray-500 dark:text-gray-400">
                 {user?.username ? `@${user?.username}` : user?.roles?.[0]?.name}
@@ -162,7 +162,7 @@ export default function Topbar() {
           {menuOpen && (
             <>
               <div className="fixed inset-0 z-40" onClick={() => setMenuOpen(false)} />
-              <div className="absolute end-0 mt-2 w-60 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl shadow-xl z-50 overflow-hidden">
+              <div className="absolute end-0 mt-2 w-[min(15rem,calc(100vw-2rem))] bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl shadow-xl z-50 overflow-hidden">
                 <div className="px-4 py-3 border-b border-gray-100 dark:border-gray-800">
                   <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">{user?.name}</p>
                   <p className="text-xs text-gray-500 dark:text-gray-400">
@@ -220,6 +220,15 @@ export default function Topbar() {
             </>
           )}
         </div>
+
+        <button
+          type="button"
+          onClick={() => setMobileSidebarOpen(true)}
+          className="order-5 rounded-lg p-2 text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700 lg:hidden"
+          aria-label={lang === 'en' ? 'Open menu' : 'فتح القائمة'}
+        >
+          <Menu className="h-5 w-5" />
+        </button>
       </div>
     </header>
   )

@@ -54,7 +54,7 @@ export default function AreasManagementPanel() {
   return (
     <div className="space-y-6">
       <Card>
-        <div className="flex items-center justify-between gap-3">
+        <div className="flex flex-wrap items-center justify-between gap-2 gap-3">
           <div>
             <h2 className="text-lg font-semibold dark:text-gray-100">إدارة المناطق</h2>
             <p className="text-sm text-gray-500 dark:text-gray-400">إضافة أو تعديل أو حذف مناطق المطعم.</p>
@@ -67,7 +67,7 @@ export default function AreasManagementPanel() {
         {!isLoading && (!areas || areas.length === 0) && <p className="text-sm text-gray-500">لا توجد مناطق.</p>}
         <div className="space-y-2">
           {(areas || []).map((area: any) => (
-            <div key={area.id} className="flex items-center justify-between gap-3 rounded-xl border border-gray-200 bg-white p-3 dark:border-gray-700 dark:bg-gray-900">
+            <div key={area.id} className="flex flex-wrap items-center justify-between gap-2 gap-3 rounded-xl border border-gray-200 bg-white p-3 dark:border-gray-700 dark:bg-gray-900">
               <div className="flex items-center gap-3">
                 <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 text-primary"><MapPin className="h-5 w-5" /></span>
                 <p className="font-medium text-gray-900 dark:text-gray-100">{area.name}</p>

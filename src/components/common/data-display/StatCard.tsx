@@ -14,11 +14,11 @@ interface StatCardProps {
 
 export default function StatCard({ label, value, icon, color = 'bg-primary', trend }: StatCardProps) {
   return (
-    <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm p-6 border border-gray-100 dark:border-gray-800">
-      <div className="flex items-center justify-between">
-        <div>
-          <p className="text-sm text-gray-500 dark:text-gray-400">{label}</p>
-          <p className="text-2xl font-bold mt-1">{value}</p>
+    <div className="min-w-0 rounded-xl border border-gray-100 bg-white p-4 shadow-sm dark:border-gray-800 dark:bg-gray-900 sm:p-6">
+      <div className="flex items-center justify-between gap-3">
+        <div className="min-w-0">
+          <p className="truncate text-sm text-gray-500 dark:text-gray-400">{label}</p>
+          <p className="mt-1 break-words text-xl font-bold sm:text-2xl">{value}</p>
           {trend && (
             <p className={clsx(
               'text-sm mt-1',
@@ -28,7 +28,7 @@ export default function StatCard({ label, value, icon, color = 'bg-primary', tre
             </p>
           )}
         </div>
-        <div className={`${color} w-12 h-12 rounded-lg flex items-center justify-center`}>
+        <div className={`${color} flex h-10 w-10 shrink-0 items-center justify-center rounded-lg sm:h-12 sm:w-12`}>
           {icon}
         </div>
       </div>

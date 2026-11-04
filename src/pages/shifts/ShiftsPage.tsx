@@ -84,7 +84,7 @@ export default function ShiftsPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-2">
         <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">الورديات</h1>
         {user?.permissions?.includes('open_shift') && (
           <Button onClick={() => setShowModal(true)}><Plus className="w-4 h-4" /> فتح وردية</Button>
@@ -157,7 +157,7 @@ function ShiftForm({ onClose, onSuccess }: any) {
     <form onSubmit={handleSubmit} className="space-y-4">
       {optionsLoading && <p className="text-sm text-gray-500 dark:text-gray-400">جارٍ تحميل الكاشيرين والموظفين...</p>}
       {optionsError && (
-        <div className="flex items-center justify-between gap-2 text-sm text-red-600 dark:text-red-400">
+        <div className="flex flex-wrap items-center justify-between gap-2 gap-2 text-sm text-red-600 dark:text-red-400">
           <span>تعذر تحميل بيانات الوردية من الخادم.</span>
           <button type="button" className="underline" onClick={() => void refetchOptions()}>إعادة المحاولة</button>
         </div>
@@ -183,7 +183,7 @@ function ShiftForm({ onClose, onSuccess }: any) {
         </fieldset>
       )}
       <Input label="التاريخ" type="date" value={formData.shift_date} onChange={(e) => setFormData({ ...formData, shift_date: e.target.value })} required />
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <Input label="بداية" type="time" value={formData.start_time} onChange={(e) => setFormData({ ...formData, start_time: e.target.value })} required />
         <Input label="نهاية" type="time" value={formData.end_time} onChange={(e) => setFormData({ ...formData, end_time: e.target.value })} required />
       </div>

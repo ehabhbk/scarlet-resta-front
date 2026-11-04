@@ -213,7 +213,7 @@ export default function OrdersPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-2">
         <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">الطلبات</h1>
       </div>
 
@@ -263,7 +263,7 @@ export default function OrdersPage() {
       >
         {selectedOrder && (
           <div className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div>
                 <p className="text-sm text-gray-500">الحالة</p>
                 <Badge variant={statusColors[selectedOrder.status] || 'default'}>{selectedOrder.status}</Badge>
@@ -278,7 +278,7 @@ export default function OrdersPage() {
               <h3 className="font-semibold mb-2">المنتجات</h3>
               <div className="space-y-2">
                 {selectedOrder.items?.map((item: any) => (
-                  <div key={item.id} className="flex items-center justify-between gap-3 p-2 bg-gray-50 rounded dark:bg-gray-800/40">
+                  <div key={item.id} className="flex flex-wrap items-center justify-between gap-2 gap-3 p-2 bg-gray-50 rounded dark:bg-gray-800/40">
                     <div className="flex min-w-0 items-center gap-3">
                       {item.product?.image && (
                         <img src={mediaUrl(item.product.image)} alt="" className="h-10 w-10 shrink-0 rounded object-cover" />
@@ -325,7 +325,7 @@ export default function OrdersPage() {
             {(can('edit_orders') || can('edit_order_payment')) && selectedOrder.payment_status !== 'paid' && (
               <div>
                 <h3 className="font-semibold mb-2">تسجيل دفعة</h3>
-                <div className="flex gap-2">
+                <div className="flex flex-wrap gap-2">
                   <input
                     type="number"
                     value={paymentAmount}
@@ -366,7 +366,7 @@ export default function OrdersPage() {
                   <p className="mb-3 text-xs text-gray-500">
                     يمكنك إضافة أكثر من دفعة بأكثر من طريقة دفع. إجمالي الدفعات يُحدّث المدفوع وحالة الدفع تلقائياً.
                   </p>
-                  <div className="mb-3 grid grid-cols-3 gap-2 rounded-lg bg-gray-50 p-2 text-sm dark:bg-gray-800">
+                  <div className="mb-3 grid grid-cols-1 gap-2 rounded-lg bg-gray-50 p-2 text-sm dark:bg-gray-800 sm:grid-cols-3">
                     <div>
                       <p className="text-xs text-gray-500">الإجمالي</p>
                       <p className="font-semibold">{formatMoney(total, symbol)}</p>

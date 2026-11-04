@@ -130,7 +130,7 @@ export default function FinancePage() {
           {(paymentMethodStats || []).map((method: any) => (
             <div
               key={method.payment_method}
-              className="flex items-center justify-between rounded-lg bg-gray-50 p-3 dark:bg-gray-800/60"
+              className="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-gray-50 p-3 dark:bg-gray-800/60"
             >
               <span className="font-medium text-gray-800 dark:text-gray-200">
                 {paymentMethods.find((m) => m.value === method.payment_method)?.label || method.payment_method}

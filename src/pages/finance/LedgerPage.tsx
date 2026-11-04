@@ -142,26 +142,26 @@ export default function LedgerPage() {
               <span className="text-gray-600 dark:text-gray-300">الرصيد الافتتاحي: {formatMoney(data.opening_balance, symbol)}</span>
             </div>
             <div className="overflow-x-auto">
-              <table className="w-full text-sm">
+              <table className="w-full min-w-[640px] text-sm">
                 <thead>
                   <tr className="border-b border-gray-200 text-gray-500 dark:border-gray-700 dark:text-gray-400">
-                    <th className="py-2 text-right">التاريخ</th>
-                    <th className="py-2 text-right">القيد</th>
-                    <th className="py-2 text-right">الوصف</th>
-                    <th className="py-2 text-left">مدين</th>
-                    <th className="py-2 text-left">دائن</th>
-                    <th className="py-2 text-left">الرصيد</th>
+                    <th className="whitespace-nowrap py-2 text-start">التاريخ</th>
+                    <th className="whitespace-nowrap py-2 text-start">القيد</th>
+                    <th className="py-2 text-start">الوصف</th>
+                    <th className="whitespace-nowrap py-2 text-end">مدين</th>
+                    <th className="whitespace-nowrap py-2 text-end">دائن</th>
+                    <th className="whitespace-nowrap py-2 text-end">الرصيد</th>
                   </tr>
                 </thead>
                 <tbody>
                   {lines.map((l: any, i: number) => (
                     <tr key={i} className="border-b border-gray-100 dark:border-gray-800">
-                      <td className="py-2">{formatDate(l.date)}</td>
-                      <td className="py-2 font-mono text-xs">{l.entry_number}</td>
+                      <td className="whitespace-nowrap py-2">{formatDate(l.date)}</td>
+                      <td className="whitespace-nowrap py-2 font-mono text-xs">{l.entry_number}</td>
                       <td className="py-2">{l.description || '-'}</td>
-                      <td className="py-2 text-left tabular-nums">{formatNumber(l.debit)}</td>
-                      <td className="py-2 text-left tabular-nums">{formatNumber(l.credit)}</td>
-                      <td className="py-2 text-left font-semibold tabular-nums">{formatMoney(l.balance, symbol)}</td>
+                      <td className="whitespace-nowrap py-2 text-end tabular-nums">{formatNumber(l.debit)}</td>
+                      <td className="whitespace-nowrap py-2 text-end tabular-nums">{formatNumber(l.credit)}</td>
+                      <td className="whitespace-nowrap py-2 text-end font-semibold tabular-nums">{formatMoney(l.balance, symbol)}</td>
                     </tr>
                   ))}
                   {lines.length === 0 && (

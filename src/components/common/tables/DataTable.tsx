@@ -38,15 +38,15 @@ export default function DataTable<T extends { id: number }>({
   }
 
   return (
-    <div className="overflow-x-auto">
-      <table className="w-full">
+    <div className="-mx-4 w-[calc(100%+2rem)] overflow-x-auto sm:mx-0 sm:w-full">
+      <table className="w-full min-w-[640px]">
         <thead>
           <tr className="border-b border-gray-200 dark:border-gray-800">
             {columns.map((column) => (
               <th 
                 key={column.key} 
                 className={clsx(
-                  'px-4 py-3 text-right text-sm font-medium text-gray-600 dark:text-gray-400',
+                  'whitespace-nowrap px-3 py-3 text-start text-sm font-medium text-gray-600 dark:text-gray-400 sm:px-4',
                   column.className
                 )}
               >
@@ -64,7 +64,7 @@ export default function DataTable<T extends { id: number }>({
               {columns.map((column) => (
                 <td 
                   key={column.key} 
-                  className={clsx('px-4 py-3 text-sm text-gray-700 dark:text-gray-300', column.className)}
+                  className={clsx('px-3 py-3 text-sm text-gray-700 dark:text-gray-300 sm:px-4', column.className)}
                 >
                   {column.render ? column.render(item) : (item as any)[column.key]}
                 </td>

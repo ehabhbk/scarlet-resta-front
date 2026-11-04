@@ -55,7 +55,7 @@ export default function KitchenStationsManagementPanel() {
   return (
     <div className="space-y-6">
       <Card>
-        <div className="flex items-center justify-between gap-3">
+        <div className="flex flex-wrap items-center justify-between gap-2 gap-3">
           <div>
             <h2 className="text-lg font-semibold dark:text-gray-100">إدارة محطات المطبخ</h2>
             <p className="text-sm text-gray-500 dark:text-gray-400">إضافة أو تعديل أو حذف محطات المطبخ.</p>
@@ -68,7 +68,7 @@ export default function KitchenStationsManagementPanel() {
         {!isLoading && (!stations || stations.length === 0) && <p className="text-sm text-gray-500">لا توجد محطات.</p>}
         <div className="space-y-2">
           {(stations || []).map((s: any) => (
-            <div key={s.id} className="flex items-center justify-between gap-3 rounded-xl border border-gray-200 bg-white p-3 dark:border-gray-700 dark:bg-gray-900">
+            <div key={s.id} className="flex flex-wrap items-center justify-between gap-2 gap-3 rounded-xl border border-gray-200 bg-white p-3 dark:border-gray-700 dark:bg-gray-900">
               <div className="flex items-center gap-3">
                 <span className="flex h-10 w-10 items-center justify-center rounded-lg text-white" style={{ backgroundColor: s.color || '#3b82f6' }}>
                   <ChefHat className="h-5 w-5" />

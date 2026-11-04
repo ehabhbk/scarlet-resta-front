@@ -125,9 +125,9 @@ export default function KitchenPage() {
         </div>
       </div>
 
-      <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 lg:grid-cols-5">
         <Card padding="sm">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-wrap items-center justify-between gap-2">
             <div>
               <p className="text-sm text-gray-500 dark:text-gray-400">طلبات مستلمة</p>
               <p className="text-2xl font-bold text-indigo-600">{counters.received}</p>
@@ -136,7 +136,7 @@ export default function KitchenPage() {
           </div>
         </Card>
         <Card padding="sm">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-wrap items-center justify-between gap-2">
             <div>
               <p className="text-sm text-gray-500 dark:text-gray-400">طلبات نشطة</p>
               <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">{counters.orders}</p>
@@ -145,7 +145,7 @@ export default function KitchenPage() {
           </div>
         </Card>
         <Card padding="sm">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-wrap items-center justify-between gap-2">
             <div>
               <p className="text-sm text-gray-500 dark:text-gray-400">بانتظار البدء</p>
               <p className="text-2xl font-bold text-amber-600 dark:text-amber-400">{counters.pending}</p>
@@ -154,7 +154,7 @@ export default function KitchenPage() {
           </div>
         </Card>
         <Card padding="sm">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-wrap items-center justify-between gap-2">
             <div>
               <p className="text-sm text-gray-500 dark:text-gray-400">قيد التحضير</p>
               <p className="text-2xl font-bold text-blue-600 dark:text-blue-400">{counters.preparing}</p>
@@ -163,7 +163,7 @@ export default function KitchenPage() {
           </div>
         </Card>
         <Card padding="sm">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-wrap items-center justify-between gap-2">
             <div>
               <p className="text-sm text-gray-500 dark:text-gray-400">أصناف جاهزة</p>
               <p className="text-2xl font-bold text-green-600 dark:text-green-400">{counters.ready}</p>
@@ -201,12 +201,12 @@ export default function KitchenPage() {
             return (
               <Card
                 key={order.id}
-                className={`border-r-4 ${
+                className={`border-s-4 ${
                   urgent
-                    ? 'border-r-red-500'
+                    ? 'border-s-red-500'
                     : order.status === 'ready'
-                      ? 'border-r-green-500'
-                      : 'border-r-amber-500'
+                      ? 'border-s-green-500'
+                      : 'border-s-amber-500'
                 }`}
                 padding="sm"
               >

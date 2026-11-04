@@ -421,7 +421,7 @@ export default function SettingsPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
           <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">إعدادات النظام</h1>
           <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
@@ -673,7 +673,7 @@ export default function SettingsPage() {
                   return (
                     <div
                       key={currency.code}
-                      className="flex items-center justify-between gap-3 px-4 py-3 bg-white dark:bg-gray-900"
+                      className="flex flex-wrap items-center justify-between gap-2 gap-3 px-4 py-3 bg-white dark:bg-gray-900"
                     >
                       <div className="flex items-center gap-3 min-w-0">
                         <span className="w-12 h-9 rounded-lg bg-gray-100 dark:bg-gray-800 flex items-center justify-center text-sm font-semibold text-gray-700 dark:text-gray-200">
@@ -733,7 +733,7 @@ export default function SettingsPage() {
               </p>
             </div>
             {settingsError && (
-              <div className="flex items-center justify-between gap-2 rounded-lg bg-red-50 p-3 text-sm text-red-700 dark:bg-red-950/40">
+              <div className="flex flex-wrap items-center justify-between gap-2 gap-2 rounded-lg bg-red-50 p-3 text-sm text-red-700 dark:bg-red-950/40">
                 <span>{settingsError}</span>
                 <button type="button" className="underline" onClick={() => void loadSettings(true)}>إعادة تحميل الإعدادات</button>
               </div>
@@ -756,7 +756,7 @@ export default function SettingsPage() {
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">حساب الربط</label>
                 {accountsError && (
-                  <div className="mb-2 flex items-center justify-between gap-2 text-sm text-red-600 dark:text-red-400">
+                  <div className="mb-2 flex flex-wrap items-center justify-between gap-2 gap-2 text-sm text-red-600 dark:text-red-400">
                     <span>تعذر تحميل حسابات المطعم.</span>
                     <button type="button" className="underline" onClick={() => void refetchAccounts()}>إعادة المحاولة</button>
                   </div>
@@ -811,7 +811,7 @@ export default function SettingsPage() {
               {paymentMethods.map((method) => (
                 <div
                   key={method.value}
-                  className="flex items-center justify-between gap-3 px-4 py-3 border border-gray-200 dark:border-gray-700 rounded-xl bg-white dark:bg-gray-900"
+                  className="flex flex-wrap items-center justify-between gap-2 gap-3 px-4 py-3 border border-gray-200 dark:border-gray-700 rounded-xl bg-white dark:bg-gray-900"
                 >
                   <div className="flex items-center gap-3">
                     <span className="w-10 h-10 rounded-lg bg-primary/10 text-primary flex items-center justify-center">
@@ -1180,7 +1180,7 @@ function RolesPermissionsPanel() {
         <div className="space-y-3">
           {roleList.map((role: any) => (
             <div key={role.id} className="p-4 border border-gray-200 dark:border-gray-700 rounded-lg">
-              <div className="flex items-center justify-between gap-3 mb-2">
+              <div className="flex flex-wrap items-center justify-between gap-2 gap-3 mb-2">
                 <div>
                   <p className="font-semibold text-gray-900 dark:text-gray-100">{role.name}</p>
                   <p className="text-xs text-gray-500">{(role.permissions || []).length} صلاحية</p>
@@ -1231,7 +1231,7 @@ function RolesPermissionsPanel() {
             <div className="max-h-96 space-y-4 overflow-y-auto pe-1">
               {groupedPerms.map((group) => (
                 <div key={group.name} className="space-y-2">
-                  <div className="flex items-center justify-between border-b border-gray-100 pb-1 dark:border-gray-800">
+                  <div className="flex flex-wrap items-center justify-between gap-2 border-b border-gray-100 pb-1 dark:border-gray-800">
                     <h4 className="text-sm font-semibold text-gray-800 dark:text-gray-100">{group.name}</h4>
                     <span className="text-xs text-gray-500">
                       {group.items.filter((p: any) => selectedPerms.includes(p.name)).length} / {group.items.length}
@@ -1284,7 +1284,7 @@ interface ToggleProps {
 
 function Toggle({ checked, onChange, label, hint, disabled }: ToggleProps) {
   return (
-    <div className="flex items-center justify-between gap-4">
+    <div className="flex flex-wrap items-center justify-between gap-2 gap-4">
       <div>
         <p className="text-sm font-medium text-gray-700 dark:text-gray-200">{label}</p>
         {hint && <p className="text-xs text-gray-500 mt-0.5">{hint}</p>}

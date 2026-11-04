@@ -24,20 +24,22 @@ export default function BalanceSheetPage() {
   const renderSection = (title: string, rows: any[], total: number, color: string) => (
     <div>
       <h2 className={`mb-2 text-lg font-semibold ${color}`}>{title}</h2>
-      <table className="w-full text-sm">
-        <tbody>
-          {(rows || []).map((r: any) => (
-            <tr key={r.id} className="border-b border-gray-100 dark:border-gray-800">
-              <td className="py-1">{r.code} - {r.name}</td>
-              <td className="py-1 text-left">{formatMoney(r.amount, symbol)}</td>
+      <div className="overflow-x-auto">
+        <table className="w-full min-w-[320px] text-sm">
+          <tbody>
+            {(rows || []).map((r: any) => (
+              <tr key={r.id} className="border-b border-gray-100 dark:border-gray-800">
+                <td className="py-1">{r.code} - {r.name}</td>
+                <td className="whitespace-nowrap py-1 text-end">{formatMoney(r.amount, symbol)}</td>
+              </tr>
+            ))}
+            <tr className="font-bold">
+              <td className="py-2">الإجمالي</td>
+              <td className="whitespace-nowrap py-2 text-end">{formatMoney(total, symbol)}</td>
             </tr>
-          ))}
-          <tr className="font-bold">
-            <td className="py-2">الإجمالي</td>
-            <td className="py-2 text-left">{formatMoney(total, symbol)}</td>
-          </tr>
-        </tbody>
-      </table>
+          </tbody>
+        </table>
+      </div>
     </div>
   )
 
@@ -123,11 +125,11 @@ export default function BalanceSheetPage() {
             {renderSection('الأصول', data.assets, data.total_assets, 'text-blue-600 dark:text-blue-400')}
             {renderSection('الالتزامات', data.liabilities, data.total_liabilities, 'text-red-600 dark:text-red-400')}
             {renderSection('حقوق الملكية', data.equity, data.total_equity, 'text-purple-600 dark:text-purple-400')}
-            <div className="flex items-center justify-between border-t border-gray-300 pt-3 text-lg font-bold dark:border-gray-700">
+            <div className="flex flex-wrap items-center justify-between gap-2 border-t border-gray-300 pt-3 text-lg font-bold dark:border-gray-700">
               <span>الالتزامات + حقوق الملكية</span>
               <span>{formatMoney(data.total_liabilities_equity, symbol)}</span>
             </div>
-            <div className="flex items-center justify-between text-lg font-bold">
+            <div className="flex flex-wrap items-center justify-between gap-2 text-lg font-bold">
               <span>الأصول</span>
               <span>{formatMoney(data.total_assets, symbol)}</span>
             </div>

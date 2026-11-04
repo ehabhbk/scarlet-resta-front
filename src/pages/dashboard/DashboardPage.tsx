@@ -111,7 +111,7 @@ function PieCard({
 
   return (
     <Card>
-      <div className="mb-3 flex items-center justify-between">
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
         <h3 className="text-base font-semibold text-gray-900 dark:text-gray-100">{title}</h3>
         <span className="text-gray-400 dark:text-gray-500">{icon}</span>
       </div>
@@ -141,7 +141,7 @@ function PieCard({
             {data.map((item, index) => {
               const percent = total > 0 ? (Number(item.value) / total) * 100 : 0
               return (
-                <li key={item.name} className="flex items-center justify-between gap-2 text-xs">
+                <li key={item.name} className="flex flex-wrap items-center justify-between gap-2 gap-2 text-xs">
                   <span className="flex min-w-0 items-center gap-2">
                     <span
                       className="h-2.5 w-2.5 shrink-0 rounded-full"
@@ -588,7 +588,7 @@ export default function DashboardPage() {
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <Card>
-          <div className="mb-4 flex items-center justify-between">
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
             <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
               أكثر المنتجات مبيعاً
             </h2>
@@ -597,7 +597,7 @@ export default function DashboardPage() {
           <div className="space-y-3">
             {topProducts?.products?.length ? (
               topProducts.products.map((product: any, index: number) => (
-                <div key={product.id} className="flex items-center justify-between gap-3">
+                <div key={product.id} className="flex flex-wrap items-center justify-between gap-2 gap-3">
                   <div className="flex min-w-0 items-center gap-3">
                     <span
                       className={`flex h-8 w-8 items-center justify-center rounded-full text-sm font-medium ${
@@ -631,14 +631,14 @@ export default function DashboardPage() {
         </Card>
 
         <Card>
-          <div className="mb-4 flex items-center justify-between">
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
             <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
               أفضل أداء للكاشير
             </h2>
             <Users className="h-5 w-5 text-primary dark:text-accent" />
           </div>
           {bestCashier ? (
-            <div className="flex items-center justify-between">
+            <div className="flex flex-wrap items-center justify-between gap-2">
               <div className="flex items-center gap-3">
                 <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 font-bold text-primary dark:bg-accent/15 dark:text-accent">
                   {bestCashier.name?.charAt(0).toUpperCase()}

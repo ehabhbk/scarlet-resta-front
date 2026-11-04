@@ -746,9 +746,9 @@ export default function ReportsPage() {
                     <table className="w-full text-sm">
                       <thead className="bg-gray-50 dark:bg-gray-800">
                         <tr>
-                          <th className="px-3 py-2 text-right">الكاشير</th>
-                          <th className="px-3 py-2 text-right">عدد الطلبات</th>
-                          <th className="px-3 py-2 text-right">الإيراد</th>
+                          <th className="px-3 py-2 text-start">الكاشير</th>
+                          <th className="px-3 py-2 text-start">عدد الطلبات</th>
+                          <th className="px-3 py-2 text-start">الإيراد</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -769,17 +769,19 @@ export default function ReportsPage() {
                 </div>
                 <div>
                   <h2 className="text-lg font-semibold mb-2">الإيرادات حسب طريقة الدفع</h2>
-                  <table className="w-full text-sm">
-                    <thead><tr className="bg-gray-50 dark:bg-gray-800"><th className="px-3 py-2 text-right">طريقة الدفع</th><th className="px-3 py-2 text-right">المبلغ</th></tr></thead>
-                    <tbody>
-                      {Object.entries(shiftByPayment).map(([m, amt]) => (
-                        <tr key={m} className="border-b border-gray-100 dark:border-gray-800">
-                          <td className="px-3 py-2">{paymentLabel(m)}</td>
-                          <td className="px-3 py-2">{formatNumber(Number(amt))}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                  <div className="overflow-x-auto">
+                    <table className="w-full min-w-[320px] text-sm">
+                      <thead><tr className="bg-gray-50 dark:bg-gray-800"><th className="whitespace-nowrap px-3 py-2 text-start">طريقة الدفع</th><th className="whitespace-nowrap px-3 py-2 text-start">المبلغ</th></tr></thead>
+                      <tbody>
+                        {Object.entries(shiftByPayment).map(([m, amt]) => (
+                          <tr key={m} className="border-b border-gray-100 dark:border-gray-800">
+                            <td className="px-3 py-2">{paymentLabel(m)}</td>
+                            <td className="px-3 py-2">{formatNumber(Number(amt))}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
                 </div>
                 <div>
                   <h2 className="text-lg font-semibold mb-2">تفاصيل الطلبات</h2>
@@ -787,14 +789,14 @@ export default function ReportsPage() {
                     <table className="w-full text-sm">
                       <thead className="bg-gray-50 dark:bg-gray-800">
                         <tr>
-                          <th className="px-3 py-2 text-right">رقم الطلب</th>
-                          <th className="px-3 py-2 text-right">الوقت</th>
-                          <th className="px-3 py-2 text-right">النوع / الطاولة</th>
-                          <th className="px-3 py-2 text-right">الأصناف</th>
-                          <th className="px-3 py-2 text-right">الإجمالي</th>
-                          <th className="px-3 py-2 text-right">المدفوع</th>
-                          <th className="px-3 py-2 text-right">تفاصيل الدفع</th>
-                          <th className="px-3 py-2 text-right">الحالة</th>
+                          <th className="px-3 py-2 text-start">رقم الطلب</th>
+                          <th className="px-3 py-2 text-start">الوقت</th>
+                          <th className="px-3 py-2 text-start">النوع / الطاولة</th>
+                          <th className="px-3 py-2 text-start">الأصناف</th>
+                          <th className="px-3 py-2 text-start">الإجمالي</th>
+                          <th className="px-3 py-2 text-start">المدفوع</th>
+                          <th className="px-3 py-2 text-start">تفاصيل الدفع</th>
+                          <th className="px-3 py-2 text-start">الحالة</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -835,12 +837,12 @@ export default function ReportsPage() {
                     <table className="w-full text-sm">
                       <thead className="bg-gray-50 dark:bg-gray-800">
                         <tr>
-                          <th className="px-3 py-2 text-right">التاريخ</th>
-                          <th className="px-3 py-2 text-right">البند</th>
-                          <th className="px-3 py-2 text-right">الوصف</th>
-                          <th className="px-3 py-2 text-right">طريقة الدفع</th>
-                          <th className="px-3 py-2 text-right">المستخدم</th>
-                          <th className="px-3 py-2 text-right">المبلغ</th>
+                          <th className="px-3 py-2 text-start">التاريخ</th>
+                          <th className="px-3 py-2 text-start">البند</th>
+                          <th className="px-3 py-2 text-start">الوصف</th>
+                          <th className="px-3 py-2 text-start">طريقة الدفع</th>
+                          <th className="px-3 py-2 text-start">المستخدم</th>
+                          <th className="px-3 py-2 text-start">المبلغ</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -995,7 +997,7 @@ export default function ReportsPage() {
 
           {sections.map((section) => (
             <Card key={section.key} padding="sm">
-              <div className="flex items-center justify-between gap-3 px-2 py-2">
+              <div className="flex flex-wrap items-center justify-between gap-2 gap-3 px-2 py-2">
                 <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
                   {section.label}
                 </h2>
@@ -1011,7 +1013,7 @@ export default function ReportsPage() {
                         {section.columns.map((column) => (
                           <th
                             key={column.key}
-                            className="px-3 py-2.5 text-right font-medium text-gray-600 dark:text-gray-300 whitespace-nowrap"
+                            className="px-3 py-2.5 text-start font-medium text-gray-600 dark:text-gray-300 whitespace-nowrap"
                           >
                             {column.label}
                           </th>

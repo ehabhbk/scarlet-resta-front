@@ -90,39 +90,43 @@ export default function IncomeStatementPage() {
           <div className="space-y-4">
             <div>
               <h2 className="mb-2 text-lg font-semibold text-green-600 dark:text-green-400">الإيرادات</h2>
-              <table className="w-full text-sm">
-                <tbody>
-                  {(data.revenue || []).map((r: any) => (
-                    <tr key={r.id} className="border-b border-gray-100 dark:border-gray-800">
-                      <td className="py-1">{r.code} - {r.name}</td>
-                      <td className="py-1 text-left">{formatMoney(r.amount, symbol)}</td>
+              <div className="overflow-x-auto">
+                <table className="w-full min-w-[320px] text-sm">
+                  <tbody>
+                    {(data.revenue || []).map((r: any) => (
+                      <tr key={r.id} className="border-b border-gray-100 dark:border-gray-800">
+                        <td className="py-1">{r.code} - {r.name}</td>
+                        <td className="whitespace-nowrap py-1 text-end">{formatMoney(r.amount, symbol)}</td>
+                      </tr>
+                    ))}
+                    <tr className="font-bold">
+                      <td className="py-2">إجمالي الإيرادات</td>
+                      <td className="whitespace-nowrap py-2 text-end">{formatMoney(data.total_revenue, symbol)}</td>
                     </tr>
-                  ))}
-                  <tr className="font-bold">
-                    <td className="py-2">إجمالي الإيرادات</td>
-                    <td className="py-2 text-left">{formatMoney(data.total_revenue, symbol)}</td>
-                  </tr>
-                </tbody>
-              </table>
+                  </tbody>
+                </table>
+              </div>
             </div>
             <div>
               <h2 className="mb-2 text-lg font-semibold text-red-600 dark:text-red-400">المصروفات</h2>
-              <table className="w-full text-sm">
-                <tbody>
-                  {(data.expense || []).map((r: any) => (
-                    <tr key={r.id} className="border-b border-gray-100 dark:border-gray-800">
-                      <td className="py-1">{r.code} - {r.name}</td>
-                      <td className="py-1 text-left">{formatMoney(r.amount, symbol)}</td>
+              <div className="overflow-x-auto">
+                <table className="w-full min-w-[320px] text-sm">
+                  <tbody>
+                    {(data.expense || []).map((r: any) => (
+                      <tr key={r.id} className="border-b border-gray-100 dark:border-gray-800">
+                        <td className="py-1">{r.code} - {r.name}</td>
+                        <td className="whitespace-nowrap py-1 text-end">{formatMoney(r.amount, symbol)}</td>
+                      </tr>
+                    ))}
+                    <tr className="font-bold">
+                      <td className="py-2">إجمالي المصروفات</td>
+                      <td className="whitespace-nowrap py-2 text-end">{formatMoney(data.total_expense, symbol)}</td>
                     </tr>
-                  ))}
-                  <tr className="font-bold">
-                    <td className="py-2">إجمالي المصروفات</td>
-                    <td className="py-2 text-left">{formatMoney(data.total_expense, symbol)}</td>
-                  </tr>
-                </tbody>
-              </table>
+                  </tbody>
+                </table>
+              </div>
             </div>
-            <div className="flex items-center justify-between border-t border-gray-300 pt-3 text-lg font-bold dark:border-gray-700">
+            <div className="flex flex-wrap items-center justify-between gap-2 border-t border-gray-300 pt-3 text-lg font-bold dark:border-gray-700">
               <span>صافي الدخل</span>
               <span className={data.net_income >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}>
                 {formatMoney(data.net_income, symbol)}

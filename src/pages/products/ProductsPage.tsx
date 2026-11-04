@@ -138,7 +138,7 @@ export default function ProductsPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-2">
         <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">المنتجات</h1>
         {canCreate && (
           <Button onClick={() => { setEditingProduct(null); setShowModal(true) }}>
@@ -382,7 +382,7 @@ function ProductModifiersManager({ product, symbol }: any) {
         <h3 className="font-semibold mb-2">الأحجام</h3>
         <div className="space-y-2 mb-3">
           {(sizes || []).map((s: any) => (
-            <div key={s.id} className="flex items-center justify-between p-2 bg-gray-50 dark:bg-gray-800/40 rounded">
+            <div key={s.id} className="flex flex-wrap items-center justify-between gap-2 p-2 bg-gray-50 dark:bg-gray-800/40 rounded">
               <span>{s.name} ({formatMoney(s.price_modifier, symbol)})</span>
               <button onClick={() => deleteSizeMutation.mutate(s.id)} className="p-1 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/40 rounded"><Trash2 className="w-4 h-4" /></button>
             </div>
@@ -399,7 +399,7 @@ function ProductModifiersManager({ product, symbol }: any) {
         <h3 className="font-semibold mb-2">الإضافات</h3>
         <div className="space-y-2 mb-3">
           {(modifiers || []).map((m: any) => (
-            <div key={m.id} className="flex items-center justify-between p-2 bg-gray-50 dark:bg-gray-800/40 rounded">
+            <div key={m.id} className="flex flex-wrap items-center justify-between gap-2 p-2 bg-gray-50 dark:bg-gray-800/40 rounded">
               <span>{m.name} {m.is_required ? '(مطلوبة)' : ''}</span>
               <button onClick={() => deleteModifierMutation.mutate(m.id)} className="p-1 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/40 rounded"><Trash2 className="w-4 h-4" /></button>
             </div>

@@ -90,7 +90,7 @@ export default function PurchasesPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-2">
         <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">المشتريات</h1>
         {canCreate && <Button onClick={() => setShowModal(true)}><Plus className="w-4 h-4" /> إضافة مشترى</Button>}
       </div>
@@ -206,7 +206,7 @@ function PurchaseForm({ suppliers, items, accounts, paymentMethods, onClose, onS
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <div>
           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">المورد</label>
           <select value={formData.supplier_id} onChange={(e) => setFormData({ ...formData, supplier_id: e.target.value })} className="w-full px-4 py-2 border border-gray-300 dark:border-gray-700 rounded-lg" required>
@@ -216,7 +216,7 @@ function PurchaseForm({ suppliers, items, accounts, paymentMethods, onClose, onS
         </div>
         <Input label="رقم الطلب" value={formData.purchase_number} onChange={(e) => setFormData({ ...formData, purchase_number: e.target.value })} required />
       </div>
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <Input label="تاريخ الطلب" type="date" value={formData.order_date} onChange={(e) => setFormData({ ...formData, order_date: e.target.value })} required />
         <div>
           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">الحالة</label>
@@ -227,7 +227,7 @@ function PurchaseForm({ suppliers, items, accounts, paymentMethods, onClose, onS
           </select>
         </div>
       </div>
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <div>
           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">حساب المشتريات</label>
           <select value={formData.account_id} onChange={(e) => setFormData({ ...formData, account_id: e.target.value })} className="w-full px-4 py-2 border border-gray-300 dark:border-gray-700 rounded-lg" required>
@@ -237,7 +237,7 @@ function PurchaseForm({ suppliers, items, accounts, paymentMethods, onClose, onS
         </div>
         <Input label="الضريبة" type="number" min={0} step="0.01" value={formData.tax_amount} onChange={(e) => setFormData({ ...formData, tax_amount: Number(e.target.value) || 0 })} />
       </div>
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <Input label="الإجمالي" type="number" value={formatNumber(totalAmount)} readOnly />
         <Input label="المبلغ المدفوع الآن" type="number" min={0} max={totalAmount} step="0.01" value={formData.amount_paid} onChange={(e) => setFormData({ ...formData, amount_paid: Number(e.target.value) || 0 })} />
       </div>
@@ -249,13 +249,13 @@ function PurchaseForm({ suppliers, items, accounts, paymentMethods, onClose, onS
       </div>
 
       <div>
-        <div className="flex items-center justify-between mb-2">
+        <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
           <label className="text-sm font-medium text-gray-700 dark:text-gray-300">المنتجات</label>
           <Button type="button" size="sm" variant="secondary" onClick={addLine}>+ إضافة</Button>
         </div>
         <div className="space-y-2">
           {lineItems.map((li, idx) => (
-            <div key={idx} className="grid grid-cols-4 gap-2 items-end">
+            <div key={idx} className="grid grid-cols-2 items-end gap-2 sm:grid-cols-4">
               <div className="col-span-2">
                 <select value={li.inventory_item_id} onChange={(e) => updateLine(idx, 'inventory_item_id', e.target.value)} className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-lg text-sm" required>
                   <option value="">اختر الصنف</option>

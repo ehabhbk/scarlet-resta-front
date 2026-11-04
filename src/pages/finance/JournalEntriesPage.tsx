@@ -284,14 +284,14 @@ export default function JournalEntriesPage() {
 
         {entries.length > 0 && (
           <div className="overflow-x-auto">
-            <table className="w-full text-sm">
+            <table className="w-full min-w-[720px] text-sm">
               <thead>
                 <tr className="border-b border-gray-200 text-xs text-gray-500 dark:border-gray-700 dark:text-gray-400">
-                  <th className="px-2 py-2 text-right">القيد</th>
-                  <th className="px-2 py-2 text-right">الحساب</th>
-                  <th className="px-2 py-2 text-right">البيان</th>
-                  <th className="px-2 py-2 text-left">مدين</th>
-                  <th className="px-2 py-2 text-left">دائن</th>
+                  <th className="whitespace-nowrap px-2 py-2 text-start">القيد</th>
+                  <th className="px-2 py-2 text-start">الحساب</th>
+                  <th className="px-2 py-2 text-start">البيان</th>
+                  <th className="whitespace-nowrap px-2 py-2 text-end">مدين</th>
+                  <th className="whitespace-nowrap px-2 py-2 text-end">دائن</th>
                 </tr>
               </thead>
               <tbody>
@@ -347,10 +347,10 @@ export default function JournalEntriesPage() {
                         <td className="max-w-[22rem] px-2 py-2 text-xs text-gray-600 dark:text-gray-300">
                           {line?.description || (index === 0 ? entry.description || '-' : '')}
                         </td>
-                        <td className="px-2 py-2 text-left font-medium tabular-nums text-blue-700 dark:text-blue-300">
+                        <td className="whitespace-nowrap px-2 py-2 text-end font-medium tabular-nums text-blue-700 dark:text-blue-300">
                           {line && Number(line.debit) ? formatMoney(line.debit, symbol) : '—'}
                         </td>
-                        <td className="px-2 py-2 text-left font-medium tabular-nums text-emerald-700 dark:text-emerald-300">
+                        <td className="whitespace-nowrap px-2 py-2 text-end font-medium tabular-nums text-emerald-700 dark:text-emerald-300">
                           {line && Number(line.credit) ? formatMoney(line.credit, symbol) : '—'}
                         </td>
                       </tr>
@@ -363,8 +363,8 @@ export default function JournalEntriesPage() {
                   <td className="px-2 py-2" colSpan={3}>
                     إجمالي الصفحة
                   </td>
-                  <td className="px-2 py-2 text-left tabular-nums">{formatMoney(totals.debit, symbol)}</td>
-                  <td className="px-2 py-2 text-left tabular-nums">{formatMoney(totals.credit, symbol)}</td>
+                  <td className="whitespace-nowrap px-2 py-2 text-end tabular-nums">{formatMoney(totals.debit, symbol)}</td>
+                  <td className="whitespace-nowrap px-2 py-2 text-end tabular-nums">{formatMoney(totals.credit, symbol)}</td>
                 </tr>
               </tfoot>
             </table>
@@ -372,7 +372,7 @@ export default function JournalEntriesPage() {
         )}
 
         {totalPages > 1 && (
-          <div className="mt-3 flex items-center justify-between border-t border-gray-100 pt-3 dark:border-gray-800">
+          <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-gray-100 pt-3 dark:border-gray-800">
             <span className="text-xs text-gray-500">
               صفحة {page} من {totalPages}
             </span>
@@ -453,7 +453,7 @@ export default function JournalEntriesPage() {
               <Plus className="w-4 h-4" /> إضافة سطر
             </Button>
           </div>
-          <div className="flex items-center justify-between rounded-lg bg-gray-50 px-3 py-2 text-sm dark:bg-gray-800">
+          <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-gray-50 px-3 py-2 text-sm dark:bg-gray-800">
             <span className={balanced ? 'font-medium text-emerald-600 dark:text-emerald-400' : 'font-medium text-red-600 dark:text-red-400'}>
               مدين: {formatMoney(totalDebit, symbol)} | دائن: {formatMoney(totalCredit, symbol)} {balanced ? '✓ متوازن' : '✗ غير متوازن'}
             </span>

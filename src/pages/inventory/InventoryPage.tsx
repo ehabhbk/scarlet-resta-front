@@ -88,7 +88,7 @@ export default function InventoryPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-2">
         <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">المخزون</h1>
         <Button onClick={() => { setEditingItem(null); setShowModal(true) }}>
           <Plus className="w-4 h-4" />
@@ -181,7 +181,7 @@ function InventoryForm({ item, units, suppliers, onClose, onSuccess }: any) {
         required
       />
       
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <div>
           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">الوحدة</label>
           <select
@@ -211,7 +211,7 @@ function InventoryForm({ item, units, suppliers, onClose, onSuccess }: any) {
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <Input
           label="المخزون"
           type="number"

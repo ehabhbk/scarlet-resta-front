@@ -165,7 +165,7 @@ export default function TablesPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-2">
         <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">الطاولات</h1>
         <p className="text-sm text-gray-500 dark:text-gray-400">
           إدارة الطاولات (الإضافة والتعديل والحذف) تتم من الإعدادات ← الطاولات
@@ -217,7 +217,7 @@ export default function TablesPage() {
                 {(() => {
                   const displayStatus = orderDisplayStatus(order)
                   return (
-                    <div className="flex items-center justify-between gap-3">
+                    <div className="flex flex-wrap items-center justify-between gap-2 gap-3">
                       <div>
                         <p className="font-semibold text-gray-900 dark:text-gray-100">{order.order_number}</p>
                         <p className="text-xs text-gray-500">

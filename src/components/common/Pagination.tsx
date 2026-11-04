@@ -10,8 +10,8 @@ export default function Pagination({ meta, onPageChange }: PaginationProps) {
   const lang = useLangStore((state) => state.lang)
   if (!meta || meta.last_page <= 1) return null
   return (
-    <div className="flex items-center justify-between mt-4">
-      <span className="text-sm text-gray-500 dark:text-gray-400">
+    <div className="mt-4 flex flex-wrap items-center justify-between gap-2">
+      <span className="text-xs text-gray-500 dark:text-gray-400 sm:text-sm">
         {lang === 'en'
           ? `Page ${meta.current_page} of ${meta.last_page} (Total ${meta.total})`
           : `صفحه ${meta.current_page} من ${meta.last_page} (إجمالي ${meta.total})`}

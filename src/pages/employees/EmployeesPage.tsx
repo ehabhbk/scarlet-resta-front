@@ -110,7 +110,7 @@ export default function EmployeesPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-2">
         <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">الموظفون</h1>
         <Button onClick={() => { setEditingEmployee(null); setShowModal(true) }}>
           <Plus className="w-4 h-4" />
@@ -193,7 +193,7 @@ function EmployeeForm({ employee, accounts, users, onClose, onSuccess }: any) {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <Input
           label="رقم الموظف"
           value={formData.employee_id}
@@ -229,7 +229,7 @@ function EmployeeForm({ employee, accounts, users, onClose, onSuccess }: any) {
         </select>
       </div>
       
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <Input
           label="الهاتف"
           value={formData.phone}
@@ -243,7 +243,7 @@ function EmployeeForm({ employee, accounts, users, onClose, onSuccess }: any) {
         />
       </div>
 
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <Input
           label="تاريخ التعيين"
           type="date"
@@ -273,7 +273,7 @@ function EmployeeForm({ employee, accounts, users, onClose, onSuccess }: any) {
       </div>
 
       {formData.pay_type === 'monthly' && (
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <Input
             label="الراتب الشهري"
             type="number"

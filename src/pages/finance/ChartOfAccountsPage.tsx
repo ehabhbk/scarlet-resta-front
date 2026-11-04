@@ -99,7 +99,7 @@ export default function ChartOfAccountsPage() {
     const isExpanded = expanded.has(account.id)
     return (
       <div key={account.id}>
-        <div className="flex items-center justify-between gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2 dark:border-gray-700 dark:bg-gray-900" style={{ marginRight: depth * 20 }}>
+        <div className="flex flex-wrap items-center justify-between gap-2 gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2 dark:border-gray-700 dark:bg-gray-900" style={{ marginRight: depth * 20 }}>
           <div className="flex items-center gap-2 min-w-0">
             {hasKids ? (
               <button onClick={() => toggle(account.id)} className="text-gray-500">
@@ -210,7 +210,7 @@ export default function ChartOfAccountsPage() {
             notes: form.notes || null,
           })
         }} className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <Input label="رمز الحساب" value={form.code} onChange={(e) => setForm({ ...form, code: e.target.value })} required />
             <Input label="اسم الحساب" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required />
             <div>
