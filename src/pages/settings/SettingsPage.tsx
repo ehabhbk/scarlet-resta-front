@@ -1173,6 +1173,20 @@ function RolesPermissionsPanel() {
                 </label>
               ))}
             </div>
+            <div className="col-span-2 flex items-center gap-2 mb-3">
+              <input
+                type="text"
+                placeholder="ابحث عن صلاحية..."
+                onChange={(e) => {
+                  const value = e.target.value.toLowerCase()
+                  const filtered = permList.filter((p: any) => 
+                    permissionLabel(p.name).toLowerCase().includes(value) || p.name.toLowerCase().includes(value)
+                  )
+                  setSelectedPerms(filtered.map((p: any) => p.name))
+                }}
+                className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100 rounded-lg text-sm"
+              />
+            </div>
             <div className="flex gap-3 justify-end pt-4">
               <Button variant="secondary" onClick={() => setEditingRole(null)}>
                 إلغاء

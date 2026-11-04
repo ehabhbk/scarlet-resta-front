@@ -10,6 +10,7 @@ export default function LedgerPage() {
   const [accountId, setAccountId] = useState<number | null>(null)
   const [from, setFrom] = useState('')
   const [to, setTo] = useState('')
+  const [search, setSearch] = useState('')
 
   const { data: accounts } = useQuery({
     queryKey: ['chart-of-accounts'],
@@ -17,9 +18,9 @@ export default function LedgerPage() {
   })
 
   const { data, isLoading } = useQuery({
-    queryKey: ['ledger', accountId, from, to],
+    queryKey: ['ledger', accountId, from, to, search],
     queryFn: async () => {
-      const res = await api.get('/accounting/ledger', { params: { account_id: accountId, from: from || undefined, to: to || undefined } })
+      const res = await api.get('/accounting/ledger', { params: { account_id: accountId, from: from || undefined, to: to || undefined, search } })
       return res.data
     },
     enabled: !!accountId,
@@ -29,7 +30,7 @@ export default function LedgerPage() {
     <div className="space-y-6">
       <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">دفتر الاستاذ</h1>
       <Card>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-4">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-3 mb-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2 dark:text-gray-200">الحساب</label>
             <select value={accountId || ''} onChange={(e) => setAccountId(e.target.value ? Number(e.target.value) : null)} className="w-full px-4 py-2 border border-gray-300 rounded-lg dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100">
@@ -39,6 +40,7 @@ export default function LedgerPage() {
           </div>
           <Input label="من تاريخ" type="date" value={from} onChange={(e) => setFrom(e.target.value)} />
           <Input label="إلى تاريخ" type="date" value={to} onChange={(e) => setTo(e.target.value)} />
+          <Input label="بحث برقم القيد أو الوصف" placeholder="بحث..." value={search} onChange={(e) => setSearch(e.target.value)} />
         </div>
         {isLoading && <p className="text-sm text-gray-500">جاري التحميل...</p>}
         {!accountId && <p className="text-sm text-gray-500">اختر حساباً لعرض دفتر الاستاذ.</p>}

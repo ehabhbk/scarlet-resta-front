@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '../../services/api'
-import { Plus, Trash2, Pencil } from 'lucide-react'
+import { Plus, Search, Trash2, Pencil } from 'lucide-react'
 import Button from '../../components/common/buttons/Button'
 import Input from '../../components/common/inputs/Input'
 import Card from '../../components/common/cards/Card'
@@ -15,6 +15,7 @@ export default function JournalEntriesPage() {
   const [showModal, setShowModal] = useState(false)
   const [editing, setEditing] = useState<any>(null)
   const [form, setForm] = useState({ entry_date: new Date().toISOString().slice(0, 10), reference: '', description: '' })
+  const [search, setSearch] = useState('')
   const [lines, setLines] = useState<Line[]>([{ account_id: '', debit: 0, credit: 0, description: '' }, { account_id: '', debit: 0, credit: 0, description: '' }])
 
   const { data: accounts } = useQuery({
@@ -23,9 +24,9 @@ export default function JournalEntriesPage() {
   })
 
   const { data, isLoading } = useQuery({
-    queryKey: ['journal-entries'],
+    queryKey: ['journal-entries', search],
     queryFn: async () => {
-      const res = await api.get('/journal-entries', { params: { per_page: 50 } })
+      const res = await api.get('/journal-entries', { params: { per_page: 50, search: search } })
       return res.data?.data || res.data || []
     },
   })
@@ -74,6 +75,14 @@ export default function JournalEntriesPage() {
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">قيود اليومية</h1>
         <Button onClick={() => { setEditing(null); setShowModal(true) }}><Plus className="w-4 h-4" /> قيد جديد</Button>
+      </div>
+      <div className="flex items-center gap-3 mb-3">
+        <Input
+          placeholder="بحث برقم القيد أو البيان..."
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          icon={<Search className="w-4 h-4" />}
+        />
       </div>
       <Card>
         {isLoading && <p className="text-sm text-gray-500">جاري التحميل...</p>}

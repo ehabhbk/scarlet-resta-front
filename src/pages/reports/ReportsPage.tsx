@@ -4,7 +4,7 @@ import { FileSpreadsheet, Loader2, Printer, RefreshCw } from 'lucide-react'
 import { api } from '../../services/api'
 import Card from '../../components/common/cards/Card'
 import Button from '../../components/common/buttons/Button'
-import { useSettingsStore, formatMoney } from '../../store/settingsStore'
+import { useSettingsStore, formatMoney, mediaUrl } from '../../store/settingsStore'
 import { useAuthStore } from '../../store/authStore'
 
 interface ReportDefinition {
@@ -174,6 +174,13 @@ const STATUS_LABELS: Record<string, string> = {
   cancelled: 'ملغاة',
 }
 
+const ORDER_TYPE_LABELS: Record<string, string> = {
+  dine_in: 'داخل المطعم',
+  takeaway: 'سفري',
+  delivery: 'توصيل',
+  pickup: 'استلام',
+}
+
 const toInputDate = (date: Date) => {
   const year = date.getFullYear()
   const month = String(date.getMonth() + 1).padStart(2, '0')
@@ -216,7 +223,7 @@ export default function ReportsPage() {
   const [reportType, setReportType] = useState('sales')
   const [fromDate, setFromDate] = useState(defaultFrom)
   const [toDate, setToDate] = useState(() => toInputDate(new Date()))
-  const { symbol, paymentMethods, load } = useSettingsStore()
+  const { symbol, paymentMethods, load, restaurant } = useSettingsStore()
   const permissions = useAuthStore((state) => state.user?.permissions || [])
   const reportPermissions: Record<string, string[]> = {
     'profit-loss': ['view_finance'],
@@ -278,6 +285,14 @@ export default function ReportsPage() {
   const shiftTotal = Number(shiftRevenueData?.total) || 0
   const shiftByPayment = shiftRevenueData?.by_payment_method || {}
   const shiftCashiers = Array.isArray(shiftRevenueData?.cashiers) ? shiftRevenueData.cashiers : []
+  const shiftOrders = Array.isArray(shiftRevenueData?.orders) ? shiftRevenueData.orders : []
+  const shiftExpenses = Array.isArray(shiftRevenueData?.expenses) ? shiftRevenueData.expenses : []
+  const shiftExpensesTotal = Number(shiftRevenueData?.expenses_total) || 0
+  const shiftNetTotal = Number(shiftRevenueData?.net_total ?? shiftTotal - shiftExpensesTotal) || 0
+  const shiftOpeningCash = Number(shiftRevenueData?.opening_cash) || 0
+  const shiftExpectedCash = Number(shiftRevenueData?.expected_cash) || 0
+  const shiftActualCash = Number(shiftRevenueData?.actual_cash) || 0
+  const shiftCashDifference = Number(shiftRevenueData?.difference) || 0
 
   const { data: reportData, isLoading, isFetching, refetch } = useQuery({
     queryKey: ['report', report.id, fromDate, toDate],
@@ -480,46 +495,237 @@ export default function ReportsPage() {
 
   const handlePrintShift = () => {
     if (!shiftDetail || !shiftRevenueData) return
-    const win = window.open('', '_blank', 'width=900,height=700')
+    const win = window.open('', '_blank', 'width=1000,height=800')
     if (!win) return
+
+    const methodKeys = Object.keys(shiftByPayment)
+    const money = (value: unknown) => formatMoney(Number(value) || 0, symbol)
+
+    const restaurantName = restaurant?.name || 'المؤسسة'
+    const restaurantLogo = mediaUrl(restaurant?.logo)
+    const restaurantMeta = [
+      restaurant?.address,
+      restaurant?.phone ? `هاتف: ${restaurant.phone}` : null,
+      restaurant?.tax_number ? `الرقم الضريبي: ${restaurant.tax_number}` : null,
+    ].filter(Boolean)
+
+    const methodHeaders = methodKeys
+      .map((method) => `<th>${escapeHtml(paymentLabel(method))}</th>`)
+      .join('')
+
     const cashierRowsHtml = shiftCashiers
-      .map((cashier: any) => `
-        <tr><td>${escapeHtml(cashier.user_name || cashier.user?.name || '-')}</td>
-        <td>${Number(cashier.orders_count || 0)}</td><td>${Number(cashier.total || 0).toFixed(2)}</td></tr>
-      `)
+      .map((cashier: any) => {
+        const methodCells = methodKeys
+          .map((method) => `<td class="num">${money(cashier.by_payment_method?.[method] || 0)}</td>`)
+          .join('')
+        return `<tr>
+          <td>${escapeHtml(cashier.user_name || cashier.user?.name || '-')}</td>
+          <td class="num">${Number(cashier.orders_count || 0)}</td>
+          ${methodCells}
+          <td class="num"><strong>${money(cashier.total || 0)}</strong></td>
+        </tr>`
+      })
       .join('')
-    const paymentHtml = Object.entries(shiftByPayment)
-      .map(([m, amt]) => `<tr><td>${escapeHtml(paymentLabel(m))}</td><td>${Number(amt).toFixed(2)}</td></tr>`)
+
+    const paymentRowsHtml = Object.entries(shiftByPayment)
+      .map(([method, amount]) => {
+        const value = Number(amount) || 0
+        const percent = shiftTotal > 0 ? (value / shiftTotal) * 100 : 0
+        return `<tr>
+          <td>${escapeHtml(paymentLabel(method))}</td>
+          <td class="num">${money(value)}</td>
+          <td class="num">${percent.toFixed(1)}%</td>
+        </tr>`
+      })
       .join('')
+
+    const orderRowsHtml = shiftOrders
+      .map((order: any, index: number) => {
+        const items = (order.items || [])
+          .map((item: any) => `${item.name || '-'} × ${Number(item.quantity) || 0}`)
+          .join('، ')
+        const methods = Object.entries(order.payment_methods || {})
+          .map(([method, amount]) => `${paymentLabel(method)}: ${money(amount)}`)
+          .join('<br/>')
+        const typeLabel = ORDER_TYPE_LABELS[order.type] || order.type || '-'
+        const tableLabel = order.table_name ? `<span class="sub">طاولة ${escapeHtml(order.table_name)}</span>` : ''
+        return `<tr>
+          <td class="num">${index + 1}</td>
+          <td class="nowrap">${escapeHtml(order.order_number || '-')}</td>
+          <td class="nowrap">${escapeHtml(formatTime(order.created_at))}</td>
+          <td>${escapeHtml(typeLabel)}${tableLabel ? `<br/>${tableLabel}` : ''}</td>
+          <td class="items">${escapeHtml(items || '-')}</td>
+          <td class="num">${money(order.total_amount)}</td>
+          <td class="num">${money(order.amount_paid)}</td>
+          <td class="items">${methods || '-'}</td>
+          <td>${escapeHtml(STATUS_LABELS[order.status] || order.status || '-')}</td>
+        </tr>`
+      })
+      .join('')
+
+    const expenseRowsHtml = shiftExpenses
+      .map((expense: any, index: number) => `<tr>
+        <td class="num">${index + 1}</td>
+        <td class="nowrap">${escapeHtml(formatDate(expense.expense_date))}</td>
+        <td>${escapeHtml(expense.category || '-')}</td>
+        <td class="items">${escapeHtml(expense.description || '-')}</td>
+        <td>${escapeHtml(paymentLabel(expense.payment_method || 'cash'))}</td>
+        <td>${escapeHtml(expense.user_name || '-')}</td>
+        <td class="num">${money(expense.amount)}</td>
+      </tr>`)
+      .join('')
+
+    const summaryRows = [
+      ['رصيد افتتاحي للوردية', shiftOpeningCash],
+      ['إجمالي المتحصلات / المبيعات', shiftTotal],
+      ['إجمالي المصروفات', shiftExpensesTotal],
+      ['صافي دخل الوردية', shiftNetTotal],
+      ['النقدية المتوقعة', shiftExpectedCash],
+      ['النقدية الفعلية', shiftActualCash],
+      ['الفرق في النقدية', shiftCashDifference],
+    ]
+      .map(
+        ([label, value]) =>
+          `<tr><th>${escapeHtml(label)}</th><td class="num">${money(value)}</td></tr>`
+      )
+      .join('')
+
     win.document.write(`
       <html dir="rtl"><head><title>تقرير وردية ${escapeHtml(shiftDetail?.id || '')}</title>
       <style>
-        body{font-family:Tahoma,Arial,sans-serif;padding:24px;color:#111;}
-        h1{margin:0 0 4px;font-size:22px;}
-        h2{margin:16px 0 8px;font-size:16px;}
-        table{width:100%;border-collapse:collapse;font-size:12px;margin-top:8px;}
-        th,td{border-bottom:1px solid #e5e5e5;padding:8px;text-align:right;}
-        th{background:#f5f5f5;}
-        .muted{color:#666;font-size:12px;}
-        @media print{body{padding:8px;}}
+        *{box-sizing:border-box;}
+        body{font-family:'Segoe UI',Tahoma,Arial,sans-serif;margin:0;padding:18px;color:#1f2937;font-size:11px;background:#fff;}
+        @page{size:A4 portrait;margin:10mm;}
+        .brand{display:flex;align-items:center;justify-content:space-between;gap:16px;border-bottom:3px solid #0f766e;padding-bottom:12px;margin-bottom:12px;}
+        .brand-main{display:flex;align-items:center;gap:12px;}
+        .brand img{width:66px;height:66px;object-fit:contain;border-radius:8px;border:1px solid #e5e7eb;padding:4px;background:#fff;}
+        .brand h1{margin:0;font-size:20px;color:#0f766e;}
+        .brand p{margin:2px 0;color:#6b7280;font-size:10px;}
+        .doc-badge{background:#0f766e;color:#fff;padding:7px 16px;border-radius:999px;font-weight:700;font-size:12px;white-space:nowrap;}
+        .meta{display:grid;grid-template-columns:repeat(3,1fr);gap:6px 14px;background:#f8fafc;border:1px solid #e5e7eb;border-radius:10px;padding:10px 12px;margin-bottom:14px;font-size:10.5px;}
+        .meta span{color:#6b7280;}
+        .meta b{color:#111827;font-weight:600;}
+        .kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:16px;}
+        .kpi{border:1px solid #e5e7eb;border-radius:10px;padding:10px;background:#fff;}
+        .kpi .label{color:#6b7280;font-size:10px;display:block;margin-bottom:4px;}
+        .kpi .value{font-size:14px;font-weight:700;color:#111827;}
+        .kpi.green .value{color:#047857;}
+        .kpi.red .value{color:#b91c1c;}
+        h2{font-size:13px;margin:16px 0 6px;padding:6px 10px;background:#f1f5f9;border-right:4px solid #0f766e;border-radius:4px;color:#0f172a;}
+        table{width:100%;border-collapse:collapse;font-size:9.5px;margin-bottom:4px;}
+        th,td{border:1px solid #e5e7eb;padding:5px 6px;text-align:right;vertical-align:middle;}
+        th{background:#0f766e;color:#fff;font-weight:600;font-size:9.5px;}
+        tbody tr:nth-child(even){background:#f8fafc;}
+        tfoot th{background:#e2e8f0;color:#0f172a;}
+        .num{text-align:left;font-variant-numeric:tabular-nums;white-space:nowrap;}
+        .nowrap{white-space:nowrap;}
+        .sub{color:#6b7280;font-size:8.5px;}
+        .items{color:#374151;font-size:8.5px;max-width:180px;}
+        .empty{padding:8px;text-align:center;color:#9ca3af;border:1px dashed #d1d5db;border-radius:6px;margin-bottom:6px;}
+        .final table th{width:58%;background:#f8fafc;color:#374151;}
+        .final table td{font-weight:700;}
+        .signatures{display:grid;grid-template-columns:1fr 1fr;gap:40px;margin-top:26px;}
+        .sign div{border-top:1px solid #9ca3af;margin-top:34px;padding-top:6px;text-align:center;color:#6b7280;}
+        .footer{margin-top:14px;border-top:1px solid #e5e7eb;padding-top:8px;color:#9ca3af;font-size:9px;display:flex;justify-content:space-between;}
+        .avoid{page-break-inside:avoid;}
+        thead{display:table-header-group;}
+        tr{page-break-inside:avoid;}
+        @media print{body{padding:0;font-size:10px;}}
       </style></head><body>
-        <h1>تقرير الوردية</h1>
-        <p class="muted">رقم الوردية: ${escapeHtml(shiftDetail?.id || '-')}</p>
-        <p class="muted">الكاشير: ${escapeHtml(shiftDetail?.user?.name || '-')}</p>
-        <p class="muted">التاريخ: ${escapeHtml(shiftDetail?.shift_date || '-')}</p>
-        <p class="muted">وقت الفتح: ${escapeHtml(shiftDetail?.start_time ? String(shiftDetail.start_time).slice(0,5) : '-')}</p>
-        <h2>الإيراد حسب الكاشير</h2>
-        <table><thead><tr><th>الكاشير</th><th>عدد الطلبات</th><th>الإيراد</th></tr></thead><tbody>${cashierRowsHtml}
-        <tr><th colspan="2">الإجمالي</th><th>${shiftTotal.toFixed(2)}</th></tr></tbody></table>
-        <h2>الإيرادات حسب طريقة الدفع</h2>
-        <table><thead><tr><th>طريقة الدفع</th><th>المبلغ</th></tr></thead><tbody>${paymentHtml}</tbody></table>
-        <h2>إجمالي الوردية: ${shiftTotal.toFixed(2)}</h2>
-        <p class="muted" style="margin-top:24px;">تم إنشاء التقرير في ${escapeHtml(new Date().toLocaleString('ar-EG'))}</p>
+        <header class="brand">
+          <div class="brand-main">
+            ${restaurantLogo ? `<img src="${escapeHtml(restaurantLogo)}" alt="logo" />` : ''}
+            <div>
+              <h1>${escapeHtml(restaurantName)}</h1>
+              ${restaurantMeta.map((line) => `<p>${escapeHtml(line)}</p>`).join('')}
+            </div>
+          </div>
+          <div class="doc-badge">تقرير وردية</div>
+        </header>
+
+        <section class="meta">
+          <div><span>رقم الوردية:</span> <b>${escapeHtml(shiftDetail?.id || '-')}</b></div>
+          <div><span>التاريخ:</span> <b>${escapeHtml(formatDate(shiftDetail?.shift_date))}</b></div>
+          <div><span>الحالة:</span> <b>${escapeHtml(STATUS_LABELS[shiftDetail?.status] || shiftDetail?.status || '-')}</b></div>
+          <div><span>المستخدم المسؤول:</span> <b>${escapeHtml(shiftDetail?.user?.name || '-')}</b></div>
+          <div><span>وقت الفتح:</span> <b>${escapeHtml(formatTime(shiftDetail?.start_time) || '-')}</b></div>
+          <div><span>وقت الإغلاق:</span> <b>${escapeHtml(shiftDetail?.closed_at ? formatTime(shiftDetail.closed_at) : formatTime(shiftDetail?.end_time) || '-')}</b></div>
+        </section>
+
+        <section class="kpis">
+          <div class="kpi green"><span class="label">إجمالي المبيعات</span><span class="value">${money(shiftTotal)}</span></div>
+          <div class="kpi"><span class="label">عدد الطلبات</span><span class="value">${Number(shiftRevenueData?.orders_count || 0)}</span></div>
+          <div class="kpi red"><span class="label">إجمالي المصروفات</span><span class="value">${money(shiftExpensesTotal)}</span></div>
+          <div class="kpi ${shiftNetTotal >= 0 ? 'green' : 'red'}"><span class="label">صافي الوردية</span><span class="value">${money(shiftNetTotal)}</span></div>
+        </section>
+
+        <section class="avoid">
+          <h2>ملخص المتحصلات حسب المستخدم</h2>
+          ${
+            shiftCashiers.length
+              ? `<table>
+                  <thead><tr><th>المستخدم</th><th>عدد الطلبات</th>${methodHeaders}<th>الإجمالي</th></tr></thead>
+                  <tbody>${cashierRowsHtml}</tbody>
+                  <tfoot><tr><th colspan="2">الإجمالي</th>${methodKeys.map((method) => `<th class="num">${money(shiftByPayment[method] || 0)}</th>`).join('')}<th class="num">${money(shiftTotal)}</th></tr></tfoot>
+                </table>`
+              : '<div class="empty">لا توجد متحصلات مسجلة</div>'
+          }
+        </section>
+
+        <section class="avoid">
+          <h2>تفاصيل طرق الدفع</h2>
+          ${
+            paymentRowsHtml
+              ? `<table><thead><tr><th>طريقة الدفع</th><th>المبلغ</th><th>النسبة</th></tr></thead><tbody>${paymentRowsHtml}</tbody>
+                 <tfoot><tr><th>الإجمالي</th><th class="num">${money(shiftTotal)}</th><th class="num">100%</th></tr></tfoot></table>`
+              : '<div class="empty">لا توجد مدفوعات مسجلة</div>'
+          }
+        </section>
+
+        <section>
+          <h2>تفاصيل الطلبات</h2>
+          ${
+            orderRowsHtml
+              ? `<table>
+                  <thead><tr><th>#</th><th>رقم الطلب</th><th>الوقت</th><th>النوع / الطاولة</th><th>الأصناف</th><th>الإجمالي</th><th>المدفوع</th><th>تفاصيل الدفع</th><th>الحالة</th></tr></thead>
+                  <tbody>${orderRowsHtml}</tbody>
+                  <tfoot><tr><th colspan="5">الإجمالي (${shiftOrders.length} طلب)</th><th class="num">${money(shiftOrders.reduce((sum: number, order: any) => sum + (Number(order.total_amount) || 0), 0))}</th><th class="num">${money(shiftOrders.reduce((sum: number, order: any) => sum + (Number(order.amount_paid) || 0), 0))}</th><th colspan="2"></th></tr></tfoot>
+                </table>`
+              : '<div class="empty">لا توجد طلبات في هذه الوردية</div>'
+          }
+        </section>
+
+        <section>
+          <h2>تفاصيل المصروفات</h2>
+          ${
+            expenseRowsHtml
+              ? `<table><thead><tr><th>#</th><th>التاريخ</th><th>البند</th><th>الوصف</th><th>طريقة الدفع</th><th>المستخدم</th><th>المبلغ</th></tr></thead>
+                 <tbody>${expenseRowsHtml}</tbody>
+                 <tfoot><tr><th colspan="6">إجمالي المصروفات</th><th class="num">${money(shiftExpensesTotal)}</th></tr></tfoot></table>`
+              : '<div class="empty">لا توجد مصروفات مسجلة لهذه الوردية</div>'
+          }
+        </section>
+
+        <section class="final avoid">
+          <h2>الملخص المالي النهائي للوردية</h2>
+          <table><tbody>${summaryRows}</tbody></table>
+        </section>
+
+        <section class="signatures avoid">
+          <div class="sign"><div>توقيع الكاشير</div></div>
+          <div class="sign"><div>توقيع المدير</div></div>
+        </section>
+
+        <footer class="footer">
+          <span>تم إنشاء التقرير في ${escapeHtml(new Date().toLocaleString('ar-EG'))}</span>
+          <span>${escapeHtml(restaurantName)} — تقرير الوردية رقم ${escapeHtml(shiftDetail?.id || '-')}</span>
+        </footer>
         <script>window.onload = function(){ window.print(); };</script>
       </body></html>
     `)
     win.document.close()
   }
+
 
   return (
     <div className="space-y-6">
@@ -567,18 +773,28 @@ export default function ReportsPage() {
             </div>
             {shiftDetail && selectedShiftId && (
               <div className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
                   <Card padding="sm">
                     <p className="text-sm text-gray-500">عدد الكاشيرين</p>
                     <p className="text-lg font-bold">{shiftCashiers.length}</p>
                   </Card>
                   <Card padding="sm">
                     <p className="text-sm text-gray-500">إجمالي الوردية</p>
-                    <p className="text-lg font-bold">{shiftTotal.toFixed(2)}</p>
+                    <p className="text-lg font-bold">{formatMoney(shiftTotal, symbol)}</p>
                   </Card>
                   <Card padding="sm">
                     <p className="text-sm text-gray-500">عدد الطلبات</p>
                     <p className="text-lg font-bold">{Number(shiftRevenueData?.orders_count || 0)}</p>
+                  </Card>
+                  <Card padding="sm">
+                    <p className="text-sm text-gray-500">إجمالي المصروفات</p>
+                    <p className="text-lg font-bold text-red-600 dark:text-red-400">{formatMoney(shiftExpensesTotal, symbol)}</p>
+                  </Card>
+                  <Card padding="sm">
+                    <p className="text-sm text-gray-500">صافي الوردية</p>
+                    <p className={`text-lg font-bold ${shiftNetTotal >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
+                      {formatMoney(shiftNetTotal, symbol)}
+                    </p>
                   </Card>
                 </div>
                 <div>
@@ -621,6 +837,116 @@ export default function ReportsPage() {
                       ))}
                     </tbody>
                   </table>
+                </div>
+                <div>
+                  <h2 className="text-lg font-semibold mb-2">تفاصيل الطلبات</h2>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead className="bg-gray-50 dark:bg-gray-800">
+                        <tr>
+                          <th className="px-3 py-2 text-right">رقم الطلب</th>
+                          <th className="px-3 py-2 text-right">الوقت</th>
+                          <th className="px-3 py-2 text-right">النوع / الطاولة</th>
+                          <th className="px-3 py-2 text-right">الأصناف</th>
+                          <th className="px-3 py-2 text-right">الإجمالي</th>
+                          <th className="px-3 py-2 text-right">المدفوع</th>
+                          <th className="px-3 py-2 text-right">تفاصيل الدفع</th>
+                          <th className="px-3 py-2 text-right">الحالة</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {shiftOrders.length === 0 ? (
+                          <tr>
+                            <td className="px-3 py-4 text-center text-gray-500" colSpan={8}>لا توجد طلبات في هذه الوردية</td>
+                          </tr>
+                        ) : (
+                          shiftOrders.map((order: any) => (
+                            <tr key={order.id} className="border-b border-gray-100 dark:border-gray-800">
+                              <td className="px-3 py-2 whitespace-nowrap">{order.order_number || '-'}</td>
+                              <td className="px-3 py-2 whitespace-nowrap">{formatTime(order.created_at)}</td>
+                              <td className="px-3 py-2">
+                                {ORDER_TYPE_LABELS[order.type] || order.type || '-'}
+                                {order.table_name ? <span className="block text-xs text-gray-500">طاولة {order.table_name}</span> : null}
+                              </td>
+                              <td className="px-3 py-2 max-w-[220px] text-xs text-gray-600 dark:text-gray-300">
+                                {(order.items || []).map((item: any) => `${item.name} × ${item.quantity}`).join('، ') || '-'}
+                              </td>
+                              <td className="px-3 py-2 whitespace-nowrap">{formatMoney(Number(order.total_amount) || 0, symbol)}</td>
+                              <td className="px-3 py-2 whitespace-nowrap">{formatMoney(Number(order.amount_paid) || 0, symbol)}</td>
+                              <td className="px-3 py-2 text-xs">
+                                {Object.entries(order.payment_methods || {})
+                                  .map(([method, amount]) => `${paymentLabel(method)}: ${formatMoney(Number(amount) || 0, symbol)}`)
+                                  .join(' | ') || '-'}
+                              </td>
+                              <td className="px-3 py-2">{STATUS_LABELS[order.status] || order.status || '-'}</td>
+                            </tr>
+                          ))
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+                <div>
+                  <h2 className="text-lg font-semibold mb-2">تفاصيل المصروفات</h2>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead className="bg-gray-50 dark:bg-gray-800">
+                        <tr>
+                          <th className="px-3 py-2 text-right">التاريخ</th>
+                          <th className="px-3 py-2 text-right">البند</th>
+                          <th className="px-3 py-2 text-right">الوصف</th>
+                          <th className="px-3 py-2 text-right">طريقة الدفع</th>
+                          <th className="px-3 py-2 text-right">المستخدم</th>
+                          <th className="px-3 py-2 text-right">المبلغ</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {shiftExpenses.length === 0 ? (
+                          <tr>
+                            <td className="px-3 py-4 text-center text-gray-500" colSpan={6}>لا توجد مصروفات مسجلة لهذه الوردية</td>
+                          </tr>
+                        ) : (
+                          shiftExpenses.map((expense: any) => (
+                            <tr key={expense.id} className="border-b border-gray-100 dark:border-gray-800">
+                              <td className="px-3 py-2 whitespace-nowrap">{formatDate(expense.expense_date)}</td>
+                              <td className="px-3 py-2">{expense.category || '-'}</td>
+                              <td className="px-3 py-2 text-xs text-gray-600 dark:text-gray-300">{expense.description || '-'}</td>
+                              <td className="px-3 py-2">{paymentLabel(expense.payment_method || 'cash')}</td>
+                              <td className="px-3 py-2">{expense.user_name || '-'}</td>
+                              <td className="px-3 py-2 whitespace-nowrap">{formatMoney(Number(expense.amount) || 0, symbol)}</td>
+                            </tr>
+                          ))
+                        )}
+                      </tbody>
+                      {shiftExpenses.length > 0 && (
+                        <tfoot>
+                          <tr className="font-semibold bg-gray-50 dark:bg-gray-800">
+                            <td className="px-3 py-2" colSpan={5}>إجمالي المصروفات</td>
+                            <td className="px-3 py-2 whitespace-nowrap">{formatMoney(shiftExpensesTotal, symbol)}</td>
+                          </tr>
+                        </tfoot>
+                      )}
+                    </table>
+                  </div>
+                </div>
+                <div>
+                  <h2 className="text-lg font-semibold mb-2">الملخص المالي النهائي للوردية</h2>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                    {[
+                      ['رصيد افتتاحي', shiftOpeningCash],
+                      ['إجمالي المتحصلات', shiftTotal],
+                      ['إجمالي المصروفات', shiftExpensesTotal],
+                      ['صافي الوردية', shiftNetTotal],
+                      ['النقدية المتوقعة', shiftExpectedCash],
+                      ['النقدية الفعلية', shiftActualCash],
+                      ['فرق النقدية', shiftCashDifference],
+                    ].map(([label, value]) => (
+                      <div key={String(label)} className="rounded-lg border border-gray-200 dark:border-gray-700 px-3 py-2">
+                        <p className="text-xs text-gray-500">{label}</p>
+                        <p className="font-semibold mt-1">{formatMoney(Number(value) || 0, symbol)}</p>
+                      </div>
+                    ))}
+                  </div>
                 </div>
                 <div className="flex gap-2">
                   <Button variant="outline" onClick={handlePrintShift}>
