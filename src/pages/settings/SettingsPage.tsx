@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import {
@@ -975,6 +975,7 @@ const PERMISSION_LABELS: Record<string, string> = {
   view_all_orders: 'عرض جميع الطلبات',
   create_orders: 'إنشاء طلب',
   edit_orders: 'تعديل طلب',
+  edit_order_payment: 'تعديل طريقة دفع الطلب',
   cancel_orders: 'إلغاء طلب',
   delete_orders: 'حذف طلب',
   refund_orders: 'استرداد طلبات',
@@ -1122,9 +1123,25 @@ function RolesPermissionsPanel() {
     ? permList.filter(
         (p: any) =>
           permissionLabel(p.name).toLowerCase().includes(permTerm) ||
+          String(p.label || '').toLowerCase().includes(permTerm) ||
+          String(p.group || '').toLowerCase().includes(permTerm) ||
           String(p.name).toLowerCase().includes(permTerm)
       )
     : permList
+
+  const groupedPerms = useMemo(() => {
+    const groups: { name: string; items: any[] }[] = []
+    const groupIndex = new Map<string, number>()
+    filteredPerms.forEach((permission: any) => {
+      const groupName = permission.group || 'صلاحيات إضافية'
+      if (!groupIndex.has(groupName)) {
+        groupIndex.set(groupName, groups.length)
+        groups.push({ name: groupName, items: [] })
+      }
+      groups[groupIndex.get(groupName)!].items.push(permission)
+    })
+    return groups
+  }, [filteredPerms])
 
   const openEdit = (role: any) => {
     setEditingRole(role)
@@ -1211,17 +1228,29 @@ function RolesPermissionsPanel() {
                 {filteredPerms.length} من {permList.length} صلاحية
               </span>
             </div>
-            <div className="grid grid-cols-1 gap-2 md:grid-cols-2 max-h-96 overflow-y-auto">
-              {filteredPerms.map((p: any) => (
-                <label key={p.id} className="flex items-center gap-2 p-2 border border-gray-200 dark:border-gray-700 rounded-lg cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800">
-                  <input
-                    type="checkbox"
-                    checked={selectedPerms.includes(p.name)}
-                    onChange={() => togglePerm(p.name)}
-                    className="rounded border-gray-300"
-                  />
-                  <span className="text-sm text-gray-700 dark:text-gray-200">{permissionLabel(p.name)}</span>
-                </label>
+            <div className="max-h-96 space-y-4 overflow-y-auto pe-1">
+              {groupedPerms.map((group) => (
+                <div key={group.name} className="space-y-2">
+                  <div className="flex items-center justify-between border-b border-gray-100 pb-1 dark:border-gray-800">
+                    <h4 className="text-sm font-semibold text-gray-800 dark:text-gray-100">{group.name}</h4>
+                    <span className="text-xs text-gray-500">
+                      {group.items.filter((p: any) => selectedPerms.includes(p.name)).length} / {group.items.length}
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
+                    {group.items.map((p: any) => (
+                      <label key={p.id} className="flex items-center gap-2 p-2 border border-gray-200 dark:border-gray-700 rounded-lg cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800">
+                        <input
+                          type="checkbox"
+                          checked={selectedPerms.includes(p.name)}
+                          onChange={() => togglePerm(p.name)}
+                          className="rounded border-gray-300"
+                        />
+                        <span className="text-sm text-gray-700 dark:text-gray-200">{permissionLabel(p.name)}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
               ))}
               {filteredPerms.length === 0 && (
                 <p className="col-span-full py-6 text-center text-sm text-gray-500">لا توجد صلاحيات مطابقة للبحث.</p>

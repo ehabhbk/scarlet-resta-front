@@ -15,4 +15,8 @@ export default defineConfig({
       '@': path.resolve(__dirname, './src'),
     },
   },
+  build: {
+    outDir: 'C:/resta/dist',
+    emptyOutDir: true,
+  },
 })

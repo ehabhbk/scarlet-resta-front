@@ -107,7 +107,8 @@ export default function POSPage() {
   const [selectedOrder, setSelectedOrder] = useState<any>(null)
   const [editingOrder, setEditingOrder] = useState<any>(null)
   const [orderDraftItems, setOrderDraftItems] = useState<any[]>([])
-  const [orderEditPaymentMethod, setOrderEditPaymentMethod] = useState('')
+  const [paymentEditOrder, setPaymentEditOrder] = useState<any>(null)
+  const [paymentDraftRows, setPaymentDraftRows] = useState<{ method: string; amount: string }[]>([])
   const [actualCash, setActualCash] = useState(0)
   const [openingCash, setOpeningCash] = useState(0)
   const [shiftEmployeeIds, setShiftEmployeeIds] = useState<number[]>([])
@@ -137,16 +138,12 @@ export default function POSPage() {
   useEffect(() => {
     if (paymentMethods.length === 0) {
       setPaymentMethod('')
-      setOrderEditPaymentMethod('')
       return
     }
     if (!paymentMethods.some((method) => method.value === paymentMethod)) {
       setPaymentMethod(paymentMethods[0].value)
     }
-    if (!paymentMethods.some((method) => method.value === orderEditPaymentMethod)) {
-      setOrderEditPaymentMethod(paymentMethods[0].value)
-    }
-  }, [paymentMethods, paymentMethod, orderEditPaymentMethod])
+  }, [paymentMethods, paymentMethod])
 
   const { data: shiftData, isLoading: shiftsLoading } = useQuery({
     queryKey: ['shifts-current'],
@@ -281,6 +278,9 @@ export default function POSPage() {
   const canCancel = userPermissions.includes('cancel_orders') || ['Super Admin', 'Admin'].includes(authUser?.roles?.[0]?.name || '')
   const canRefund = userPermissions.includes('delete_orders') || userPermissions.includes('edit_orders') || ['Super Admin', 'Admin'].includes(authUser?.roles?.[0]?.name || '')
   const canEditOrders = userPermissions.includes('edit_orders') || ['Super Admin', 'Admin'].includes(authUser?.roles?.[0]?.name || '')
+  const canEditOrderPayment = user?.permissions?.includes('edit_order_payment')
+    || userPermissions.includes('edit_order_payment')
+    || ['Super Admin', 'Admin'].includes(authUser?.roles?.[0]?.name || '')
   const canDeleteOrders = userPermissions.includes('delete_orders') || ['Super Admin', 'Admin'].includes(authUser?.roles?.[0]?.name || '')
 
   const cancelOrderMutation = useMutation({
@@ -335,60 +335,69 @@ export default function POSPage() {
   const updateOrderMutation = useMutation({
     mutationFn: async () => {
       if (!editingOrder) throw new Error('لا يوجد طلب محدد للتعديل')
-      const previousPaid = Number(editingOrder.amount_paid) || 0
       const items = orderDraftItems.map((item) => ({
         product_id: Number(item.product_id),
         quantity: Number(item.quantity),
         size_id: item.size_id || undefined,
         modifier_options: item.modifier_options || [],
       }))
-      await api.put(`/orders/${editingOrder.id}`, {
-        items,
-        payment_method: orderEditPaymentMethod,
-      })
-      const refreshed = await api.get(`/orders/${editingOrder.id}`)
-      const updatedOrder =
-        refreshed.data?.order || refreshed.data?.data?.order || refreshed.data?.data || refreshed.data
-      const updatedTotal = Number(updatedOrder?.total_amount)
-      if (!Number.isFinite(updatedTotal)) {
-        throw new Error('تم تعديل الطلب ولكن تعذر تحديد إجماليه الجديد لتسوية فرق المبلغ')
-      }
-      const updatedPaid = Number(updatedOrder?.amount_paid)
-      const paidAfterUpdate = Number.isFinite(updatedPaid) ? updatedPaid : previousPaid
-      // Settle the gap between what was actually paid and the new total, not just
-      // the change in the total (the order may have been partially paid before).
-      const difference = Number(Math.max(0, updatedTotal - paidAfterUpdate).toFixed(2))
-      if (difference > 0) {
-        await api.post(`/orders/${editingOrder.id}/payment`, {
-          amount: difference,
-          method: orderEditPaymentMethod,
-        })
-      }
-      const refundedAmount = Number.isFinite(updatedPaid)
-        ? Math.max(0, Number((previousPaid - updatedPaid).toFixed(2)))
-        : Math.max(0, Number((previousPaid - updatedTotal).toFixed(2)))
-      return { difference, refundedAmount }
+      await api.put(`/orders/${editingOrder.id}`, { items })
     },
-    onSuccess: ({ difference, refundedAmount }) => {
+    onSuccess: () => {
       refetchOrders()
       queryClient.invalidateQueries({ queryKey: ['orders'] })
       queryClient.invalidateQueries({ queryKey: ['shifts-current'] })
       setEditingOrder(null)
       setSelectedOrder(null)
-      toast.success(
-        difference > 0
-          ? `تم تعديل الطلب وتحصيل فرق ${formatMoney(difference, currencySymbol)}`
-          : refundedAmount > 0
-            ? `تم تعديل الطلب واسترداد فرق ${formatMoney(refundedAmount, currencySymbol)}`
-            : 'تم تعديل الطلب'
-      )
+      toast.success('تم تعديل الطلب')
     },
     onError: (e: any) => {
       refetchOrders()
       queryClient.invalidateQueries({ queryKey: ['shifts-current'] })
-      toast.error(e?.response?.data?.message || e?.message || 'تعذر تعديل الطلب أو تسوية فرق المبلغ')
+      toast.error(e?.response?.data?.message || e?.message || 'تعذر تعديل الطلب')
     },
   })
+
+  const updateOrderPaymentsMutation = useMutation({
+    mutationFn: async ({ id, payments }: { id: number; payments: { method: string; amount: number }[] }) => {
+      await api.put(`/orders/${id}/payments`, { payments })
+    },
+    onSuccess: () => {
+      refetchOrders()
+      queryClient.invalidateQueries({ queryKey: ['orders'] })
+      queryClient.invalidateQueries({ queryKey: ['shifts-current'] })
+      setPaymentEditOrder(null)
+      setPaymentDraftRows([])
+      setSelectedOrder(null)
+      toast.success('تم تحديث دفعات الطلب')
+    },
+    onError: (e: any) => {
+      toast.error(e?.response?.data?.message || 'تعذر تحديث دفعات الطلب')
+    },
+  })
+
+  const openPaymentEditor = async (order: any) => {
+    try {
+      const res = await api.get(`/orders/${order.id}`)
+      const details = res.data?.order || res.data?.data?.order || res.data?.data || res.data
+      const defaultMethod = details?.payment_method || paymentMethods[0]?.value || ''
+      const payments = (details?.payments || []).filter(
+        (payment: any) => Number(payment.amount) > 0
+      )
+      const rows = payments.length > 0
+        ? payments.map((payment: any) => ({
+            method: payment.method || defaultMethod,
+            amount: String(Number(payment.amount)),
+          }))
+        : Number(details?.amount_paid) > 0
+          ? [{ method: defaultMethod, amount: String(Number(details.amount_paid)) }]
+          : [{ method: defaultMethod, amount: '' }]
+      setPaymentDraftRows(rows)
+      setPaymentEditOrder(details)
+    } catch (error: any) {
+      toast.error(error?.response?.data?.message || 'تعذر تحميل دفعات الطلب')
+    }
+  }
 
   const openOrderEditor = (order: any) => {
     const items = order.items || order.order_items || []
@@ -405,7 +414,6 @@ export default function POSPage() {
         name: [option.modifier, option.option].filter(Boolean).join(': ') || option.name || '',
       })),
     })))
-    setOrderEditPaymentMethod(order?.payment_method || paymentMethod)
     setEditingOrder(order)
   }
 
@@ -1721,6 +1729,11 @@ export default function POSPage() {
                         <Pencil className="h-4 w-4" /> تعديل
                       </Button>
                     )}
+                    {canEditOrderPayment && order.status !== 'cancelled' && order.payment_status !== 'refunded' && (
+                      <Button size="sm" variant="secondary" onClick={() => openPaymentEditor(order)}>
+                        <CreditCard className="h-4 w-4" /> تعديل الدفع
+                      </Button>
+                    )}
                     {canCancel && !['cancelled', 'completed'].includes(order.status) && (
                       <Button size="sm" variant="danger" onClick={() => cancelOrderMutation.mutate(order.id)} loading={cancelOrderMutation.isPending}>
                         إلغاء
@@ -1888,6 +1901,11 @@ export default function POSPage() {
                     <RotateCcw className="h-4 w-4" /> استرداد كلي / جزئي
                   </Button>
                 )}
+                {canEditOrderPayment && order.status !== 'cancelled' && order.payment_status !== 'refunded' && (
+                  <Button variant="secondary" onClick={() => openPaymentEditor(order)}>
+                    <CreditCard className="h-4 w-4" /> تعديل الدفع
+                  </Button>
+                )}
                 {canEditOrders && order.status !== 'cancelled' && (
                   <Button onClick={() => loadOrderForEditing(order)}><Pencil className="h-4 w-4" /> تعديل الطلب</Button>
                 )}
@@ -1907,7 +1925,7 @@ export default function POSPage() {
         {editingOrder && (
           <div className="space-y-4">
             <p className="text-sm text-gray-500">
-              أضف المنتجات أو استبدلها؛ سيعيد الخادم حساب الإجمالي وسيتم تحصيل أو استرداد الفرق.
+              أضف المنتجات أو استبدلها؛ سيعيد الخادم حساب إجمالي الطلب. تعديل الدفعات يتم بشكل منفصل من زر «تعديل الدفع».
             </p>
             {orderProductsLoading && <p className="text-sm text-gray-500">جاري تحميل المنتجات...</p>}
             {orderProductsError && <p className="text-sm text-red-600">تعذر تحميل المنتجات اللازمة للتعديل</p>}
@@ -2004,18 +2022,10 @@ export default function POSPage() {
               </div>
             </div>
             <div>
-              <label className="mb-1 block text-sm font-medium">طريقة الدفع</label>
-              <select
-                value={orderEditPaymentMethod}
-                onChange={(e) => setOrderEditPaymentMethod(e.target.value)}
-                className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 dark:border-gray-700 dark:bg-gray-900"
-              >
-                {paymentMethods.map((method) => <option key={method.value} value={method.value}>{method.label}</option>)}
-              </select>
+              <p className="rounded-lg bg-blue-50 px-3 py-2 text-xs text-blue-700 dark:bg-blue-950/40 dark:text-blue-300">
+                تعديل الدفعات وطرق الدفع أصبح منفصلاً عبر زر «تعديل الدفع» في نافذة الطلب، ويمكنك هناك إضافة أكثر من دفعة.
+              </p>
             </div>
-            {orderDifference > 0 && (
-              <p className="text-xs text-gray-500">سيتم تحصيل الفرق (إن وُجد) بالطريقة المختارة أعلاه.</p>
-            )}
             <div className="flex justify-end gap-2">
               <Button variant="secondary" onClick={() => setEditingOrder(null)}>إلغاء</Button>
               <Button
@@ -2023,11 +2033,149 @@ export default function POSPage() {
                 loading={updateOrderMutation.isPending}
                 disabled={orderDraftItems.length === 0 || orderDraftItems.some((item) => !item.product_id || item.quantity < 1)}
               >
-                حفظ وتسوية الفرق
+                حفظ تعديل الطلب
               </Button>
             </div>
           </div>
         )}
+      </Modal>
+
+      <Modal
+        isOpen={!!paymentEditOrder}
+        onClose={() => {
+          setPaymentEditOrder(null)
+          setPaymentDraftRows([])
+        }}
+        title={`تعديل دفعات الطلب ${paymentEditOrder?.order_number || ''}`}
+        size="lg"
+      >
+        {paymentEditOrder && (() => {
+          const total = Number(paymentEditOrder.total_amount) || 0
+          const rowsTotal = paymentDraftRows.reduce((sum, row) => sum + (Number(row.amount) || 0), 0)
+          const remaining = Number((total - rowsTotal).toFixed(2))
+          const validRows = paymentDraftRows.length > 0
+            && paymentDraftRows.every((row) => row.method && Number(row.amount) > 0)
+          return (
+            <div className="space-y-4">
+              <p className="text-sm text-gray-500">
+                عدّل دفعات الطلب بشكل مستقل عن تعديل المنتجات. يمكنك إضافة أكثر من دفعة واختيار طريقة دفع مختلفة لكل دفعة.
+              </p>
+              <div className="grid grid-cols-1 gap-3 rounded-xl border border-gray-200 bg-gray-50 p-3 text-sm dark:border-gray-700 dark:bg-gray-800/60 sm:grid-cols-3">
+                <div>
+                  <p className="text-xs text-gray-500">إجمالي الطلب</p>
+                  <p className="font-semibold">{formatMoney(total, currencySymbol)}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500">مجموع الدفعات</p>
+                  <p className="font-semibold">{formatMoney(rowsTotal, currencySymbol)}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500">المتبقي</p>
+                  <p className={`font-semibold ${
+                    remaining > 0
+                      ? 'text-amber-600 dark:text-amber-400'
+                      : remaining < 0
+                        ? 'text-blue-600 dark:text-blue-400'
+                        : 'text-green-600 dark:text-green-400'
+                  }`}>
+                    {formatMoney(Math.abs(remaining), currencySymbol)}
+                  </p>
+                </div>
+              </div>
+              <div className="space-y-2">
+                {paymentDraftRows.map((row, index) => (
+                  <div key={index} className="grid grid-cols-[minmax(0,1fr)_8rem_auto] items-center gap-2">
+                    <select
+                      value={row.method}
+                      onChange={(e) => setPaymentDraftRows((current) => current.map((line, lineIndex) =>
+                        lineIndex === index ? { ...line, method: e.target.value } : line
+                      ))}
+                      className="min-w-0 rounded-lg border border-gray-300 bg-white px-3 py-2 dark:border-gray-700 dark:bg-gray-900"
+                      aria-label="طريقة الدفع"
+                    >
+                      {!paymentMethods.some((method) => method.value === row.method) && row.method && (
+                        <option value={row.method}>{row.method}</option>
+                      )}
+                      {paymentMethods.map((method) => (
+                        <option key={method.value} value={method.value}>{method.label}</option>
+                      ))}
+                    </select>
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={row.amount}
+                      onChange={(e) => setPaymentDraftRows((current) => current.map((line, lineIndex) =>
+                        lineIndex === index ? { ...line, amount: e.target.value } : line
+                      ))}
+                      placeholder="المبلغ"
+                      className="w-full rounded-lg border border-gray-300 px-3 py-2 dark:border-gray-700 dark:bg-gray-900"
+                      aria-label="مبلغ الدفعة"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setPaymentDraftRows((current) => current.filter((_, lineIndex) => lineIndex !== index))}
+                      disabled={paymentDraftRows.length === 1}
+                      className="rounded-lg p-2 text-red-600 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-40 dark:hover:bg-red-950/40"
+                      aria-label="حذف الدفعة"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+              <Button
+                variant="secondary"
+                onClick={() => setPaymentDraftRows((current) => [
+                  ...current,
+                  {
+                    method: current[current.length - 1]?.method || paymentMethods[0]?.value || '',
+                    amount: '',
+                  },
+                ])}
+              >
+                <Plus className="h-4 w-4" /> إضافة دفعة
+              </Button>
+              {paymentMethods.length === 0 && (
+                <p className="text-xs text-red-600">لا توجد طرق دفع مهيأة في الإعدادات.</p>
+              )}
+              {remaining > 0 && (
+                <p className="text-xs text-amber-600 dark:text-amber-400">
+                  المتبقي {formatMoney(remaining, currencySymbol)} سيُسجل الطلب كمدفوع جزئياً حتى استكماله.
+                </p>
+              )}
+              {remaining < 0 && (
+                <p className="text-xs text-blue-600 dark:text-blue-400">
+                  المبلغ الزائد {formatMoney(Math.abs(remaining), currencySymbol)} سيُسجل كباقٍ للعميل.
+                </p>
+              )}
+              <div className="flex justify-end gap-2">
+                <Button
+                  variant="secondary"
+                  onClick={() => {
+                    setPaymentEditOrder(null)
+                    setPaymentDraftRows([])
+                  }}
+                >
+                  إلغاء
+                </Button>
+                <Button
+                  onClick={() => updateOrderPaymentsMutation.mutate({
+                    id: Number(paymentEditOrder.id),
+                    payments: paymentDraftRows.map((row) => ({
+                      method: row.method,
+                      amount: Number(row.amount) || 0,
+                    })),
+                  })}
+                  loading={updateOrderPaymentsMutation.isPending}
+                  disabled={!validRows}
+                >
+                  حفظ الدفعات
+                </Button>
+              </div>
+            </div>
+          )
+        })()}
       </Modal>
 
       <Modal

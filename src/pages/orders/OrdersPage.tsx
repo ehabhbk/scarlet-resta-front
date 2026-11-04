@@ -22,6 +22,7 @@ export default function OrdersPage() {
   const [selectedOrder, setSelectedOrder] = useState<any>(null)
   const [paymentAmount, setPaymentAmount] = useState('')
   const [paymentMethod, setPaymentMethod] = useState('')
+  const [paymentDraftRows, setPaymentDraftRows] = useState<{ method: string; amount: string }[]>([])
   const queryClient = useQueryClient()
   const can = (permission: string) => user?.permissions?.includes(permission) ?? false
 
@@ -34,6 +35,39 @@ export default function OrdersPage() {
       setPaymentMethod(paymentMethods[0]?.value || '')
     }
   }, [paymentMethods, paymentMethod])
+
+  const unwrapOrder = (payload: any) =>
+    payload?.order?.data || payload?.order || payload?.data?.order || payload?.data || payload
+
+  const buildPaymentRows = (order: any) => {
+    const defaultMethod = order?.payment_method || paymentMethods[0]?.value || ''
+    const payments = (order?.payments || []).filter((payment: any) => Number(payment.amount) > 0)
+    if (payments.length > 0) {
+      return payments.map((payment: any) => ({
+        method: payment.method || defaultMethod,
+        amount: String(Number(payment.amount)),
+      }))
+    }
+    if (Number(order?.amount_paid) > 0) {
+      return [{ method: defaultMethod, amount: String(Number(order.amount_paid)) }]
+    }
+    return [{ method: defaultMethod, amount: '' }]
+  }
+
+  const openOrderDetails = async (order: any) => {
+    setSelectedOrder(order)
+    setPaymentDraftRows(buildPaymentRows(order))
+    try {
+      const res = await api.get(`/orders/${order.id}`)
+      const details = unwrapOrder(res.data)
+      if (details?.id) {
+        setSelectedOrder(details)
+        setPaymentDraftRows(buildPaymentRows(details))
+      }
+    } catch {
+      // Keep the row data we already have from the list response.
+    }
+  }
 
   const { data: ordersRes, isLoading } = useQuery({
     queryKey: ['orders', search, statusFilter, page],
@@ -75,19 +109,29 @@ export default function OrdersPage() {
     },
   })
 
-  const changePaymentMethodMutation = useMutation({
-    mutationFn: async ({ id, method }: { id: number; method: string }) => {
-      await api.put(`/orders/${id}`, { payment_method: method })
+  const updatePaymentsMutation = useMutation({
+    mutationFn: async ({ id, payments }: { id: number; payments: { method: string; amount: number }[] }) => {
+      const res = await api.put(`/orders/${id}/payments`, { payments })
+      return res.data
     },
-    onSuccess: async () => {
+    onSuccess: async (data) => {
       await queryClient.invalidateQueries({ queryKey: ['orders'] })
-      if (selectedOrder) {
+      const fresh = unwrapOrder(data)
+      if (fresh?.id) {
+        setSelectedOrder(fresh)
+        setPaymentDraftRows(buildPaymentRows(fresh))
+      } else if (selectedOrder) {
         const res = await api.get(`/orders/${selectedOrder.id}`)
-        setSelectedOrder(res.data?.data || res.data)
+        const details = unwrapOrder(res.data)
+        if (details?.id) {
+          setSelectedOrder(details)
+          setPaymentDraftRows(buildPaymentRows(details))
+        }
       }
+      toast.success('تم تحديث دفعات الطلب')
     },
     onError: (error: any) => {
-      toast.error(error?.response?.data?.message || 'تعذر تعديل طريقة الدفع')
+      toast.error(error?.response?.data?.message || 'تعذر تحديث دفعات الطلب')
     },
   })
 
@@ -149,7 +193,7 @@ export default function OrdersPage() {
     { key: 'created_at', header: 'التاريخ', render: (item: any) => new Date(item.created_at).toLocaleString('ar-SA') },
     { key: 'actions', header: 'الإجراءات', render: (item: any) => (
       <div className="flex gap-2">
-        <button onClick={() => setSelectedOrder(item)} className="p-1 text-blue-600 hover:bg-blue-50 rounded">
+        <button onClick={() => openOrderDetails(item)} className="p-1 text-blue-600 hover:bg-blue-50 rounded">
           <Eye className="w-4 h-4" />
         </button>
         {can('cancel_orders') && !['completed', 'cancelled'].includes(item.status) && (
@@ -209,7 +253,10 @@ export default function OrdersPage() {
 
       <Modal
         isOpen={!!selectedOrder}
-        onClose={() => setSelectedOrder(null)}
+        onClose={() => {
+          setSelectedOrder(null)
+          setPaymentDraftRows([])
+        }}
         title={`تفاصيل الطلب ${selectedOrder?.order_number}`}
         size="lg"
       >
@@ -274,7 +321,7 @@ export default function OrdersPage() {
               </div>
             </div>
 
-            {can('edit_orders') && selectedOrder.payment_status !== 'paid' && (
+            {(can('edit_orders') || can('edit_order_payment')) && selectedOrder.payment_status !== 'paid' && (
               <div>
                 <h3 className="font-semibold mb-2">تسجيل دفعة</h3>
                 <div className="flex gap-2">
@@ -304,30 +351,113 @@ export default function OrdersPage() {
                 </div>
               </div>
             )}
-            {can('edit_orders') && paymentMethods.length > 0 && selectedOrder.payment_status !== 'unpaid' && (
-              <div>
-                <h3 className="font-semibold mb-2">تغيير طريقة دفع الطلب</h3>
-                <div className="flex items-center gap-2">
-                  <select
-                    value={paymentMethod}
-                    onChange={(e) => setPaymentMethod(e.target.value)}
-                    className="flex-1 px-3 py-2 border border-gray-300 rounded-lg"
-                  >
-                    {paymentMethods.map((method) => (
-                      <option key={method.value} value={method.value}>{method.label}</option>
+            {can('edit_order_payment') && (() => {
+              const total = Number(selectedOrder.total_amount) || 0
+              const rowsTotal = paymentDraftRows.reduce((sum, row) => sum + (Number(row.amount) || 0), 0)
+              const remaining = Number((total - rowsTotal).toFixed(2))
+              const validRows = paymentDraftRows.length > 0
+                && paymentDraftRows.every((row) => row.method && Number(row.amount) > 0)
+              const canEditPayments = selectedOrder.status !== 'cancelled'
+                && selectedOrder.payment_status !== 'refunded'
+              return (
+                <div className="rounded-lg border border-gray-200 p-3 dark:border-gray-700">
+                  <h3 className="font-semibold mb-1">تعديل دفعات الطلب</h3>
+                  <p className="mb-3 text-xs text-gray-500">
+                    يمكنك إضافة أكثر من دفعة بأكثر من طريقة دفع. إجمالي الدفعات يُحدّث المدفوع وحالة الدفع تلقائياً.
+                  </p>
+                  <div className="mb-3 grid grid-cols-3 gap-2 rounded-lg bg-gray-50 p-2 text-sm dark:bg-gray-800">
+                    <div>
+                      <p className="text-xs text-gray-500">الإجمالي</p>
+                      <p className="font-semibold">{formatMoney(total, symbol)}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-gray-500">الدفعات</p>
+                      <p className="font-semibold">{formatMoney(rowsTotal, symbol)}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-gray-500">المتبقي</p>
+                      <p className={`font-semibold ${remaining > 0 ? 'text-amber-600' : remaining < 0 ? 'text-blue-600' : 'text-green-600'}`}>
+                        {formatMoney(Math.abs(remaining), symbol)}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    {paymentDraftRows.map((row, index) => (
+                      <div key={index} className="flex items-center gap-2">
+                        <select
+                          value={row.method}
+                          onChange={(e) => setPaymentDraftRows((current) => current.map((line, lineIndex) =>
+                            lineIndex === index ? { ...line, method: e.target.value } : line
+                          ))}
+                          className="min-w-0 flex-1 px-3 py-2 border border-gray-300 rounded-lg dark:border-gray-700 dark:bg-gray-900"
+                          aria-label="طريقة الدفع"
+                        >
+                          {!paymentMethods.some((method) => method.value === row.method) && row.method && (
+                            <option value={row.method}>{row.method}</option>
+                          )}
+                          {paymentMethods.map((method) => (
+                            <option key={method.value} value={method.value}>{method.label}</option>
+                          ))}
+                        </select>
+                        <input
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          value={row.amount}
+                          onChange={(e) => setPaymentDraftRows((current) => current.map((line, lineIndex) =>
+                            lineIndex === index ? { ...line, amount: e.target.value } : line
+                          ))}
+                          placeholder="المبلغ"
+                          className="w-28 px-3 py-2 border border-gray-300 rounded-lg dark:border-gray-700 dark:bg-gray-900"
+                          aria-label="مبلغ الدفعة"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setPaymentDraftRows((current) => current.filter((_, lineIndex) => lineIndex !== index))}
+                          disabled={paymentDraftRows.length === 1}
+                          className="rounded-lg p-2 text-red-600 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-40 dark:hover:bg-red-950/40"
+                          aria-label="حذف الدفعة"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
                     ))}
-                  </select>
-                  <button
-                    disabled={!paymentMethod || paymentMethod === selectedOrder.payment_method || changePaymentMethodMutation.isPending}
-                    onClick={() => changePaymentMethodMutation.mutate({ id: selectedOrder.id, method: paymentMethod })}
-                    className="px-4 py-2 bg-primary text-white rounded-lg disabled:opacity-50"
-                  >
-                    حفظ الطريقة
-                  </button>
+                  </div>
+                  <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setPaymentDraftRows((current) => [
+                        ...current,
+                        {
+                          method: current[current.length - 1]?.method || paymentMethods[0]?.value || '',
+                          amount: '',
+                        },
+                      ])}
+                      className="px-3 py-1 text-sm border border-gray-300 rounded-lg hover:bg-gray-100 dark:border-gray-700 dark:hover:bg-gray-800"
+                    >
+                      + إضافة دفعة
+                    </button>
+                    <button
+                      type="button"
+                      disabled={!canEditPayments || !validRows || updatePaymentsMutation.isPending}
+                      onClick={() => updatePaymentsMutation.mutate({
+                        id: Number(selectedOrder.id),
+                        payments: paymentDraftRows.map((row) => ({
+                          method: row.method,
+                          amount: Number(row.amount) || 0,
+                        })),
+                      })}
+                      className="px-4 py-2 bg-primary text-white rounded-lg disabled:opacity-50"
+                    >
+                      {updatePaymentsMutation.isPending ? 'جاري الحفظ...' : 'حفظ الدفعات'}
+                    </button>
+                  </div>
+                  {paymentMethods.length === 0 && (
+                    <p className="mt-2 text-xs text-red-600">لا توجد طرق دفع مهيأة في الإعدادات.</p>
+                  )}
                 </div>
-                <p className="mt-1 text-xs text-gray-500">سيتم تحديث طريقة الدفعات المسجلة للطلب دون تغيير إجمالي المدفوع.</p>
-              </div>
-            )}
+              )
+            })()}
             {can('refund_orders') && ['paid', 'partial'].includes(selectedOrder.payment_status) && (
               <button
                 onClick={() => refundMutation.mutate(selectedOrder.id)}
