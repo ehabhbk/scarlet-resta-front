@@ -1312,18 +1312,7 @@ export default function POSPage() {
                   </span>
                 </div>
               ))}
-              <div className="flex items-center gap-2 px-3 py-1.5 bg-white/70 dark:bg-gray-900/60 rounded-lg">
-                <span className="text-gray-600 dark:text-gray-300">الافتتاحي:</span>
-                <span className="font-semibold text-gray-900 dark:text-gray-100">
-                  {formatMoney(openingCashAmount, currencySymbol)}
-                </span>
-              </div>
-              <div className="flex items-center gap-2 px-3 py-1.5 bg-white/70 dark:bg-gray-900/60 rounded-lg">
-                <span className="text-gray-600 dark:text-gray-300">المتوقع:</span>
-                <span className="font-semibold text-gray-900 dark:text-gray-100">
-                  {formatMoney(expectedCash, currencySymbol)}
-                </span>
-              </div>
+
             </div>
           </div>
         )}
