@@ -535,7 +535,7 @@ export default function ReportsPage() {
           <td class="num">${money(order.total_amount)}</td>
           <td class="num">${money(order.amount_paid)}</td>
           <td class="items">${methods || '-'}</td>
-          <td>${escapeHtml(STATUS_LABELS[order.status] || order.status || '-')}</td>
+          <td>${escapeHtml(order.cashier_name || order.cashier?.name || '-')}</td>
         </tr>`
       })
       .join('')
