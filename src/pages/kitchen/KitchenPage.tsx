@@ -16,6 +16,7 @@ import {
 import Card from '../../components/common/cards/Card'
 import Button from '../../components/common/buttons/Button'
 import Modal from '../../components/common/modals/Modal'
+import { useSettingsStore, mediaUrl } from '../../store/settingsStore'
 
 interface KitchenItemStation {
   station?: string
@@ -82,6 +83,7 @@ export default function KitchenPage() {
     && !permissions.includes('view_all_kitchen_orders')
   const [lastUpdated, setLastUpdated] = useState<Date>(new Date())
   const [showProducts, setShowProducts] = useState(false)
+  const [productSearch, setProductSearch] = useState('')
   const canManageProducts = permissions.includes('edit_products') || permissions.includes('update_kitchen_order')
 
   const { data: kitchenOrders, isLoading, isFetching, refetch } = useQuery({
@@ -436,12 +438,20 @@ export default function KitchenPage() {
         </div>
       )}
           <Modal isOpen={showProducts} onClose={() => setShowProducts(false)} title="منتجات المطبخ" size="lg">
-        <div className="space-y-3 max-h-[70vh] overflow-y-auto">
-          {(kitchenProducts || []).length === 0 && <p className="text-sm text-gray-500">لا توجد منتجات.</p>}
-          {(kitchenProducts || []).map((product: any) => (
+        <div className="space-y-3">
+          <input
+            type="text"
+            placeholder="بحث عن منتج..."
+            value={productSearch}
+            onChange={(e) => setProductSearch(e.target.value)}
+            className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-900"
+          />
+          <div className="space-y-3 max-h-[60vh] overflow-y-auto">
+            {(kitchenProducts || []).filter((p: any) => !productSearch.trim() || String(p.name || '').toLowerCase().includes(productSearch.trim().toLowerCase())).length === 0 && <p className="text-sm text-gray-500">لا توجد منتجات.</p>}
+            {(kitchenProducts || []).filter((p: any) => !productSearch.trim() || String(p.name || '').toLowerCase().includes(productSearch.trim().toLowerCase())).map((product: any) => (
             <div key={product.id} className="flex items-center justify-between gap-3 rounded-lg border border-gray-200 p-3 dark:border-gray-700">
               <div className="flex items-center gap-3">
-                {product.image ? <img src={product.image} alt={product.name} className="h-10 w-10 rounded object-cover" /> : null}
+                {product.image ? <img src={mediaUrl(product.image)} alt={product.name} className="h-10 w-10 rounded object-cover" /> : null}
                 <div>
                   <p className="font-semibold text-gray-900 dark:text-gray-100">{product.name}</p>
                   <p className="text-xs text-gray-500">{Number(product.sale_price).toLocaleString('en-US')}</p>
@@ -459,6 +469,7 @@ export default function KitchenPage() {
               </label>
             </div>
           ))}
+          </div>
         </div>
       </Modal>
 </div>

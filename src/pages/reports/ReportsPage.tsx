@@ -243,7 +243,7 @@ export default function ReportsPage() {
   const [reportType, setReportType] = useState('sales')
   const [fromDate, setFromDate] = useState(defaultFrom)
   const [toDate, setToDate] = useState(() => toInputDate(new Date()))
-  const { symbol, paymentMethods, load, restaurant } = useSettingsStore()
+  const { symbol, paymentMethods, load, restaurant, reportSettings } = useSettingsStore()
   const permissions = useAuthStore((state) => state.user?.permissions || [])
   const reportPermissions: Record<string, string[]> = {
     'profit-loss': ['view_finance'],
@@ -478,12 +478,13 @@ export default function ReportsPage() {
     const methodKeys = Object.keys(shiftByPayment)
     const money = (value: unknown) => formatMoney(Number(value) || 0, symbol)
 
-    const restaurantName = restaurant?.name || 'المؤسسة'
-    const restaurantLogo = mediaUrl(restaurant?.logo)
+    const restaurantName = reportSettings.report_show_title !== 'false' ? (restaurant?.name || '') : ''
+    const showLogo = reportSettings.report_show_logo !== 'false'
+    const restaurantLogo = showLogo ? mediaUrl(restaurant?.logo) : ''
     const restaurantMeta = [
       restaurant?.address,
-      restaurant?.phone ? `هاتف: ${restaurant.phone}` : null,
-      restaurant?.tax_number ? `الرقم الضريبي: ${restaurant.tax_number}` : null,
+      reportSettings.report_show_phone !== 'false' && restaurant?.phone ? `هاتف: ${restaurant.phone}` : null,
+      reportSettings.report_show_tax_number !== 'false' && restaurant?.tax_number ? `الرقم الضريبي: ${restaurant.tax_number}` : null,
     ].filter(Boolean)
 
     const methodHeaders = methodKeys

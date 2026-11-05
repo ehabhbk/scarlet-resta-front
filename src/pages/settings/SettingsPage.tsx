@@ -114,6 +114,9 @@ const GROUPS: Record<string, SettingField[]> = {
       { value: 'large', label: 'كبير' },
     ] },
     { key: 'report_show_logo', label: 'عرض اللوقو', type: 'boolean', defaultValue: 'true' },
+    { key: 'report_show_title', label: 'عرض اسم المطعم', type: 'boolean', defaultValue: 'true' },
+    { key: 'report_show_phone', label: 'عرض الهاتف', type: 'boolean', defaultValue: 'true' },
+    { key: 'report_show_tax_number', label: 'عرض الرقم الضريبي', type: 'boolean', defaultValue: 'true' },
   ],
   pos: [
     { key: 'require_shift', label: 'إجبار فتح وردية قبل البيع', type: 'boolean', defaultValue: 'true', disabled: true, hint: 'مفعّل دائماً لضمان ربط المبيعات بالوردية والكاشير' },

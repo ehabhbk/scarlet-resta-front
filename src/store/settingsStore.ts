@@ -116,6 +116,7 @@ interface SettingsState {
   currencies: CurrencyOption[]
   customCurrencies: CurrencyOption[]
   paymentMethods: PaymentMethod[]
+  reportSettings: Record<string, string>
   settingsError: string | null
   loaded: boolean
   loading: boolean
@@ -135,6 +136,7 @@ export const useSettingsStore = create<SettingsState>()(
       currencies: CURRENCIES,
       customCurrencies: [],
       paymentMethods: [],
+      reportSettings: {},
       settingsError: null,
       loaded: false,
       loading: false,
@@ -175,6 +177,15 @@ export const useSettingsStore = create<SettingsState>()(
         } else {
           set({ paymentMethods: [] })
         }
+
+        const reportRows = settingsResult.status === 'fulfilled'
+          ? ((settingsResult.value.data?.settings || []) as SettingRow[]).filter((r) => r.group === 'reports')
+          : []
+        const reportSettings: Record<string, string> = {}
+        for (const row of reportRows) {
+          reportSettings[row.key] = String(row.value ?? '')
+        }
+        set({ reportSettings })
 
         const errors = [restaurantResult, settingsResult]
           .filter((result) => result.status === 'rejected')
