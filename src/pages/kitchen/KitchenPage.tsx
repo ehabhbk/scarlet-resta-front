@@ -15,6 +15,7 @@ import {
 } from 'lucide-react'
 import Card from '../../components/common/cards/Card'
 import Button from '../../components/common/buttons/Button'
+import Modal from '../../components/common/modals/Modal'
 
 interface KitchenItemStation {
   station?: string
@@ -80,6 +81,8 @@ export default function KitchenPage() {
   const stationOnly = permissions.includes('view_station_kitchen_orders')
     && !permissions.includes('view_all_kitchen_orders')
   const [lastUpdated, setLastUpdated] = useState<Date>(new Date())
+  const [showProducts, setShowProducts] = useState(false)
+  const canManageProducts = permissions.includes('edit_products') || permissions.includes('update_kitchen_order')
 
   const { data: kitchenOrders, isLoading, isFetching, refetch } = useQuery({
     queryKey: ['kitchen-orders'],
@@ -116,6 +119,27 @@ export default function KitchenPage() {
   })
 
   const orders = (kitchenOrders || []) as KitchenOrder[]
+
+  const { data: kitchenProducts } = useQuery({
+    queryKey: ['kitchen-products'],
+    queryFn: async () => {
+      const res = await api.get('/kitchen/products')
+      return (res.data.products || []) as Array<{ id: number; name: string; image?: string; sale_price: number; is_available: boolean }>
+    },
+    enabled: showProducts,
+  })
+
+  const toggleAvailabilityMutation = useMutation({
+    mutationFn: async ({ id, is_available }: { id: number; is_available: boolean }) => {
+      await api.put(`/kitchen/products/${id}/availability`, { is_available })
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['kitchen-products'] })
+      queryClient.invalidateQueries({ queryKey: ['pos-products-available'] })
+      toast.success('تم تحديث حالة المنتج')
+    },
+    onError: () => toast.error('تعذر تحديث حالة المنتج'),
+  })
   const allItems = orders.flatMap((order) => order.items || [])
   const counters = {
     orders: orders.length,
@@ -148,6 +172,16 @@ export default function KitchenPage() {
             <RefreshCw className="w-4 h-4" />
             تحديث الآن
           </Button>
+          {canManageProducts && (
+            <Button
+              variant="primary"
+              size="sm"
+              onClick={() => setShowProducts(true)}
+            >
+              <Utensils className="w-4 h-4" />
+              المنتجات
+            </Button>
+          )}
         </div>
       </div>
 
@@ -401,6 +435,32 @@ export default function KitchenPage() {
           })}
         </div>
       )}
-    </div>
+          <Modal isOpen={showProducts} onClose={() => setShowProducts(false)} title="منتجات المطبخ" size="lg">
+        <div className="space-y-3 max-h-[70vh] overflow-y-auto">
+          {(kitchenProducts || []).length === 0 && <p className="text-sm text-gray-500">لا توجد منتجات.</p>}
+          {(kitchenProducts || []).map((product: any) => (
+            <div key={product.id} className="flex items-center justify-between gap-3 rounded-lg border border-gray-200 p-3 dark:border-gray-700">
+              <div className="flex items-center gap-3">
+                {product.image ? <img src={product.image} alt={product.name} className="h-10 w-10 rounded object-cover" /> : null}
+                <div>
+                  <p className="font-semibold text-gray-900 dark:text-gray-100">{product.name}</p>
+                  <p className="text-xs text-gray-500">{Number(product.sale_price).toLocaleString('en-US')}</p>
+                </div>
+              </div>
+              <label className="flex items-center gap-2 text-sm">
+                <span className={product.is_available ? 'text-green-600' : 'text-red-600'}>
+                  {product.is_available ? 'متوفر' : 'نفذ'}
+                </span>
+                <input
+                  type="checkbox"
+                  checked={product.is_available}
+                  onChange={(e) => toggleAvailabilityMutation.mutate({ id: product.id, is_available: e.target.checked })}
+                />
+              </label>
+            </div>
+          ))}
+        </div>
+      </Modal>
+</div>
   )
 }

@@ -880,6 +880,10 @@ export default function POSPage() {
   }
 
   const addToCart = (product: POSProduct, sizeId: number | null = null, modifierOptionIds: number[] = []) => {
+    if (product.is_available === false) {
+      toast.error('المنتج نفذ من المطبخ')
+      return
+    }
     const size = product.sizes?.find((s) => s.id === sizeId)
     const modifiers: CartModifier[] = []
     for (const mod of product.modifiers || []) {
