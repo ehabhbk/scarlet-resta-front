@@ -16,7 +16,7 @@ import {
 import Card from '../../components/common/cards/Card'
 import Button from '../../components/common/buttons/Button'
 import Modal from '../../components/common/modals/Modal'
-import { useSettingsStore, mediaUrl } from '../../store/settingsStore'
+import { mediaUrl } from '../../store/settingsStore'
 
 interface KitchenItemStation {
   station?: string
