@@ -6,11 +6,12 @@ import { Plus, Trash2, UserRound, Pencil, Power, PowerOff } from 'lucide-react'
 import Button from '../../components/common/buttons/Button'
 import Input from '../../components/common/inputs/Input'
 import Card from '../../components/common/cards/Card'
-import DataTable from '../../components/common/tables/DataTable'
+import DataTable, { type Column } from '../../components/common/tables/DataTable'
 import Modal from '../../components/common/modals/Modal'
 import Badge from '../../components/common/data-display/Badge'
 import { mediaUrl } from '../../store/settingsStore'
 import type { User } from '../../types'
+import { getApiErrorMessage } from '../../utils/apiError'
 
 interface Account {
   id: number
@@ -21,16 +22,46 @@ interface Account {
   is_active?: boolean
 }
 
+interface UserFormValues {
+  name: string
+  username: string
+  password: string
+  role: string
+  is_active: boolean
+  pay_account_id: string
+  vault_account_id: string
+  kitchen_station_id: string
+}
+
+interface UserRoleOption {
+  id: number
+  name: string
+}
+
+interface KitchenStationOption {
+  id: number
+  name: string
+  display_name?: string
+}
+
+interface UserFormProps {
+  roles: UserRoleOption[]
+  accounts: Account[]
+  kitchenStations: KitchenStationOption[]
+  onClose: () => void
+  onSuccess: () => void
+}
+
 export default function UsersPage() {
   const [showModal, setShowModal] = useState(false)
-  const [editingUser, setEditingUser] = useState<any>(null)
+  const [editingUser, setEditingUser] = useState<User | null>(null)
   const queryClient = useQueryClient()
 
   const { data: users, isLoading } = useQuery({
     queryKey: ['admin-users'],
     queryFn: async () => {
       const res = await api.get('/admin/users')
-      return res.data.data || res.data
+      return (res.data.data || res.data) as User[]
     },
   })
 
@@ -38,7 +69,7 @@ export default function UsersPage() {
     queryKey: ['admin-roles'],
     queryFn: async () => {
       const res = await api.get('/admin/roles')
-      return res.data.roles || res.data.data || res.data
+      return (res.data.roles || res.data.data || res.data) as UserRoleOption[]
     },
   })
 
@@ -54,7 +85,7 @@ export default function UsersPage() {
     queryKey: ['admin-kitchen-stations'],
     queryFn: async () => {
       const res = await api.get('/admin/kitchen-stations')
-      return res.data.stations || []
+      return (res.data.stations || []) as KitchenStationOption[]
     },
   })
 
@@ -66,8 +97,8 @@ export default function UsersPage() {
       queryClient.invalidateQueries({ queryKey: ['admin-users'] })
       toast.success('تم حذف المستخدم')
     },
-    onError: (error: any) => {
-      toast.error(error?.response?.data?.message || 'تعذر حذف المستخدم')
+    onError: (error) => {
+      toast.error(getApiErrorMessage(error, 'تعذر حذف المستخدم'))
     },
   })
 
@@ -79,16 +110,16 @@ export default function UsersPage() {
       queryClient.invalidateQueries({ queryKey: ['admin-users'] })
       toast.success('تم تحديث حالة المستخدم')
     },
-    onError: (error: any) => {
-      toast.error(error?.response?.data?.message || 'تعذر تحديث الحالة')
+    onError: (error) => {
+      toast.error(getApiErrorMessage(error, 'تعذر تحديث الحالة'))
     },
   })
 
-  const columns = [
+  const columns: Column<User>[] = [
     {
       key: 'name',
       header: 'الاسم',
-      render: (u: any) => (
+      render: (u) => (
         <div className="flex items-center gap-2">
           {(u.image || u.avatar) ? (
             <img src={mediaUrl(u.image || u.avatar)} alt="" className="h-8 w-8 rounded-full object-cover" />
@@ -120,7 +151,7 @@ export default function UsersPage() {
     {
       key: 'username',
       header: 'اسم المستخدم',
-      render: (u: any) => (
+      render: (u) => (
         <span className="font-mono text-sm text-gray-600 dark:text-gray-300">
           {u.username ? `@${u.username}` : '-'}
         </span>
@@ -129,9 +160,9 @@ export default function UsersPage() {
     {
       key: 'roles',
       header: 'الدور',
-      render: (u: any) => (
+      render: (u) => (
         <div className="flex gap-1 flex-wrap">
-          {(u.roles || []).map((r: any) => (
+          {(u.roles || []).map((r) => (
             <Badge key={r.id} variant="info">
               {r.name}
             </Badge>
@@ -142,7 +173,7 @@ export default function UsersPage() {
     {
       key: 'is_active',
       header: 'الحالة',
-      render: (u: any) => (
+      render: (u) => (
         <span
           className={`inline-flex px-2 py-0.5 rounded-full text-xs ${
             u.is_active
@@ -157,7 +188,7 @@ export default function UsersPage() {
     {
       key: 'actions',
       header: 'الإجراءات',
-      render: (u: any) => (
+      render: (u) => (
         <div className="flex items-center gap-1">
           <button
             onClick={() => toggleMutation.mutate({ id: u.id, is_active: !u.is_active })}
@@ -193,7 +224,7 @@ export default function UsersPage() {
     },
   ]
 
-  const list = Array.isArray(users) ? users : users?.data || []
+  const list = users || []
 
   return (
     <div className="space-y-6">
@@ -213,7 +244,7 @@ export default function UsersPage() {
       </Card>
       <Modal isOpen={showModal} onClose={() => setShowModal(false)} title="إضافة مستخدم">
         <UserForm
-          roles={Array.isArray(roles) ? roles : roles?.data || []}
+          roles={roles || []}
           accounts={accounts || []}
           kitchenStations={kitchenStations || []}
           onClose={() => setShowModal(false)}
@@ -231,7 +262,7 @@ export default function UsersPage() {
         {editingUser && (
           <EditUserForm
             user={editingUser}
-            roles={Array.isArray(roles) ? roles : roles?.data || []}
+            roles={roles || []}
             accounts={accounts || []}
             kitchenStations={kitchenStations || []}
             onClose={() => setEditingUser(null)}
@@ -270,9 +301,14 @@ function CashierAccountsNotice() {
   )
 }
 
-function UserAccountFields({ accounts, cashier, formData, setFormData }: any) {
-  const expenseAccounts = accounts.filter((account: Account) => account.type === 'expense' && account.is_active)
-  const vaultAccounts = accounts.filter((account: Account) =>
+function UserAccountFields({ accounts, cashier, formData, setFormData }: {
+  accounts: Account[]
+  cashier: boolean
+  formData: UserFormValues
+  setFormData: React.Dispatch<React.SetStateAction<UserFormValues>>
+}) {
+  const expenseAccounts = accounts.filter((account) => account.type === 'expense' && account.is_active)
+  const vaultAccounts = accounts.filter((account) =>
     account.type === 'asset' && account.is_active && account.parent_id
   )
 
@@ -319,8 +355,8 @@ function CashierAccountSummary({ user }: { user: User }) {
   )
 }
 
-function UserForm({ roles, accounts, kitchenStations, onClose, onSuccess }: any) {
-  const [formData, setFormData] = useState({
+function UserForm({ roles, accounts, kitchenStations, onClose, onSuccess }: UserFormProps) {
+  const [formData, setFormData] = useState<UserFormValues>({
     name: '',
     username: '',
     password: '',
@@ -340,7 +376,7 @@ function UserForm({ roles, accounts, kitchenStations, onClose, onSuccess }: any)
   }, [imagePreview])
 
   const mutation = useMutation({
-    mutationFn: async (data: any) => {
+    mutationFn: async (data: Record<string, unknown>) => {
       if (imageFile) {
         const requestData = new FormData()
         Object.entries(data).forEach(([key, value]) =>
@@ -358,16 +394,7 @@ function UserForm({ roles, accounts, kitchenStations, onClose, onSuccess }: any)
       toast.success('تم إضافة المستخدم')
       onSuccess()
     },
-    onError: (error: any) => {
-      const errors = error?.response?.data?.errors
-      const firstError = errors ? Object.values(errors)[0] : null
-      toast.error(
-        (Array.isArray(firstError) ? firstError[0] : firstError) ||
-          error?.response?.data?.message ||
-        error?.message ||
-        'تعذر إضافة المستخدم'
-      )
-    },
+    onError: (error) => toast.error(getApiErrorMessage(error, 'تعذر إضافة المستخدم')),
   })
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -432,7 +459,7 @@ function UserForm({ roles, accounts, kitchenStations, onClose, onSuccess }: any)
           required
         >
           <option value="">اختر الدور</option>
-          {roles.map((r: any) => (
+          {roles.map((r) => (
             <option key={r.id} value={r.name}>
               {r.name}
             </option>
@@ -476,8 +503,8 @@ function UserForm({ roles, accounts, kitchenStations, onClose, onSuccess }: any)
   )
 }
 
-function EditUserForm({ user, roles, accounts, kitchenStations, onClose, onSuccess }: any) {
-  const [formData, setFormData] = useState({
+function EditUserForm({ user, roles, accounts, kitchenStations, onClose, onSuccess }: UserFormProps & { user: User }) {
+  const [formData, setFormData] = useState<UserFormValues>({
     name: user.name || '',
     username: user.username || '',
     password: '',
@@ -499,7 +526,7 @@ function EditUserForm({ user, roles, accounts, kitchenStations, onClose, onSucce
   }, [imagePreview])
 
   const mutation = useMutation({
-    mutationFn: async (data: any) => {
+    mutationFn: async (data: Record<string, unknown>) => {
       if (imageFile) {
         const requestData = new FormData()
         Object.entries(data).forEach(([key, value]) =>
@@ -518,21 +545,21 @@ function EditUserForm({ user, roles, accounts, kitchenStations, onClose, onSucce
       toast.success('تم تحديث المستخدم')
       onSuccess()
     },
-    onError: (error: any) => {
-      const errors = error?.response?.data?.errors
-      const firstError = errors ? Object.values(errors)[0] : null
-      toast.error(
-        (Array.isArray(firstError) ? firstError[0] : firstError) ||
-          error?.response?.data?.message ||
-        error?.message ||
-        'تعذر تحديث المستخدم'
-      )
-    },
+    onError: (error) => toast.error(getApiErrorMessage(error, 'تعذر تحديث المستخدم')),
   })
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
-    const payload: any = {
+    const payload: {
+      name: string
+      username: string
+      role: string
+      is_active: boolean
+      pay_account_id: number | null
+      vault_account_id: number | null
+      kitchen_station_id: number | null
+      password?: string
+    } = {
       name: formData.name,
       username: formData.username.trim().toLowerCase(),
       role: formData.role,
@@ -593,7 +620,7 @@ function EditUserForm({ user, roles, accounts, kitchenStations, onClose, onSucce
           required
         >
           <option value="">اختر الدور</option>
-          {roles.map((r: any) => (
+          {roles.map((r) => (
             <option key={r.id} value={r.name}>
               {r.name}
             </option>
@@ -637,7 +664,11 @@ function EditUserForm({ user, roles, accounts, kitchenStations, onClose, onSucce
   )
 }
 
-function KitchenStationField({ stations, value, onChange }: any) {
+function KitchenStationField({ stations, value, onChange }: {
+  stations: KitchenStationOption[]
+  value: string
+  onChange: (value: string) => void
+}) {
   return (
     <div>
       <label className="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-200">
@@ -650,7 +681,7 @@ function KitchenStationField({ stations, value, onChange }: any) {
         required
       >
         <option value="">اختر محطة المطبخ</option>
-        {stations.map((station: any) => (
+        {stations.map((station) => (
           <option key={station.id} value={station.id}>
             {station.display_name || station.name}
           </option>

@@ -8,20 +8,20 @@
 // })
 
 // Kitchen orders subscription using Laravel Echo pattern
-// export const subscribeKitchenOrders = (callback: (orders: any[]) => void) => {
+// export const subscribeKitchenOrders = (callback: (orders[]) => void) => {
 //   if (typeof window !== 'undefined' && window.Echo) {
 //     window.Echo.join('kitchen')
-//       .listen('KitchenOrderBroadcast', (e: any) => {
+//       .listen('KitchenOrderBroadcast', (e) => {
 //         callback(e.orders)
 //       })
 //   }
 // }
 
 // Notification subscription using Laravel Echo pattern
-// export const subscribeNotifications = (callback: (notif: any) => void) => {
+// export const subscribeNotifications = (callback: (notif) => void) => {
 //   if (typeof window !== 'undefined' && window.Echo) {
 //     window.Echo.private('App.User')
-//       .listen('NotificationBroadcast', (e: any) => {
+//       .listen('NotificationBroadcast', (e) => {
 //         callback(e.notification)
 //       })
 //   }

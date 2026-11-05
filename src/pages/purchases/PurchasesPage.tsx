@@ -7,25 +7,54 @@ import { DollarSign, Plus } from 'lucide-react'
 import Button from '../../components/common/buttons/Button'
 import Input from '../../components/common/inputs/Input'
 import Card from '../../components/common/cards/Card'
-import DataTable from '../../components/common/tables/DataTable'
+import DataTable, { type Column } from '../../components/common/tables/DataTable'
 import Modal from '../../components/common/modals/Modal'
 import Badge from '../../components/common/data-display/Badge'
 import { useAuthStore } from '../../store/authStore'
 import { formatNumber, formatDate } from '../../utils/format'
+import { getApiErrorMessage } from '../../utils/apiError'
+
+interface PurchaseRecord {
+  id: number
+  purchase_number: string
+  supplier?: { name: string }
+  status: string
+  total_amount: number
+  amount_paid: number
+  account?: { name: string }
+  payment_status: string
+  order_date: string
+}
+
+interface PurchaseLineItem {
+  inventory_item_id: string
+  quantity: number | string
+  unit_cost: number | string
+}
+
+interface PurchaseFormProps {
+  suppliers: { id: number; name: string }[]
+  items: { id: number; name: string; cost_per_unit: number }[]
+  accounts: { id: number; code: string; name: string; type: string; is_active: boolean }[]
+  paymentMethods: { value: string; label: string }[]
+  onClose: () => void
+  onSuccess: () => void
+}
 
 export default function PurchasesPage() {
   const { symbol, paymentMethods } = useSettingsStore()
   const permissions = useAuthStore((state) => state.user?.permissions || [])
   const canCreate = permissions.includes('create_purchases')
   const [showModal, setShowModal] = useState(false)
-  const [payingPurchase, setPayingPurchase] = useState<any>(null)
+  const [payingPurchase, setPayingPurchase] = useState<PurchaseRecord | null>(null)
   const queryClient = useQueryClient()
 
   const { data: purchases, isLoading } = useQuery({
     queryKey: ['purchases'],
     queryFn: async () => {
       const res = await api.get('/purchases')
-      return res.data.data || res.data
+      const payload = res.data.data || res.data
+      return (Array.isArray(payload) ? payload : payload?.data || []) as PurchaseRecord[]
     },
   })
 
@@ -33,7 +62,7 @@ export default function PurchasesPage() {
     queryKey: ['suppliers'],
     queryFn: async () => {
       const res = await api.get('/suppliers')
-      return res.data.suppliers || []
+      return (res.data.suppliers || []) as PurchaseFormProps['suppliers']
     },
   })
 
@@ -41,13 +70,13 @@ export default function PurchasesPage() {
     queryKey: ['inventory-items-all'],
     queryFn: async () => {
       const res = await api.get('/inventory-items')
-      return res.data.data || []
+      return (res.data.data || []) as PurchaseFormProps['items']
     },
   })
 
   const { data: accounts } = useQuery({
     queryKey: ['accounts-list'],
-    queryFn: async () => (await api.get('/accounts')).data?.accounts || [],
+    queryFn: async () => ((await api.get('/accounts')).data?.accounts || []) as PurchaseFormProps['accounts'],
   })
 
   const paymentMutation = useMutation({
@@ -60,25 +89,22 @@ export default function PurchasesPage() {
       queryClient.invalidateQueries({ queryKey: ['chart-of-accounts'] })
       toast.success('تم تسجيل الدفعة وقيدها')
     },
-    onError: (error: any) => {
-      const firstError = Object.values(error?.response?.data?.errors || {})[0]
-      toast.error((Array.isArray(firstError) ? firstError[0] : firstError) || error?.response?.data?.message || 'تعذر تسجيل الدفعة')
-    },
+    onError: (error) => toast.error(getApiErrorMessage(error, 'تعذر تسجيل الدفعة')),
   })
 
-  const columns = [
+  const columns: Column<PurchaseRecord>[] = [
     { key: 'purchase_number', header: 'رقم الطلب' },
-    { key: 'supplier', header: 'المورد', render: (p: any) => p.supplier?.name || '-' },
-    { key: 'status', header: 'الحالة', render: (p: any) => <Badge variant={p.status === 'received' ? 'success' : 'warning'}>{p.status}</Badge> },
-    { key: 'total_amount', header: 'المبلغ', render: (p: any) => formatMoney(p.total_amount, symbol) },
-    { key: 'amount_paid', header: 'المدفوع', render: (p: any) => formatMoney(p.amount_paid, symbol) },
-    { key: 'account', header: 'حساب الشراء', render: (p: any) => p.account?.name || '-' },
+    { key: 'supplier', header: 'المورد', render: (p) => p.supplier?.name || '-' },
+    { key: 'status', header: 'الحالة', render: (p) => <Badge variant={p.status === 'received' ? 'success' : 'warning'}>{p.status}</Badge> },
+    { key: 'total_amount', header: 'المبلغ', render: (p) => formatMoney(p.total_amount, symbol) },
+    { key: 'amount_paid', header: 'المدفوع', render: (p) => formatMoney(p.amount_paid, symbol) },
+    { key: 'account', header: 'حساب الشراء', render: (p) => p.account?.name || '-' },
     { key: 'payment_status', header: 'الدفع' },
-    { key: 'order_date', header: 'التاريخ', render: (p: any) => formatDate(p.order_date) },
+    { key: 'order_date', header: 'التاريخ', render: (p) => formatDate(p.order_date) },
     {
       key: 'payment_action',
       header: 'الإجراء',
-      render: (p: any) => !canCreate || p.payment_status === 'paid' ? '-' : (
+      render: (p) => !canCreate || p.payment_status === 'paid' ? '-' : (
         <button onClick={() => setPayingPurchase(p)} className="inline-flex items-center gap-1 rounded px-2 py-1 text-sm text-green-700 dark:text-green-300 hover:bg-green-50 dark:hover:bg-green-950/40">
           <DollarSign className="h-4 w-4" /> تسجيل دفعة
         </button>
@@ -86,7 +112,7 @@ export default function PurchasesPage() {
     },
   ]
 
-  const list = Array.isArray(purchases) ? purchases : (purchases?.data || [])
+  const list = purchases || []
 
   return (
     <div className="space-y-6">
@@ -119,7 +145,13 @@ export default function PurchasesPage() {
   )
 }
 
-function PurchasePaymentForm({ purchase, paymentMethods, loading, onClose, onSubmit }: any) {
+function PurchasePaymentForm({ purchase, paymentMethods, loading, onClose, onSubmit }: {
+  purchase: PurchaseRecord
+  paymentMethods: PurchaseFormProps['paymentMethods']
+  loading: boolean
+  onClose: () => void
+  onSubmit: (amount: number, method: string) => void
+}) {
   const remaining = Math.max(0, Number(purchase.total_amount) - Number(purchase.amount_paid))
   const [amount, setAmount] = useState(formatNumber(remaining))
   const [method, setMethod] = useState(paymentMethods[0]?.value || '')
@@ -136,7 +168,7 @@ function PurchasePaymentForm({ purchase, paymentMethods, loading, onClose, onSub
       <div>
         <label className="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">طريقة الدفع</label>
         <select value={method} onChange={(event) => setMethod(event.target.value)} className="w-full rounded-lg border border-gray-300 dark:border-gray-700 px-4 py-2" required>
-          {paymentMethods.map((paymentMethod: any) => <option key={paymentMethod.value} value={paymentMethod.value}>{paymentMethod.label}</option>)}
+          {paymentMethods.map((paymentMethod) => <option key={paymentMethod.value} value={paymentMethod.value}>{paymentMethod.label}</option>)}
         </select>
       </div>
       <div className="flex justify-end gap-3 pt-2">
@@ -147,7 +179,7 @@ function PurchasePaymentForm({ purchase, paymentMethods, loading, onClose, onSub
   )
 }
 
-function PurchaseForm({ suppliers, items, accounts, paymentMethods, onClose, onSuccess }: any) {
+function PurchaseForm({ suppliers, items, accounts, paymentMethods, onClose, onSuccess }: PurchaseFormProps) {
   const [formData, setFormData] = useState({
     supplier_id: '',
     account_id: '',
@@ -159,19 +191,16 @@ function PurchaseForm({ suppliers, items, accounts, paymentMethods, onClose, onS
     payment_method: paymentMethods[0]?.value || '',
     notes: '',
   })
-  const [lineItems, setLineItems] = useState<any[]>([{ inventory_item_id: '', quantity: 1, unit_cost: 0 }])
+  const [lineItems, setLineItems] = useState<PurchaseLineItem[]>([{ inventory_item_id: '', quantity: 1, unit_cost: 0 }])
   const subtotal = lineItems.reduce((sum, item) => sum + Number(item.quantity || 0) * Number(item.unit_cost || 0), 0)
   const totalAmount = subtotal + Number(formData.tax_amount || 0)
 
   const mutation = useMutation({
-    mutationFn: async (data: any) => {
+    mutationFn: async (data: Record<string, unknown>) => {
       await api.post('/purchases', data)
     },
     onSuccess,
-    onError: (error: any) => {
-      const firstError = Object.values(error?.response?.data?.errors || {})[0]
-      toast.error((Array.isArray(firstError) ? firstError[0] : firstError) || error?.response?.data?.message || 'تعذر حفظ طلب الشراء')
-    },
+    onError: (error) => toast.error(getApiErrorMessage(error, 'تعذر حفظ طلب الشراء')),
   })
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -194,11 +223,11 @@ function PurchaseForm({ suppliers, items, accounts, paymentMethods, onClose, onS
 
   const addLine = () => setLineItems([...lineItems, { inventory_item_id: '', quantity: 1, unit_cost: 0 }])
   const removeLine = (idx: number) => setLineItems(lineItems.filter((_, i) => i !== idx))
-  const updateLine = (idx: number, field: string, value: any) => {
+  const updateLine = (idx: number, field: keyof PurchaseLineItem, value: string | number) => {
     const next = [...lineItems]
     next[idx] = { ...next[idx], [field]: value }
     if (field === 'inventory_item_id') {
-      const it = items.find((i: any) => i.id === Number(value))
+      const it = items.find((i) => i.id === Number(value))
       if (it) next[idx].unit_cost = it.cost_per_unit
     }
     setLineItems(next)
@@ -211,7 +240,7 @@ function PurchaseForm({ suppliers, items, accounts, paymentMethods, onClose, onS
           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">المورد</label>
           <select value={formData.supplier_id} onChange={(e) => setFormData({ ...formData, supplier_id: e.target.value })} className="w-full px-4 py-2 border border-gray-300 dark:border-gray-700 rounded-lg" required>
             <option value="">اختر المورد</option>
-            {suppliers.map((s: any) => <option key={s.id} value={s.id}>{s.name}</option>)}
+            {suppliers.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
           </select>
         </div>
         <Input label="رقم الطلب" value={formData.purchase_number} onChange={(e) => setFormData({ ...formData, purchase_number: e.target.value })} required />
@@ -232,7 +261,7 @@ function PurchaseForm({ suppliers, items, accounts, paymentMethods, onClose, onS
           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">حساب المشتريات</label>
           <select value={formData.account_id} onChange={(e) => setFormData({ ...formData, account_id: e.target.value })} className="w-full px-4 py-2 border border-gray-300 dark:border-gray-700 rounded-lg" required>
             <option value="">اختر حساب المشتريات</option>
-            {accounts.filter((a: any) => ['asset', 'expense'].includes(a.type) && a.is_active).map((a: any) => <option key={a.id} value={a.id}>{a.code} - {a.name}</option>)}
+            {accounts.filter((a) => ['asset', 'expense'].includes(a.type) && a.is_active).map((a) => <option key={a.id} value={a.id}>{a.code} - {a.name}</option>)}
           </select>
         </div>
         <Input label="الضريبة" type="number" min={0} step="0.01" value={formData.tax_amount} onChange={(e) => setFormData({ ...formData, tax_amount: Number(e.target.value) || 0 })} />
@@ -244,7 +273,7 @@ function PurchaseForm({ suppliers, items, accounts, paymentMethods, onClose, onS
       <div>
         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">طريقة الدفع</label>
         <select value={formData.payment_method} onChange={(e) => setFormData({ ...formData, payment_method: e.target.value })} className="w-full px-4 py-2 border border-gray-300 dark:border-gray-700 rounded-lg" required>
-          {paymentMethods.map((method: any) => <option key={method.value} value={method.value}>{method.label}</option>)}
+          {paymentMethods.map((method) => <option key={method.value} value={method.value}>{method.label}</option>)}
         </select>
       </div>
 
@@ -259,7 +288,7 @@ function PurchaseForm({ suppliers, items, accounts, paymentMethods, onClose, onS
               <div className="col-span-2">
                 <select value={li.inventory_item_id} onChange={(e) => updateLine(idx, 'inventory_item_id', e.target.value)} className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-lg text-sm" required>
                   <option value="">اختر الصنف</option>
-                  {items.map((it: any) => <option key={it.id} value={it.id}>{it.name}</option>)}
+                  {items.map((it) => <option key={it.id} value={it.id}>{it.name}</option>)}
                 </select>
               </div>
               <Input type="number" value={li.quantity} onChange={(e) => updateLine(idx, 'quantity', e.target.value)} />

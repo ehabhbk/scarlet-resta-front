@@ -9,6 +9,22 @@ import Modal from '../../components/common/modals/Modal'
 import Badge from '../../components/common/data-display/Badge'
 import { useAuthStore } from '../../store/authStore'
 
+interface ManagedTable {
+  id: number
+  name: string
+  area_id?: number | string
+  capacity: number
+  status: string
+  area?: { name: string }
+}
+
+interface TableFormProps {
+  table: ManagedTable | null
+  areas: { id: number; name: string }[]
+  onClose: () => void
+  onSuccess: () => void
+}
+
 const STATUS_LABELS: Record<string, string> = {
   available: 'متاحة',
   occupied: 'مشغولة',
@@ -30,14 +46,14 @@ export default function TablesManagementPanel() {
   const canEdit = permissions.includes('edit_tables')
   const canDelete = permissions.includes('delete_tables')
   const [showModal, setShowModal] = useState(false)
-  const [editingTable, setEditingTable] = useState<any>(null)
+  const [editingTable, setEditingTable] = useState<ManagedTable | null>(null)
 
   const { data: tables, isLoading } = useQuery({
     queryKey: ['settings-tables'],
     queryFn: async () => {
       const res = await api.get('/tables', { params: { per_page: 100 } })
       const payload = res.data
-      return Array.isArray(payload?.data) ? payload.data : Array.isArray(payload) ? payload : []
+      return (Array.isArray(payload?.data) ? payload.data : Array.isArray(payload) ? payload : []) as ManagedTable[]
     },
   })
 
@@ -45,7 +61,7 @@ export default function TablesManagementPanel() {
     queryKey: ['areas'],
     queryFn: async () => {
       const res = await api.get('/areas')
-      return res.data?.areas || res.data?.data || []
+      return (res.data?.areas || res.data?.data || []) as TableFormProps['areas']
     },
   })
 
@@ -99,7 +115,7 @@ export default function TablesManagementPanel() {
           <p className="text-sm text-gray-500">لا توجد طاولات.</p>
         )}
         <div className="space-y-3">
-          {(tables || []).map((table: any) => (
+          {(tables || []).map((table) => (
             <div
               key={table.id}
               className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-gray-200 bg-white p-3 dark:border-gray-700 dark:bg-gray-900"
@@ -180,7 +196,7 @@ export default function TablesManagementPanel() {
   )
 }
 
-function TableForm({ table, areas, onClose, onSuccess }: any) {
+function TableForm({ table, areas, onClose, onSuccess }: TableFormProps) {
   const [formData, setFormData] = useState({
     name: table?.name || '',
     area_id: table?.area_id || '',
@@ -189,7 +205,7 @@ function TableForm({ table, areas, onClose, onSuccess }: any) {
   })
 
   const mutation = useMutation({
-    mutationFn: async (data: any) => {
+    mutationFn: async (data: { name: string; area_id: number | string; capacity: number; status: string }) => {
       if (table) {
         await api.put(`/tables/${table.id}`, data)
       } else {
@@ -221,7 +237,7 @@ function TableForm({ table, areas, onClose, onSuccess }: any) {
           className="w-full px-4 py-2 border border-gray-300 rounded-lg dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
         >
           <option value="">اختر المنطقة</option>
-          {areas.map((area: any) => (
+          {areas.map((area) => (
             <option key={area.id} value={area.id}>{area.name}</option>
           ))}
         </select>

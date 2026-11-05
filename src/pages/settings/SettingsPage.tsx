@@ -35,8 +35,35 @@ import KitchenStationsManagementPanel from './KitchenStationsManagementPanel'
 import Input from '../../components/common/inputs/Input'
 import Modal from '../../components/common/modals/Modal'
 import { useAuthStore } from '../../store/authStore'
+import { getApiErrorMessage } from '../../utils/apiError'
 
 type FieldType = 'text' | 'number' | 'boolean' | 'select' | 'textarea'
+
+interface PermissionRecord {
+  id: number
+  name: string
+  group: string
+  label?: string
+}
+
+interface SettingsAccount {
+  id: number
+  code: string
+  name: string
+  type: string
+  is_active: boolean
+}
+
+interface RoleRecord {
+  id: number
+  name: string
+  permissions?: PermissionRecord[]
+}
+
+interface PermissionGroup {
+  name: string
+  items: PermissionRecord[]
+}
 
 interface SettingField {
   key: string
@@ -74,6 +101,13 @@ const GROUPS: Record<string, SettingField[]> = {
     { key: 'allow_discount', label: 'السماح بالخصم', type: 'boolean', defaultValue: 'true' },
     { key: 'max_discount_percent', label: 'أقصى نسبة خصم %', type: 'number', defaultValue: '20' },
     { key: 'low_stock_threshold', label: 'حد التنبيه لنقص المخزون', type: 'number', defaultValue: '5' },
+    {
+      key: 'close_shift_anyone',
+      label: 'السماح لأي مستخدم لديه صلاحية إغلاق الوردية بإغلاق وردية فتحها غيره',
+      type: 'boolean',
+      defaultValue: 'false',
+      hint: 'عند التعطيل: فقط من فتح الوردية يمكنه إغلاقها. عند التفعيل: أي مستخدم يملك صلاحية إغلاق الوردية يمكنه إغلاقها.',
+    },
   ],
   users: [
     { key: 'allow_registration', label: 'السماح بإنشاء حسابات جديدة', type: 'boolean', defaultValue: 'false' },
@@ -156,7 +190,7 @@ export default function SettingsPage() {
       if (!Array.isArray(res.data?.accounts)) {
         throw new Error('استجابة الحسابات غير صالحة')
       }
-      return res.data.accounts
+      return res.data.accounts as SettingsAccount[]
     },
     enabled: activeTab === 'payments',
     staleTime: 0,
@@ -769,7 +803,7 @@ export default function SettingsPage() {
                   disabled={accountsLoading || accountsError}
                 >
                   <option value="">{accountsLoading ? 'جارٍ تحميل الحسابات...' : 'اختر حسابًا'}</option>
-                  {(accountsList || []).map((account: any) => (
+                  {(accountsList || []).map((account) => (
                     <option
                       key={account.id}
                       value={account.id}
@@ -783,7 +817,7 @@ export default function SettingsPage() {
                   <p className="mt-1 text-xs text-amber-600 dark:text-amber-400">لا توجد حسابات للمطعم في قاعدة البيانات؛ أنشئ حسابًا من شجرة الحسابات.</p>
                 )}
                 {!accountsLoading && !accountsError && (accountsList || []).length > 0
-                  && !(accountsList || []).some((account: any) => account.is_active) && (
+                  && !(accountsList || []).some((account) => account.is_active) && (
                   <p className="mt-1 text-xs text-amber-600 dark:text-amber-400">الحسابات ظاهرة، لكن جميعها غير نشطة ولا يمكن ربطها بطريقة الدفع.</p>
                 )}
               </div>
@@ -1057,7 +1091,7 @@ function permissionLabel(name: string) {
 function RolesPermissionsPanel() {
   const queryClient = useQueryClient()
   const [newRoleName, setNewRoleName] = useState('')
-  const [editingRole, setEditingRole] = useState<any>(null)
+  const [editingRole, setEditingRole] = useState<RoleRecord | null>(null)
   const [selectedPerms, setSelectedPerms] = useState<string[]>([])
   const [permSearch, setPermSearch] = useState('')
   const currentPermissions = useAuthStore((state) => state.user?.permissions || [])
@@ -1069,7 +1103,7 @@ function RolesPermissionsPanel() {
     queryKey: ['admin-roles'],
     queryFn: async () => {
       const res = await api.get('/admin/roles')
-      return res.data.roles || []
+      return (res.data.roles || []) as RoleRecord[]
     },
   })
 
@@ -1077,7 +1111,7 @@ function RolesPermissionsPanel() {
     queryKey: ['admin-permissions'],
     queryFn: async () => {
       const res = await api.get('/admin/permissions')
-      return res.data.permissions || []
+      return (res.data.permissions || []) as PermissionRecord[]
     },
   })
 
@@ -1090,7 +1124,7 @@ function RolesPermissionsPanel() {
       setNewRoleName('')
       toast.success('تم إضافة الدور')
     },
-    onError: (e: any) => toast.error(e?.response?.data?.message || 'تعذر إضافة الدور'),
+    onError: (error) => toast.error(getApiErrorMessage(error, 'تعذر إضافة الدور')),
   })
 
   const updateRole = useMutation({
@@ -1102,7 +1136,7 @@ function RolesPermissionsPanel() {
       setEditingRole(null)
       toast.success('تم تحديث صلاحيات الدور')
     },
-    onError: (e: any) => toast.error(e?.response?.data?.message || 'تعذر تحديث الدور'),
+    onError: (error) => toast.error(getApiErrorMessage(error, 'تعذر تحديث الدور')),
   })
 
   const deleteRole = useMutation({
@@ -1113,15 +1147,15 @@ function RolesPermissionsPanel() {
       queryClient.invalidateQueries({ queryKey: ['admin-roles'] })
       toast.success('تم حذف الدور')
     },
-    onError: (e: any) => toast.error(e?.response?.data?.message || 'تعذر حذف الدور'),
+    onError: (error) => toast.error(getApiErrorMessage(error, 'تعذر حذف الدور')),
   })
 
-  const roleList = Array.isArray(roles) ? roles : []
-  const permList = Array.isArray(permissions) ? permissions : []
+  const roleList: RoleRecord[] = roles || []
+  const permList: PermissionRecord[] = permissions || []
   const permTerm = permSearch.trim().toLowerCase()
   const filteredPerms = permTerm
     ? permList.filter(
-        (p: any) =>
+        (p) =>
           permissionLabel(p.name).toLowerCase().includes(permTerm) ||
           String(p.label || '').toLowerCase().includes(permTerm) ||
           String(p.group || '').toLowerCase().includes(permTerm) ||
@@ -1130,9 +1164,9 @@ function RolesPermissionsPanel() {
     : permList
 
   const groupedPerms = useMemo(() => {
-    const groups: { name: string; items: any[] }[] = []
+    const groups: PermissionGroup[] = []
     const groupIndex = new Map<string, number>()
-    filteredPerms.forEach((permission: any) => {
+    filteredPerms.forEach((permission) => {
       const groupName = permission.group || 'صلاحيات إضافية'
       if (!groupIndex.has(groupName)) {
         groupIndex.set(groupName, groups.length)
@@ -1143,9 +1177,9 @@ function RolesPermissionsPanel() {
     return groups
   }, [filteredPerms])
 
-  const openEdit = (role: any) => {
+  const openEdit = (role: RoleRecord) => {
     setEditingRole(role)
-    setSelectedPerms((role.permissions || []).map((p: any) => p.name))
+    setSelectedPerms((role.permissions || []).map((p) => p.name))
     setPermSearch('')
   }
 
@@ -1178,7 +1212,7 @@ function RolesPermissionsPanel() {
       <Card>
         <h2 className="text-lg font-semibold dark:text-gray-100 mb-4">الأدوار والصلاحيات</h2>
         <div className="space-y-3">
-          {roleList.map((role: any) => (
+          {roleList.map((role) => (
             <div key={role.id} className="p-4 border border-gray-200 dark:border-gray-700 rounded-lg">
               <div className="flex flex-wrap items-center justify-between gap-2 gap-3 mb-2">
                 <div>
@@ -1234,11 +1268,11 @@ function RolesPermissionsPanel() {
                   <div className="flex flex-wrap items-center justify-between gap-2 border-b border-gray-100 pb-1 dark:border-gray-800">
                     <h4 className="text-sm font-semibold text-gray-800 dark:text-gray-100">{group.name}</h4>
                     <span className="text-xs text-gray-500">
-                      {group.items.filter((p: any) => selectedPerms.includes(p.name)).length} / {group.items.length}
+                      {group.items.filter((p) => selectedPerms.includes(p.name)).length} / {group.items.length}
                     </span>
                   </div>
                   <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
-                    {group.items.map((p: any) => (
+                    {group.items.map((p) => (
                       <label key={p.id} className="flex items-center gap-2 p-2 border border-gray-200 dark:border-gray-700 rounded-lg cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800">
                         <input
                           type="checkbox"

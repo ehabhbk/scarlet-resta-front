@@ -54,7 +54,7 @@ function App() {
       .then((response) => {
         if (active && response.data?.user) setUser(response.data.user)
       })
-      .catch((error: any) => {
+      .catch((error) => {
         if (!active) return
         if (error?.response?.status === 401) {
           logout()

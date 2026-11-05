@@ -9,6 +9,13 @@ import StatCard from '../../components/common/data-display/StatCard'
 import { printReport } from '../../utils/printReport'
 import { formatDate } from '../../utils/format'
 
+interface PaymentMethodStat {
+  payment_method: string
+  total: number
+  count?: number
+  transactions?: number
+}
+
 export default function FinancePage() {
   const { symbol, paymentMethods, restaurant } = useSettingsStore()
   const [period, setPeriod] = useState('month')
@@ -25,11 +32,11 @@ export default function FinancePage() {
     queryKey: ['payment-methods'],
     queryFn: async () => {
       const res = await api.get('/reports/payment-methods')
-      return res.data.methods
+      return res.data.methods as PaymentMethodStat[]
     },
   })
 
-  const paymentRows = (paymentMethodStats || []).map((method: any) => [
+  const paymentRows = (paymentMethodStats || []).map((method) => [
     paymentMethods.find((m) => m.value === method.payment_method)?.label || method.payment_method,
     formatMoney(method.total, symbol),
     String(method.count ?? method.transactions ?? ''),
@@ -127,7 +134,7 @@ export default function FinancePage() {
       <Card className="dark:border-gray-800 dark:bg-gray-900">
         <h2 className="mb-4 text-lg font-semibold text-gray-900 dark:text-gray-100">طرق الدفع</h2>
         <div className="space-y-3">
-          {(paymentMethodStats || []).map((method: any) => (
+          {(paymentMethodStats || []).map((method) => (
             <div
               key={method.payment_method}
               className="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-gray-50 p-3 dark:bg-gray-800/60"

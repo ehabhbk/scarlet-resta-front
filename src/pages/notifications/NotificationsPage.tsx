@@ -3,9 +3,18 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '../../services/api'
 import { Bell } from 'lucide-react'
 import Card from '../../components/common/cards/Card'
-import DataTable from '../../components/common/tables/DataTable'
+import DataTable, { type Column } from '../../components/common/tables/DataTable'
 import Pagination from '../../components/common/Pagination'
 import { formatDateTime } from '../../utils/format'
+
+interface Notification {
+  id: number
+  title?: string
+  message?: string
+  type: string
+  is_read: boolean
+  created_at: string
+}
 
 export default function NotificationsPage() {
   const [page, setPage] = useState(1)
@@ -19,7 +28,7 @@ export default function NotificationsPage() {
       return res.data
     },
   })
-  const notifications = notifRes?.data
+  const notifications = notifRes?.data as Notification[] | undefined
   const meta = notifRes ? { current_page: notifRes.current_page, last_page: notifRes.last_page, total: notifRes.total, per_page: notifRes.per_page } : null
 
   const markReadMutation = useMutation({
@@ -27,12 +36,12 @@ export default function NotificationsPage() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['notifications'] }),
   })
 
-  const columns = [
-    { key: 'title', header: 'العنوان', render: (n: any) => n.title || n.message || '-' },
+  const columns: Column<Notification>[] = [
+    { key: 'title', header: 'العنوان', render: (n) => n.title || n.message || '-' },
     { key: 'type', header: 'النوع' },
-    { key: 'is_read', header: 'مقروء', render: (n: any) => n.is_read ? 'نعم' : 'لا' },
-    { key: 'created_at', header: 'التاريخ', render: (n: any) => formatDateTime(n.created_at) },
-    { key: 'actions', header: 'الإجراءات', render: (n: any) => (
+    { key: 'is_read', header: 'مقروء', render: (n) => n.is_read ? 'نعم' : 'لا' },
+    { key: 'created_at', header: 'التاريخ', render: (n) => formatDateTime(n.created_at) },
+    { key: 'actions', header: 'الإجراءات', render: (n) => (
       !n.is_read && (
         <button onClick={() => markReadMutation.mutate(n.id)} className="px-2 py-1 text-xs bg-blue-100 dark:bg-blue-950/50 text-blue-700 dark:text-blue-300 rounded">تعليم كمقروء</button>
       )

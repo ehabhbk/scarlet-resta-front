@@ -7,12 +7,49 @@ import { useAuthStore } from '../../store/authStore'
 import { Search, Eye, XCircle, Trash2 } from 'lucide-react'
 import Input from '../../components/common/inputs/Input'
 import Card from '../../components/common/cards/Card'
-import DataTable from '../../components/common/tables/DataTable'
+import DataTable, { type Column } from '../../components/common/tables/DataTable'
 import Modal from '../../components/common/modals/Modal'
 import Badge from '../../components/common/data-display/Badge'
 import Pagination from '../../components/common/Pagination'
 import { mediaUrl } from '../../store/settingsStore'
 import { formatDateTime } from '../../utils/format'
+import { getApiErrorMessage } from '../../utils/apiError'
+
+interface OrderItemModifier {
+  modifier?: string
+  option?: string
+  name?: string
+}
+
+interface OrderItem {
+  id: number
+  product?: { image?: string; name?: string }
+  quantity: number
+  size?: { name?: string }
+  modifiers?: OrderItemModifier[]
+  total_price: number
+}
+
+interface OrderRecord {
+  id: number
+  order_number: string
+  cashier?: { name?: string }
+  type: string
+  status: string
+  total_amount: number
+  payment_status: string
+  created_at: string
+  items?: OrderItem[]
+  payments?: { amount: number; method?: string }[]
+  payment_method?: string
+  amount_paid?: number
+}
+
+interface OrderPayload {
+  id?: number
+  order?: { data?: OrderRecord } | OrderRecord
+  data?: { order?: OrderRecord } | OrderRecord
+}
 
 export default function OrdersPage() {
   const { symbol, paymentMethods, load } = useSettingsStore()
@@ -20,9 +57,9 @@ export default function OrdersPage() {
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('')
   const [page, setPage] = useState(1)
-  const [selectedOrder, setSelectedOrder] = useState<any>(null)
+  const [selectedOrder, setSelectedOrder] = useState<OrderRecord | null>(null)
   const [paymentAmount, setPaymentAmount] = useState('')
-  const [paymentMethod, setPaymentMethod] = useState('')
+  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState('')
   const [paymentDraftRows, setPaymentDraftRows] = useState<{ method: string; amount: string }[]>([])
   const queryClient = useQueryClient()
   const can = (permission: string) => user?.permissions?.includes(permission) ?? false
@@ -31,20 +68,29 @@ export default function OrdersPage() {
     void load()
   }, [load])
 
-  useEffect(() => {
-    if (!paymentMethods.some((method) => method.value === paymentMethod)) {
-      setPaymentMethod(paymentMethods[0]?.value || '')
+  const paymentMethod = paymentMethods.some((method) => method.value === selectedPaymentMethod)
+    ? selectedPaymentMethod
+    : paymentMethods[0]?.value || ''
+
+  const unwrapOrder = (payload: unknown): OrderRecord | null => {
+    if (typeof payload !== 'object' || payload === null) return null
+    const data = payload as OrderPayload
+    if (data.order) {
+      if ('data' in data.order) return data.order.data || null
+      return data.order as OrderRecord
     }
-  }, [paymentMethods, paymentMethod])
+    if (data.data) {
+      if ('order' in data.data) return data.data.order || null
+      return data.data as OrderRecord
+    }
+    return typeof data.id === 'number' ? data as OrderRecord : null
+  }
 
-  const unwrapOrder = (payload: any) =>
-    payload?.order?.data || payload?.order || payload?.data?.order || payload?.data || payload
-
-  const buildPaymentRows = (order: any) => {
+  const buildPaymentRows = (order: OrderRecord) => {
     const defaultMethod = order?.payment_method || paymentMethods[0]?.value || ''
-    const payments = (order?.payments || []).filter((payment: any) => Number(payment.amount) > 0)
+    const payments = (order?.payments || []).filter((payment) => Number(payment.amount) > 0)
     if (payments.length > 0) {
-      return payments.map((payment: any) => ({
+      return payments.map((payment) => ({
         method: payment.method || defaultMethod,
         amount: String(Number(payment.amount)),
       }))
@@ -55,7 +101,7 @@ export default function OrdersPage() {
     return [{ method: defaultMethod, amount: '' }]
   }
 
-  const openOrderDetails = async (order: any) => {
+  const openOrderDetails = async (order: OrderRecord) => {
     setSelectedOrder(order)
     setPaymentDraftRows(buildPaymentRows(order))
     try {
@@ -76,10 +122,10 @@ export default function OrdersPage() {
       let url = `/orders?search=${search}&page=${page}`
       if (statusFilter) url += `&status=${statusFilter}`
       const res = await api.get(url)
-      return res.data
+      return { ...res.data, data: res.data.data as OrderRecord[] }
     },
   })
-  const orders = ordersRes?.data
+  const orders = ordersRes?.data as OrderRecord[] | undefined
   const ordersMeta = ordersRes ? { current_page: ordersRes.current_page, last_page: ordersRes.last_page, total: ordersRes.total, per_page: ordersRes.per_page } : null
 
   const cancelMutation = useMutation({
@@ -131,9 +177,7 @@ export default function OrdersPage() {
       }
       toast.success('تم تحديث دفعات الطلب')
     },
-    onError: (error: any) => {
-      toast.error(error?.response?.data?.message || 'تعذر تحديث دفعات الطلب')
-    },
+    onError: (error) => toast.error(getApiErrorMessage(error, 'تعذر تحديث دفعات الطلب')),
   })
 
   const refundMutation = useMutation({
@@ -145,9 +189,7 @@ export default function OrdersPage() {
       setSelectedOrder(null)
       toast.success('تم استرداد المبلغ')
     },
-    onError: (error: any) => {
-      toast.error(error?.response?.data?.message || 'تعذر استرداد الطلب')
-    },
+    onError: (error) => toast.error(getApiErrorMessage(error, 'تعذر استرداد الطلب')),
   })
 
   const deleteMutation = useMutation({
@@ -159,9 +201,7 @@ export default function OrdersPage() {
       setSelectedOrder(null)
       toast.success('تم حذف الطلب')
     },
-    onError: (error: any) => {
-      toast.error(error?.response?.data?.message || 'تعذر حذف الطلب')
-    },
+    onError: (error) => toast.error(getApiErrorMessage(error, 'تعذر حذف الطلب')),
   })
 
   const statusColors: Record<string, 'default' | 'success' | 'warning' | 'danger' | 'info'> = {
@@ -174,25 +214,25 @@ export default function OrdersPage() {
     cancelled: 'danger',
   }
 
-  const columns = [
+  const columns: Column<OrderRecord>[] = [
     { key: 'order_number', header: 'رقم الطلب' },
-    { key: 'cashier', header: 'الكاشير', render: (item: any) => item.cashier?.name || '-' },
-    { key: 'type', header: 'النوع', render: (item: any) => 
+    { key: 'cashier', header: 'الكاشير', render: (item) => item.cashier?.name || '-' },
+    { key: 'type', header: 'النوع', render: (item) => 
       item.type === 'dine_in' ? 'داخل المطعم' : item.type === 'takeaway' ? 'سفري' : 'توصيل'
     },
-    { key: 'status', header: 'الحالة', render: (item: any) => (
+    { key: 'status', header: 'الحالة', render: (item) => (
       <Badge variant={statusColors[item.status] || 'default'}>
         {item.status}
       </Badge>
     )},
-    { key: 'total_amount', header: 'المبلغ', render: (item: any) => formatMoney(item.total_amount, symbol) },
-    { key: 'payment_status', header: 'الدفع', render: (item: any) => (
+    { key: 'total_amount', header: 'المبلغ', render: (item) => formatMoney(item.total_amount, symbol) },
+    { key: 'payment_status', header: 'الدفع', render: (item) => (
       <Badge variant={item.payment_status === 'paid' ? 'success' : 'warning'}>
         {item.payment_status}
       </Badge>
     )},
-    { key: 'created_at', header: 'التاريخ', render: (item: any) => formatDateTime(item.created_at) },
-    { key: 'actions', header: 'الإجراءات', render: (item: any) => (
+    { key: 'created_at', header: 'التاريخ', render: (item) => formatDateTime(item.created_at) },
+    { key: 'actions', header: 'الإجراءات', render: (item) => (
       <div className="flex gap-2">
         <button onClick={() => openOrderDetails(item)} className="p-1 text-blue-600 hover:bg-blue-50 rounded dark:text-blue-400 dark:hover:bg-blue-950/40">
           <Eye className="w-4 h-4" />
@@ -277,7 +317,7 @@ export default function OrdersPage() {
             <div>
               <h3 className="font-semibold mb-2">المنتجات</h3>
               <div className="space-y-2">
-                {selectedOrder.items?.map((item: any) => (
+                {selectedOrder.items?.map((item) => (
                   <div key={item.id} className="flex flex-wrap items-center justify-between gap-2 gap-3 p-2 bg-gray-50 rounded dark:bg-gray-800/40">
                     <div className="flex min-w-0 items-center gap-3">
                       {item.product?.image && (
@@ -288,10 +328,10 @@ export default function OrdersPage() {
                           {item.product?.name} × {item.quantity}
                           {item.size?.name && <span className="text-xs text-gray-400"> ({item.size.name})</span>}
                         </p>
-                        {item.modifiers?.length > 0 && (
+                        {item.modifiers && item.modifiers.length > 0 && (
                           <p className="truncate text-xs text-gray-500">
                             {item.modifiers
-                              .map((modifier: any) =>
+                              .map((modifier) =>
                                 [modifier.modifier, modifier.option].filter(Boolean).join(': ') || modifier.name
                               )
                               .join('، ')}
@@ -335,7 +375,7 @@ export default function OrdersPage() {
                   />
                   <select
                     value={paymentMethod}
-                    onChange={(e) => setPaymentMethod(e.target.value)}
+                    onChange={(e) => setSelectedPaymentMethod(e.target.value)}
                     className="px-3 py-2 border border-gray-300 rounded-lg dark:border-gray-700"
                   >
                     {paymentMethods.map((method) => (

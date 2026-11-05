@@ -63,6 +63,9 @@ const FALLBACK_PAYMENT_LABELS: Record<string, string> = {
 }
 
 type Slice = { name: string; value: number }
+type DashboardSliceRow = { name: string; value: number | string }
+type TopProduct = { id: number; name: string; revenue: number; sales_count: number }
+type LowStockItem = { id: number; name: string; current_stock: number }
 
 const toInputDate = (date: Date) =>
   `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
@@ -251,7 +254,7 @@ export default function DashboardPage() {
 
   const salesSlices = useMemo<Slice[]>(
     () =>
-      (breakdowns?.sales || []).map((row: any) => ({
+      (breakdowns?.sales || []).map((row: DashboardSliceRow) => ({
         name: SALE_TYPE_LABELS[row.name] || row.name,
         value: Number(row.value) || 0,
       })),
@@ -260,7 +263,7 @@ export default function DashboardPage() {
 
   const purchaseSlices = useMemo<Slice[]>(
     () =>
-      (breakdowns?.purchases || []).map((row: any) => ({
+      (breakdowns?.purchases || []).map((row: DashboardSliceRow) => ({
         name: row.name,
         value: Number(row.value) || 0,
       })),
@@ -269,7 +272,7 @@ export default function DashboardPage() {
 
   const expenseSlices = useMemo<Slice[]>(
     () =>
-      (breakdowns?.expenses || []).map((row: any) => ({
+      (breakdowns?.expenses || []).map((row: DashboardSliceRow) => ({
         name: row.name,
         value: Number(row.value) || 0,
       })),
@@ -278,7 +281,7 @@ export default function DashboardPage() {
 
   const productSlices = useMemo<Slice[]>(
     () =>
-      (breakdowns?.products || []).map((row: any) => ({
+      (breakdowns?.products || []).map((row: DashboardSliceRow) => ({
         name: row.name,
         value: Number(row.value) || 0,
       })),
@@ -287,7 +290,7 @@ export default function DashboardPage() {
 
   const categorySlices = useMemo<Slice[]>(
     () =>
-      (breakdowns?.categories || []).map((row: any) => ({
+      (breakdowns?.categories || []).map((row: DashboardSliceRow) => ({
         name: row.name,
         value: Number(row.value) || 0,
       })),
@@ -296,7 +299,7 @@ export default function DashboardPage() {
 
   const employeeSlices = useMemo<Slice[]>(
     () =>
-      (breakdowns?.employees || []).map((row: any) => ({
+      (breakdowns?.employees || []).map((row: DashboardSliceRow) => ({
         name: row.name,
         value: Number(row.value) || 0,
       })),
@@ -305,7 +308,7 @@ export default function DashboardPage() {
 
   const paymentSlices = useMemo<Slice[]>(
     () =>
-      (breakdowns?.payment_methods || []).map((row: any) => ({
+      (breakdowns?.payment_methods || []).map((row: DashboardSliceRow) => ({
         name: paymentLabel(row.name),
         value: Number(row.value) || 0,
       })),
@@ -596,7 +599,7 @@ export default function DashboardPage() {
           </div>
           <div className="space-y-3">
             {topProducts?.products?.length ? (
-              topProducts.products.map((product: any, index: number) => (
+              topProducts.products.map((product: TopProduct, index: number) => (
                 <div key={product.id} className="flex flex-wrap items-center justify-between gap-2 gap-3">
                   <div className="flex min-w-0 items-center gap-3">
                     <span
@@ -675,7 +678,7 @@ export default function DashboardPage() {
               يوجد {formatNumber(lowStockAlerts.length)} صنف بمخزون منخفض. يرجى التحقق من المخزون.
             </p>
             <div className="mt-2 flex flex-wrap gap-2">
-              {lowStockAlerts.slice(0, 6).map((item: any) => (
+              {lowStockAlerts.slice(0, 6).map((item: LowStockItem) => (
                 <span
                   key={item.id}
                   className="rounded-full bg-white/70 px-2 py-1 text-xs text-amber-800 dark:bg-amber-500/15 dark:text-amber-200"

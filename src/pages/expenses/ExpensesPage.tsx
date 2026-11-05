@@ -6,11 +6,29 @@ import { Plus, Trash2 } from 'lucide-react'
 import Button from '../../components/common/buttons/Button'
 import Input from '../../components/common/inputs/Input'
 import Card from '../../components/common/cards/Card'
-import DataTable from '../../components/common/tables/DataTable'
+import DataTable, { type Column } from '../../components/common/tables/DataTable'
 import Modal from '../../components/common/modals/Modal'
 import Pagination from '../../components/common/Pagination'
 import { useAuthStore } from '../../store/authStore'
 import { formatDate } from '../../utils/format'
+import { getApiErrorMessage } from '../../utils/apiError'
+
+interface ExpenseFormProps {
+  accounts: { id: number; code: string; name: string; type: string; is_active: boolean }[]
+  paymentMethods: { value: string; label: string }[]
+  onClose: () => void
+  onSuccess: () => void
+}
+
+interface ExpenseRecord {
+  id: number
+  category: string
+  amount: number
+  account?: { name: string }
+  expense_date: string
+  description?: string
+  is_approved: boolean
+}
 
 export default function ExpensesPage() {
   const { symbol, paymentMethods } = useSettingsStore()
@@ -40,14 +58,14 @@ export default function ExpensesPage() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['expenses'] }),
   })
 
-  const columns = [
+  const columns: Column<ExpenseRecord>[] = [
     { key: 'category', header: 'الفئة' },
-    { key: 'amount', header: 'المبلغ', render: (e: any) => formatMoney(e.amount, symbol) },
-    { key: 'account', header: 'الحساب', render: (e: any) => e.account?.name || '-' },
-    { key: 'expense_date', header: 'التاريخ', render: (e: any) => formatDate(e.expense_date) },
+    { key: 'amount', header: 'المبلغ', render: (e) => formatMoney(e.amount, symbol) },
+    { key: 'account', header: 'الحساب', render: (e) => e.account?.name || '-' },
+    { key: 'expense_date', header: 'التاريخ', render: (e) => formatDate(e.expense_date) },
     { key: 'description', header: 'الوصف' },
-    { key: 'is_approved', header: 'معتمد', render: (e: any) => e.is_approved ? 'نعم' : 'لا' },
-    ...(canDelete ? [{ key: 'actions', header: 'الإجراءات', render: (e: any) => (
+    { key: 'is_approved', header: 'معتمد', render: (e) => e.is_approved ? 'نعم' : 'لا' },
+    ...(canDelete ? [{ key: 'actions', header: 'الإجراءات', render: (e: ExpenseRecord) => (
       <button onClick={() => deleteMutation.mutate(e.id)} className="p-1 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/40 rounded"><Trash2 className="w-4 h-4" /></button>
     )}] : []),
   ]
@@ -69,7 +87,7 @@ export default function ExpensesPage() {
   )
 }
 
-function ExpenseForm({ accounts, paymentMethods, onClose, onSuccess }: any) {
+function ExpenseForm({ accounts, paymentMethods, onClose, onSuccess }: ExpenseFormProps) {
   const [formData, setFormData] = useState({
     category: '',
     amount: '',
@@ -79,12 +97,9 @@ function ExpenseForm({ accounts, paymentMethods, onClose, onSuccess }: any) {
     payment_method: paymentMethods[0]?.value || '',
   })
   const mutation = useMutation({
-    mutationFn: async (data: any) => { await api.post('/expenses', data) },
+    mutationFn: async (data: Record<string, unknown>) => { await api.post('/expenses', data) },
     onSuccess,
-    onError: (error: any) => {
-      const firstError = Object.values(error?.response?.data?.errors || {})[0]
-      window.alert((Array.isArray(firstError) ? firstError[0] : firstError) || error?.response?.data?.message || 'تعذر حفظ المصروف')
-    },
+    onError: (error) => window.alert(getApiErrorMessage(error, 'تعذر حفظ المصروف')),
   })
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
@@ -98,13 +113,13 @@ function ExpenseForm({ accounts, paymentMethods, onClose, onSuccess }: any) {
         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">حساب المصروف</label>
         <select value={formData.account_id} onChange={(e) => setFormData({ ...formData, account_id: e.target.value })} className="w-full px-4 py-2 border border-gray-300 dark:border-gray-700 rounded-lg" required>
           <option value="">اختر حساب المصروف</option>
-          {accounts.filter((a: any) => a.type === 'expense' && a.is_active).map((a: any) => <option key={a.id} value={a.id}>{a.code} - {a.name}</option>)}
+          {accounts.filter((a) => a.type === 'expense' && a.is_active).map((a) => <option key={a.id} value={a.id}>{a.code} - {a.name}</option>)}
         </select>
       </div>
       <div>
         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">طريقة الدفع</label>
         <select value={formData.payment_method} onChange={(e) => setFormData({ ...formData, payment_method: e.target.value })} className="w-full px-4 py-2 border border-gray-300 dark:border-gray-700 rounded-lg" required>
-          {paymentMethods.map((method: any) => <option key={method.value} value={method.value}>{method.label}</option>)}
+          {paymentMethods.map((method) => <option key={method.value} value={method.value}>{method.label}</option>)}
         </select>
       </div>
       <Input label="التاريخ" type="date" value={formData.expense_date} onChange={(e) => setFormData({ ...formData, expense_date: e.target.value })} required />

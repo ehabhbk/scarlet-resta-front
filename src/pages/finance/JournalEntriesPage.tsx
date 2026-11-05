@@ -13,6 +13,19 @@ import { formatDate } from '../../utils/format'
 
 interface Line { account_id: number | ''; debit: number; credit: number; description: string }
 
+interface JournalEntry {
+  id: number
+  entry_date: string
+  entry_number: string
+  reference?: string | null
+  description?: string | null
+  lines: JournalEntryLine[]
+}
+
+interface JournalEntryLine extends Line {
+  id: number
+  account?: { code: string; name: string }
+}
 
 
 const today = () => new Date().toISOString().slice(0, 10)
@@ -22,7 +35,7 @@ export default function JournalEntriesPage() {
   const { symbol, restaurant } = useSettingsStore()
   const currentUser = useAuthStore((state) => state.user)
   const [showModal, setShowModal] = useState(false)
-  const [editing, setEditing] = useState<any>(null)
+  const [editing, setEditing] = useState<JournalEntry | null>(null)
   const [form, setForm] = useState({ entry_date: today(), reference: '', description: '' })
   const [search, setSearch] = useState('')
   const [from, setFrom] = useState('')
@@ -35,7 +48,7 @@ export default function JournalEntriesPage() {
 
   const { data: accounts } = useQuery({
     queryKey: ['chart-of-accounts'],
-    queryFn: async () => (await api.get('/accounting/chart-of-accounts')).data?.accounts || [],
+    queryFn: async () => (await api.get('/accounting/chart-of-accounts')).data?.accounts as { id: number; code: string; name: string }[] || [],
   })
 
   const { data, isLoading } = useQuery({
@@ -50,7 +63,7 @@ export default function JournalEntriesPage() {
 
   const entries = useMemo(() => {
     const payload = data?.data ?? data
-    return Array.isArray(payload) ? payload : []
+    return Array.isArray(payload) ? payload as JournalEntry[] : []
   }, [data])
 
   const meta = data && !Array.isArray(data) ? data : null
@@ -60,8 +73,8 @@ export default function JournalEntriesPage() {
   const totals = useMemo(
     () =>
       entries.reduce(
-        (acc: { debit: number; credit: number }, entry: any) => {
-          ;(entry.lines || []).forEach((line: any) => {
+        (acc: { debit: number; credit: number }, entry) => {
+          ;(entry.lines || []).forEach((line) => {
             acc.debit += Number(line.debit) || 0
             acc.credit += Number(line.credit) || 0
           })
@@ -131,11 +144,11 @@ export default function JournalEntriesPage() {
   const updateLine = (i: number, patch: Partial<Line>) =>
     setLines((prev) => prev.map((l, idx) => (idx === i ? { ...l, ...patch } : l)))
 
-  const openEdit = (entry: any) => {
+  const openEdit = (entry: JournalEntry) => {
     setEditing(entry)
     setForm({ entry_date: String(entry.entry_date || '').slice(0, 10), reference: entry.reference || '', description: entry.description || '' })
     setLines(
-      (entry.lines || []).map((l: any) => ({
+      (entry.lines || []).map((l) => ({
         account_id: l.account_id,
         debit: Number(l.debit) || 0,
         credit: Number(l.credit) || 0,
@@ -147,12 +160,12 @@ export default function JournalEntriesPage() {
 
   const handlePrint = () => {
     const rangeLabel = from && to ? `من ${from} إلى ${to}` : from ? `من ${from}` : to ? `حتى ${to}` : 'جميع الفترات'
-    const rows = entries.flatMap((entry: any) => {
+    const rows = entries.flatMap((entry) => {
       const entryLines = entry.lines || []
       if (entryLines.length === 0) {
         return [[entry.entry_number, formatDate(entry.entry_date), '-', entry.description || entry.reference || '-', '', '']]
       }
-      return entryLines.map((line: any, index: number) => [
+      return entryLines.map((line, index: number) => [
         index === 0 ? entry.entry_number : '',
         index === 0 ? formatDate(entry.entry_date) : '',
         `${line.account?.code || ''} - ${line.account?.name || ''}`,
@@ -295,7 +308,7 @@ export default function JournalEntriesPage() {
                 </tr>
               </thead>
               <tbody>
-                {entries.map((entry: any) => {
+                {entries.map((entry) => {
                   const entryLines = entry.lines || []
                   const rowCount = Math.max(entryLines.length, 1)
                   return Array.from({ length: rowCount }).map((_, index) => {
@@ -418,7 +431,7 @@ export default function JournalEntriesPage() {
                   className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
                 >
                   <option value="">اختر حساباً</option>
-                  {(accounts || []).map((a: any) => (
+                  {(accounts || []).map((a) => (
                     <option key={a.id} value={a.id}>
                       {a.code} - {a.name}
                     </option>

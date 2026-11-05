@@ -8,6 +8,11 @@ import Card from '../../components/common/cards/Card'
 import Modal from '../../components/common/modals/Modal'
 import { useAuthStore } from '../../store/authStore'
 
+interface ManagedArea {
+  id: number
+  name: string
+}
+
 export default function AreasManagementPanel() {
   const queryClient = useQueryClient()
   const permissions = useAuthStore((state) => state.user?.permissions || [])
@@ -15,19 +20,19 @@ export default function AreasManagementPanel() {
   const canEdit = permissions.includes('edit_tables')
   const canDelete = permissions.includes('delete_tables')
   const [showModal, setShowModal] = useState(false)
-  const [editing, setEditing] = useState<any>(null)
+  const [editing, setEditing] = useState<ManagedArea | null>(null)
   const [name, setName] = useState('')
 
   const { data: areas, isLoading } = useQuery({
     queryKey: ['settings-areas'],
     queryFn: async () => {
       const res = await api.get('/areas')
-      return res.data?.areas || res.data?.data || []
+      return (res.data?.areas || res.data?.data || []) as ManagedArea[]
     },
   })
 
   const saveMutation = useMutation({
-    mutationFn: async (data: any) => {
+    mutationFn: async (data: { name: string }) => {
       if (editing) await api.put(`/areas/${editing.id}`, data)
       else await api.post('/areas', data)
     },
@@ -48,7 +53,7 @@ export default function AreasManagementPanel() {
     },
   })
 
-  const openEdit = (area: any) => { setEditing(area); setName(area.name); setShowModal(true) }
+  const openEdit = (area: ManagedArea) => { setEditing(area); setName(area.name); setShowModal(true) }
   const openNew = () => { setEditing(null); setName(''); setShowModal(true) }
 
   return (
@@ -66,7 +71,7 @@ export default function AreasManagementPanel() {
         {isLoading && <p className="text-sm text-gray-500">جاري التحميل...</p>}
         {!isLoading && (!areas || areas.length === 0) && <p className="text-sm text-gray-500">لا توجد مناطق.</p>}
         <div className="space-y-2">
-          {(areas || []).map((area: any) => (
+          {(areas || []).map((area) => (
             <div key={area.id} className="flex flex-wrap items-center justify-between gap-2 gap-3 rounded-xl border border-gray-200 bg-white p-3 dark:border-gray-700 dark:bg-gray-900">
               <div className="flex items-center gap-3">
                 <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 text-primary"><MapPin className="h-5 w-5" /></span>

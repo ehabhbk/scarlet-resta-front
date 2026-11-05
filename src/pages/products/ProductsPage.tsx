@@ -6,11 +6,33 @@ import { Plus, Search, Edit, Trash2, Settings, ImagePlus } from 'lucide-react'
 import Button from '../../components/common/buttons/Button'
 import Input from '../../components/common/inputs/Input'
 import Card from '../../components/common/cards/Card'
-import DataTable from '../../components/common/tables/DataTable'
+import DataTable, { type Column } from '../../components/common/tables/DataTable'
 import Modal from '../../components/common/modals/Modal'
 import Pagination from '../../components/common/Pagination'
 import { useSettingsStore, formatMoney, mediaUrl } from '../../store/settingsStore'
 import { useAuthStore } from '../../store/authStore'
+import { getApiErrorMessage } from '../../utils/apiError'
+
+interface ProductRecord {
+  id: number
+  name: string
+  image?: string
+  category?: { name: string }
+  category_id: number | string
+  kitchen_station_id?: number | string
+  sale_price: number
+  cost_price: number
+  current_stock: number
+  is_available: boolean
+}
+
+interface ProductFormProps {
+  product: ProductRecord | null
+  categories: { id: number; name: string }[]
+  kitchenStations: { id: number; name: string; display_name?: string }[]
+  onClose: () => void
+  onSuccess: () => void
+}
 
 export default function ProductsPage() {
   const { symbol } = useSettingsStore()
@@ -21,8 +43,8 @@ export default function ProductsPage() {
   const [search, setSearch] = useState('')
   const [page, setPage] = useState(1)
   const [showModal, setShowModal] = useState(false)
-  const [editingProduct, setEditingProduct] = useState<any>(null)
-  const [managingProduct, setManagingProduct] = useState<any>(null)
+  const [editingProduct, setEditingProduct] = useState<ProductRecord | null>(null)
+  const [managingProduct, setManagingProduct] = useState<ProductRecord | null>(null)
   const queryClient = useQueryClient()
 
   const { data: productsRes, isLoading } = useQuery({
@@ -33,7 +55,7 @@ export default function ProductsPage() {
     },
   })
 
-  const products = productsRes?.data || []
+  const products = (productsRes?.data || []) as ProductRecord[]
   const productsMeta = productsRes?.meta || (productsRes?.current_page ? {
     current_page: productsRes.current_page,
     last_page: productsRes.last_page,
@@ -45,7 +67,7 @@ export default function ProductsPage() {
     queryKey: ['categories'],
     queryFn: async () => {
       const res = await api.get('/categories')
-      return res.data.categories || res.data.data || []
+      return (res.data.categories || res.data.data || []) as ProductFormProps['categories']
     },
   })
 
@@ -53,7 +75,7 @@ export default function ProductsPage() {
     queryKey: ['kitchen-stations'],
     queryFn: async () => {
       const res = await api.get('/products/kitchen-stations')
-      return res.data.stations || []
+      return (res.data.stations || []) as ProductFormProps['kitchenStations']
     },
   })
 
@@ -66,11 +88,11 @@ export default function ProductsPage() {
     },
   })
 
-  const columns = [
+  const columns: Column<ProductRecord>[] = [
     {
       key: 'name',
       header: 'اسم المنتج',
-      render: (item: any) => (
+      render: (item: ProductRecord) => (
         <div className="flex items-center gap-3">
           {item.image ? (
             <img src={mediaUrl(item.image)} alt="" className="h-10 w-10 rounded-lg object-cover" />
@@ -86,22 +108,22 @@ export default function ProductsPage() {
     {
       key: 'category',
       header: 'الفئة',
-      render: (item: any) => <div>{item.category?.name || '-'}</div>,
+      render: (item) => <div>{item.category?.name || '-'}</div>,
     },
     {
       key: 'sale_price',
       header: 'سعر البيع',
-      render: (item: any) => <div>{formatMoney(item.sale_price, symbol)}</div>,
+      render: (item) => <div>{formatMoney(item.sale_price, symbol)}</div>,
     },
     {
       key: 'cost_price',
       header: 'التكلفة',
-      render: (item: any) => <div>{formatMoney(item.cost_price, symbol)}</div>,
+      render: (item) => <div>{formatMoney(item.cost_price, symbol)}</div>,
     },
     {
       key: 'current_stock',
       header: 'الكمية الحالية',
-      render: (item: any) => (
+      render: (item: ProductRecord) => (
         <div>
           <span className="px-2 py-1 rounded text-xs bg-green-100 dark:bg-green-950/50 text-green-700 dark:text-green-300">
             {item.current_stock ?? 0}
@@ -112,7 +134,7 @@ export default function ProductsPage() {
     ...(canEdit || canDelete ? [{
       key: 'actions',
       header: 'الإجراءات',
-      render: (item: any) => (
+      render: (item: ProductRecord) => (
         <div className="flex gap-2">
           {canEdit && (
             <>
@@ -186,8 +208,16 @@ export default function ProductsPage() {
   )
 }
 
-function ProductForm({ product, categories, kitchenStations, onClose, onSuccess }: any) {
-  const [formData, setFormData] = useState({
+function ProductForm({ product, categories, kitchenStations, onClose, onSuccess }: ProductFormProps) {
+  const [formData, setFormData] = useState<{
+    name: string
+    category_id: number | string
+    kitchen_station_id: string
+    sale_price: number | string
+    cost_price: number | string
+    current_stock: number | string
+    is_available: boolean
+  }>({
     name: product?.name || '',
     category_id: product?.category_id || '',
     kitchen_station_id: product?.kitchen_station_id ? String(product.kitchen_station_id) : '',
@@ -231,15 +261,7 @@ function ProductForm({ product, categories, kitchenStations, onClose, onSuccess 
       toast.success('تم الحفظ')
       onSuccess()
     },
-    onError: (error: any) => {
-      const errors = error?.response?.data?.errors
-      const firstError = errors ? Object.values(errors)[0] : null
-      toast.error(
-        (Array.isArray(firstError) ? firstError[0] : firstError) ||
-          error?.response?.data?.message ||
-          'تعذر حفظ المنتج'
-      )
-    },
+    onError: (error) => toast.error(getApiErrorMessage(error, 'تعذر حفظ المنتج')),
   })
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -263,7 +285,7 @@ function ProductForm({ product, categories, kitchenStations, onClose, onSuccess 
           className="w-full rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-2"
         >
           <option value="">بدون قسم</option>
-          {categories.map((category: any) => (
+          {categories.map((category) => (
             <option key={category.id} value={category.id}>{category.name}</option>
           ))}
         </select>
@@ -276,7 +298,7 @@ function ProductForm({ product, categories, kitchenStations, onClose, onSuccess 
           className="w-full rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-2"
         >
           <option value="">بدون محطة</option>
-          {kitchenStations.map((station: any) => (
+          {kitchenStations.map((station) => (
             <option key={station.id} value={station.id}>
               {station.display_name || station.name}
             </option>
@@ -338,20 +360,20 @@ function ProductForm({ product, categories, kitchenStations, onClose, onSuccess 
   )
 }
 
-function ProductModifiersManager({ product, symbol }: any) {
+function ProductModifiersManager({ product, symbol }: { product: Pick<ProductRecord, 'id' | 'name'>; symbol: string }) {
   const queryClient = useQueryClient()
   const { data: sizes, refetch: refetchSizes } = useQuery({
     queryKey: ['product-sizes', product.id],
     queryFn: async () => {
       const res = await api.get(`/products/${product.id}/sizes`)
-      return res.data.sizes || res.data.data || res.data || []
+      return (res.data.sizes || res.data.data || res.data || []) as { id: number; name: string; price_modifier: number }[]
     },
   })
   const { data: modifiers, refetch: refetchModifiers } = useQuery({
     queryKey: ['product-modifiers', product.id],
     queryFn: async () => {
       const res = await api.get(`/products/${product.id}/modifiers`)
-      return res.data.modifiers || res.data.data || res.data || []
+      return (res.data.modifiers || res.data.data || res.data || []) as { id: number; name: string; is_required: boolean }[]
     },
   })
   const [sizeName, setSizeName] = useState('')
@@ -381,7 +403,7 @@ function ProductModifiersManager({ product, symbol }: any) {
       <div>
         <h3 className="font-semibold mb-2">الأحجام</h3>
         <div className="space-y-2 mb-3">
-          {(sizes || []).map((s: any) => (
+          {(sizes || []).map((s) => (
             <div key={s.id} className="flex flex-wrap items-center justify-between gap-2 p-2 bg-gray-50 dark:bg-gray-800/40 rounded">
               <span>{s.name} ({formatMoney(s.price_modifier, symbol)})</span>
               <button onClick={() => deleteSizeMutation.mutate(s.id)} className="p-1 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/40 rounded"><Trash2 className="w-4 h-4" /></button>
@@ -398,7 +420,7 @@ function ProductModifiersManager({ product, symbol }: any) {
       <div>
         <h3 className="font-semibold mb-2">الإضافات</h3>
         <div className="space-y-2 mb-3">
-          {(modifiers || []).map((m: any) => (
+          {(modifiers || []).map((m) => (
             <div key={m.id} className="flex flex-wrap items-center justify-between gap-2 p-2 bg-gray-50 dark:bg-gray-800/40 rounded">
               <span>{m.name} {m.is_required ? '(مطلوبة)' : ''}</span>
               <button onClick={() => deleteModifierMutation.mutate(m.id)} className="p-1 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/40 rounded"><Trash2 className="w-4 h-4" /></button>

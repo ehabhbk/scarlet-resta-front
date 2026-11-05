@@ -8,14 +8,27 @@ import { Plus, Trash2, Lock } from 'lucide-react'
 import Button from '../../components/common/buttons/Button'
 import Input from '../../components/common/inputs/Input'
 import Card from '../../components/common/cards/Card'
-import DataTable from '../../components/common/tables/DataTable'
+import DataTable, { type Column } from '../../components/common/tables/DataTable'
 import Modal from '../../components/common/modals/Modal'
 import Pagination from '../../components/common/Pagination'
 import { formatDate, formatTime } from '../../utils/format'
+import { getApiErrorMessage } from '../../utils/apiError'
+
+interface ShiftRecord {
+  id: number
+  shift_date: string
+  user?: { name: string }
+  employees?: { id: number; name: string }[]
+  start_time: string
+  end_time: string
+  status: string
+  expected_cash?: number
+  opening_cash?: number
+}
 
 export default function ShiftsPage() {
   const [showModal, setShowModal] = useState(false)
-  const [closingShift, setClosingShift] = useState<any>(null)
+  const [closingShift, setClosingShift] = useState<ShiftRecord | null>(null)
   const [actualCash, setActualCash] = useState('')
   const [page, setPage] = useState(1)
   const queryClient = useQueryClient()
@@ -28,13 +41,13 @@ export default function ShiftsPage() {
       return res.data
     },
   })
-  const shifts = shiftsRes?.data
+  const shifts = shiftsRes?.data as ShiftRecord[] | undefined
   const meta = shiftsRes ? { current_page: shiftsRes.current_page, last_page: shiftsRes.last_page, total: shiftsRes.total, per_page: shiftsRes.per_page } : null
 
   const deleteMutation = useMutation({
     mutationFn: async (id: number) => { await api.delete(`/shifts/${id}`) },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['shifts'] }),
-    onError: (error: any) => toast.error(error?.response?.data?.message || 'تعذر حذف الوردية'),
+    onError: (error) => toast.error(getApiErrorMessage(error, 'تعذر حذف الوردية')),
   })
 
   const closeMutation = useMutation({
@@ -49,17 +62,17 @@ export default function ShiftsPage() {
       queryClient.invalidateQueries({ queryKey: ['shifts'] })
       setClosingShift(null)
     },
-    onError: (error: any) => toast.error(error?.response?.data?.message || 'تعذر إغلاق الوردية'),
+    onError: (error) => toast.error(getApiErrorMessage(error, 'تعذر إغلاق الوردية')),
   })
 
-  const columns = [
-    { key: 'name', header: 'الوردية', render: (s: any) => `#${s.id} - ${formatDate(s.shift_date)}` },
-    { key: 'user', header: 'المستخدم', render: (s: any) => s.user?.name || '-' },
-    { key: 'employees', header: 'الموظفون', render: (s: any) => (s.employees || []).map((employee: any) => employee.name).join('، ') || '-' },
-    { key: 'start_time', header: 'بداية', render: (s: any) => formatTime(s.start_time) },
-    { key: 'end_time', header: 'نهاية', render: (s: any) => formatTime(s.end_time) },
+  const columns: Column<ShiftRecord>[] = [
+    { key: 'name', header: 'الوردية', render: (s) => `#${s.id} - ${formatDate(s.shift_date)}` },
+    { key: 'user', header: 'المستخدم', render: (s) => s.user?.name || '-' },
+    { key: 'employees', header: 'الموظفون', render: (s) => (s.employees || []).map((employee) => employee.name).join('، ') || '-' },
+    { key: 'start_time', header: 'بداية', render: (s) => formatTime(s.start_time) },
+    { key: 'end_time', header: 'نهاية', render: (s) => formatTime(s.end_time) },
     { key: 'status', header: 'الحالة' },
-    { key: 'actions', header: 'الإجراءات', render: (s: any) => (
+    { key: 'actions', header: 'الإجراءات', render: (s) => (
       <div className="flex gap-2">
         {s.status === 'open' && user?.permissions?.includes('close_shift') && (
           <button
@@ -114,13 +127,16 @@ export default function ShiftsPage() {
   )
 }
 
-function ShiftForm({ onClose, onSuccess }: any) {
+function ShiftForm({ onClose, onSuccess }: { onClose: () => void; onSuccess: () => void }) {
   const user = useAuthStore((state) => state.user)
   const symbol = useSettingsStore((state) => state.symbol)
   const [employeeIds, setEmployeeIds] = useState<number[]>([])
   const { data: options, isLoading: optionsLoading, isError: optionsError, refetch: refetchOptions } = useQuery({
     queryKey: ['shift-options'],
-    queryFn: async () => (await api.get('/shifts/options')).data,
+    queryFn: async () => (await api.get('/shifts/options')).data as {
+      employees: { id: number; name: string; pay_type?: string; pay_rate?: number }[]
+      permissions?: { manage_shift_employees?: boolean }
+    },
   })
   const employees = options?.employees || []
   const [formData, setFormData] = useState({
@@ -131,14 +147,14 @@ function ShiftForm({ onClose, onSuccess }: any) {
     opening_cash: 0,
   })
   const mutation = useMutation({
-    mutationFn: async (data: any) => {
+    mutationFn: async (data: typeof formData) => {
       await api.post('/shifts/open', {
         ...data,
         employee_ids: employeeIds,
       })
     },
     onSuccess,
-    onError: (error: any) => toast.error(error?.response?.data?.message || 'تعذر فتح الوردية'),
+    onError: (error) => toast.error(getApiErrorMessage(error, 'تعذر فتح الوردية')),
   })
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -168,7 +184,7 @@ function ShiftForm({ onClose, onSuccess }: any) {
           {employees.length === 0 && !optionsLoading && !optionsError && (
             <p className="text-sm text-gray-500 dark:text-gray-400">لا يوجد موظفون يوميون أو بنظام النسبة متاحون للاختيار.</p>
           )}
-          {employees.map((employee: any) => (
+          {employees.map((employee) => (
             <label key={employee.id} className="flex items-center gap-2 text-sm">
               <input
                 type="checkbox"

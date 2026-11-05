@@ -1,7 +1,7 @@
 import { clsx } from 'clsx'
 import type { ReactNode } from 'react'
 
-interface Column<T> {
+export interface Column<T> {
   key: string
   header: string
   render?: (item: T) => ReactNode
@@ -66,7 +66,12 @@ export default function DataTable<T extends { id: number }>({
                   key={column.key} 
                   className={clsx('px-3 py-3 text-sm text-gray-700 dark:text-gray-300 sm:px-4', column.className)}
                 >
-                  {column.render ? column.render(item) : (item as any)[column.key]}
+                  {column.render
+                    ? column.render(item)
+                    : (() => {
+                        const value = item[column.key as keyof T]
+                        return typeof value === 'string' || typeof value === 'number' ? value : null
+                      })()}
                 </td>
               ))}
             </tr>

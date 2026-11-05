@@ -5,10 +5,27 @@ import { Plus, Trash2 } from 'lucide-react'
 import Button from '../../components/common/buttons/Button'
 import Input from '../../components/common/inputs/Input'
 import Card from '../../components/common/cards/Card'
-import DataTable from '../../components/common/tables/DataTable'
+import DataTable, { type Column } from '../../components/common/tables/DataTable'
 import Modal from '../../components/common/modals/Modal'
 import Pagination from '../../components/common/Pagination'
 import { formatDateTime } from '../../utils/format'
+
+interface StockMovement {
+  id: number
+  inventoryItem?: { name: string }
+  type: string
+  quantity: number
+  cost_per_unit: number
+  total_cost: number
+  reference_type?: string
+  created_at: string
+}
+
+interface MovementFormProps {
+  items: { id: number; name: string }[]
+  onClose: () => void
+  onSuccess: () => void
+}
 
 export default function StockMovementsPage() {
   const [showModal, setShowModal] = useState(false)
@@ -22,14 +39,14 @@ export default function StockMovementsPage() {
       return res.data
     },
   })
-  const movements = movementsRes?.data
+  const movements = movementsRes?.data as StockMovement[] | undefined
   const meta = movementsRes ? { current_page: movementsRes.current_page, last_page: movementsRes.last_page, total: movementsRes.total, per_page: movementsRes.per_page } : null
 
   const { data: items } = useQuery({
     queryKey: ['inventory-items-all2'],
     queryFn: async () => {
       const res = await api.get('/inventory-items')
-      return res.data.data || []
+      return (res.data.data || []) as MovementFormProps['items']
     },
   })
 
@@ -38,15 +55,15 @@ export default function StockMovementsPage() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['stock-movements'] }),
   })
 
-  const columns = [
-    { key: 'inventory_item', header: 'الصنف', render: (m: any) => m.inventoryItem?.name || '-' },
-    { key: 'type', header: 'النوع', render: (m: any) => m.type === 'in' ? 'إدخال' : m.type === 'out' ? 'إخراج' : 'تسوية' },
+  const columns: Column<StockMovement>[] = [
+    { key: 'inventory_item', header: 'الصنف', render: (m) => m.inventoryItem?.name || '-' },
+    { key: 'type', header: 'النوع', render: (m) => m.type === 'in' ? 'إدخال' : m.type === 'out' ? 'إخراج' : 'تسوية' },
     { key: 'quantity', header: 'الكمية' },
     { key: 'cost_per_unit', header: 'التكلفة/وحدة' },
     { key: 'total_cost', header: 'الإجمالي' },
     { key: 'reference_type', header: 'المرجع' },
-    { key: 'created_at', header: 'التاريخ', render: (m: any) => formatDateTime(m.created_at) },
-    { key: 'actions', header: 'الإجراءات', render: (m: any) => (
+    { key: 'created_at', header: 'التاريخ', render: (m) => formatDateTime(m.created_at) },
+    { key: 'actions', header: 'الإجراءات', render: (m) => (
       <button onClick={() => deleteMutation.mutate(m.id)} className="p-1 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/40 rounded"><Trash2 className="w-4 h-4" /></button>
     )},
   ]
@@ -68,7 +85,7 @@ export default function StockMovementsPage() {
   )
 }
 
-function MovementForm({ items, onClose, onSuccess }: any) {
+function MovementForm({ items, onClose, onSuccess }: MovementFormProps) {
   const [formData, setFormData] = useState({
     inventory_item_id: '',
     type: 'in',
@@ -77,7 +94,7 @@ function MovementForm({ items, onClose, onSuccess }: any) {
     notes: '',
   })
   const mutation = useMutation({
-    mutationFn: async (data: any) => { await api.post('/stock-movements', data) },
+    mutationFn: async (data: { inventory_item_id: string; type: string; quantity: string; cost_per_unit: string; notes: string }) => { await api.post('/stock-movements', data) },
     onSuccess,
   })
   const handleSubmit = (e: React.FormEvent) => { e.preventDefault(); mutation.mutate(formData) }
@@ -87,7 +104,7 @@ function MovementForm({ items, onClose, onSuccess }: any) {
         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">الصنف</label>
         <select value={formData.inventory_item_id} onChange={(e) => setFormData({ ...formData, inventory_item_id: e.target.value })} className="w-full px-4 py-2 border border-gray-300 dark:border-gray-700 rounded-lg" required>
           <option value="">اختر الصنف</option>
-          {items.map((it: any) => <option key={it.id} value={it.id}>{it.name}</option>)}
+          {items.map((it) => <option key={it.id} value={it.id}>{it.name}</option>)}
         </select>
       </div>
       <div>

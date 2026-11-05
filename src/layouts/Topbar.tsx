@@ -8,6 +8,19 @@ import { useLangStore } from '../store/langStore'
 import { useSettingsStore, mediaUrl } from '../store/settingsStore'
 import { api } from '../services/api'
 
+interface TopbarRole {
+  name: string
+  permissions?: { name: string }[]
+}
+
+interface Notification {
+  id: number
+  title?: string
+  message?: string
+  is_read: boolean
+  created_at: string
+}
+
 export default function Topbar() {
   const { user, logout } = useAuthStore()
   const { darkMode, toggleDarkMode, setMobileSidebarOpen } = useUiStore()
@@ -21,7 +34,7 @@ export default function Topbar() {
     queryKey: ['admin-roles'],
     queryFn: async () => {
       const res = await api.get('/admin/roles')
-      return res.data.roles || res.data.data || res.data
+      return (res.data.roles || res.data.data || res.data) as TopbarRole[]
     },
   })
 
@@ -29,17 +42,18 @@ export default function Topbar() {
     queryKey: ['notifications'],
     queryFn: async () => {
       const res = await api.get('/notifications')
-      return res.data.data || res.data
+      const payload = res.data.data || res.data
+      return (Array.isArray(payload) ? payload : payload?.data || []) as Notification[]
     },
     refetchInterval: 30000,
   })
 
-  const notifications = Array.isArray(notifData) ? notifData : (notifData?.data || [])
-  const unreadCount = notifications.filter((n: any) => !n.is_read).length
+  const notifications = notifData || []
+  const unreadCount = notifications.filter((n) => !n.is_read).length
 
   const userRoleName = user?.roles?.[0]?.name
-  const userRole = (Array.isArray(rolesData) ? rolesData : []).find((r: any) => r.name === userRoleName)
-  const userPerms = (userRole?.permissions || []).map((p: any) => p.name)
+  const userRole = (Array.isArray(rolesData) ? rolesData : []).find((r: TopbarRole) => r.name === userRoleName)
+  const userPerms = (userRole?.permissions || []).map((p) => p.name)
   const isAdmin = ['admin', 'Super Admin', 'Admin'].includes(userRoleName || '')
 
   const can = (perm: string) => isAdmin || userPerms.includes(perm)
@@ -97,7 +111,7 @@ export default function Topbar() {
                   {notifications.length === 0 && (
                     <p className="text-center py-6 text-sm text-gray-500">لا توجد إشعارات</p>
                   )}
-                  {notifications.map((n: any) => (
+                  {notifications.map((n) => (
                     <button
                       key={n.id}
                       type="button"

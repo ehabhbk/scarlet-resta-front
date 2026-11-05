@@ -5,8 +5,15 @@ import { Plus, Trash2 } from 'lucide-react'
 import Button from '../../components/common/buttons/Button'
 import Input from '../../components/common/inputs/Input'
 import Card from '../../components/common/cards/Card'
-import DataTable from '../../components/common/tables/DataTable'
+import DataTable, { type Column } from '../../components/common/tables/DataTable'
 import Modal from '../../components/common/modals/Modal'
+
+interface Area {
+  id: number
+  name: string
+  description?: string
+  sort_order: number
+}
 
 export default function AreasPage() {
   const [showModal, setShowModal] = useState(false)
@@ -16,7 +23,7 @@ export default function AreasPage() {
     queryKey: ['areas'],
     queryFn: async () => {
       const res = await api.get('/areas')
-      return res.data.areas || []
+      return (res.data.areas || []) as Area[]
     },
   })
 
@@ -25,11 +32,11 @@ export default function AreasPage() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['areas'] }),
   })
 
-  const columns = [
+  const columns: Column<Area>[] = [
     { key: 'name', header: 'اسم المنطقة' },
     { key: 'description', header: 'الوصف' },
     { key: 'sort_order', header: 'الترتيب' },
-    { key: 'actions', header: 'الإجراءات', render: (a: any) => (
+    { key: 'actions', header: 'الإجراءات', render: (a) => (
       <button onClick={() => deleteMutation.mutate(a.id)} className="p-1 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/40 rounded"><Trash2 className="w-4 h-4" /></button>
     )},
   ]
@@ -50,10 +57,10 @@ export default function AreasPage() {
   )
 }
 
-function AreaForm({ onClose, onSuccess }: any) {
+function AreaForm({ onClose, onSuccess }: { onClose: () => void; onSuccess: () => void }) {
   const [formData, setFormData] = useState({ name: '', description: '', sort_order: 0 })
   const mutation = useMutation({
-    mutationFn: async (data: any) => { await api.post('/areas', data) },
+    mutationFn: async (data: { name: string; description: string; sort_order: number }) => { await api.post('/areas', data) },
     onSuccess,
   })
   const handleSubmit = (e: React.FormEvent) => { e.preventDefault(); mutation.mutate(formData) }

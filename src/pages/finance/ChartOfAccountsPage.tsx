@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useMemo, useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '../../services/api'
 import { Plus, Pencil, Trash2, ChevronRight, ChevronDown, Printer } from 'lucide-react'
@@ -9,6 +9,28 @@ import Modal from '../../components/common/modals/Modal'
 import { useSettingsStore, formatMoney, mediaUrl } from '../../store/settingsStore'
 import { printReport } from '../../utils/printReport'
 import { formatDate } from '../../utils/format'
+
+interface Account {
+  id: number
+  code: string
+  name: string
+  type: string
+  parent_id: number | null
+  opening_balance: number
+  balance: number
+  is_active: boolean
+  notes?: string
+}
+
+interface AccountPayload {
+  code: string
+  name: string
+  type: string
+  parent_id: number | null
+  opening_balance: number
+  is_active: boolean
+  notes: string | null
+}
 
 const TYPE_LABELS: Record<string, string> = {
   asset: 'أصل',
@@ -26,36 +48,42 @@ const TYPE_COLORS: Record<string, string> = {
   expense: 'text-amber-600 dark:text-amber-400',
 }
 
+const EMPTY_ACCOUNTS: Account[] = []
+
 export default function ChartOfAccountsPage() {
   const { symbol, restaurant } = useSettingsStore()
   const queryClient = useQueryClient()
   const [showModal, setShowModal] = useState(false)
-  const [editing, setEditing] = useState<any>(null)
-  const [expanded, setExpanded] = useState<Set<number>>(new Set())
+  const [editing, setEditing] = useState<Account | null>(null)
+  const [expandedOverrides, setExpandedOverrides] = useState<{ expanded: Set<number>; collapsed: Set<number> }>({
+    expanded: new Set(),
+    collapsed: new Set(),
+  })
   const [form, setForm] = useState({ code: '', name: '', type: 'asset', parent_id: '', opening_balance: 0, is_active: true, notes: '' })
 
   const { data, isLoading } = useQuery({
     queryKey: ['chart-of-accounts'],
     queryFn: async () => {
       const res = await api.get('/accounting/chart-of-accounts')
-      return res.data?.accounts || []
+      return (res.data?.accounts || []) as Account[]
     },
   })
 
-  const accounts = data || []
-
-  useEffect(() => {
-    const parents = new Set<number>()
-    accounts.forEach((a: any) => { if (a.parent_id != null) parents.add(a.parent_id) })
-    setExpanded((prev) => {
-      const next = new Set(prev)
-      parents.forEach((id) => next.add(id))
-      return next
-    })
-  }, [accounts])
+  const accounts = data ?? EMPTY_ACCOUNTS
+  const parentIds = useMemo(
+    () => new Set(accounts.flatMap((account) => account.parent_id == null ? [] : [account.parent_id])),
+    [accounts]
+  )
+  const expanded = useMemo(
+    () => new Set([
+      ...[...parentIds].filter((id) => !expandedOverrides.collapsed.has(id)),
+      ...expandedOverrides.expanded,
+    ]),
+    [parentIds, expandedOverrides]
+  )
 
   const saveMutation = useMutation({
-    mutationFn: async (d: any) => {
+    mutationFn: async (d: AccountPayload) => {
       if (editing) await api.put(`/accounts/${editing.id}`, d)
       else await api.post('/accounts', d)
     },
@@ -72,13 +100,21 @@ export default function ChartOfAccountsPage() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['chart-of-accounts'] }),
   })
 
-  const childrenOf = (parentId: number | null) => accounts.filter((a: any) => (a.parent_id ?? null) === parentId)
+  const childrenOf = (parentId: number | null) => accounts.filter((a) => (a.parent_id ?? null) === parentId)
 
   const toggle = (id: number) => {
-    const next = new Set(expanded)
-    if (next.has(id)) next.delete(id)
-    else next.add(id)
-    setExpanded(next)
+    setExpandedOverrides((previous) => {
+      const nextExpanded = new Set(previous.expanded)
+      const nextCollapsed = new Set(previous.collapsed)
+      if (expanded.has(id)) {
+        nextExpanded.delete(id)
+        if (parentIds.has(id)) nextCollapsed.add(id)
+      } else {
+        nextCollapsed.delete(id)
+        nextExpanded.add(id)
+      }
+      return { expanded: nextExpanded, collapsed: nextCollapsed }
+    })
   }
 
   const openNew = (parentId: number | null = null) => {
@@ -87,13 +123,13 @@ export default function ChartOfAccountsPage() {
     setShowModal(true)
   }
 
-  const openEdit = (a: any) => {
+  const openEdit = (a: Account) => {
     setEditing(a)
     setForm({ code: a.code, name: a.name, type: a.type, parent_id: a.parent_id ? String(a.parent_id) : '', opening_balance: a.opening_balance || 0, is_active: a.is_active, notes: a.notes || '' })
     setShowModal(true)
   }
 
-  const renderNode = (account: any, depth = 0) => {
+  const renderNode = (account: Account, depth = 0) => {
     const kids = childrenOf(account.id)
     const hasKids = kids.length > 0
     const isExpanded = expanded.has(account.id)
@@ -119,7 +155,7 @@ export default function ChartOfAccountsPage() {
         </div>
         {hasKids && isExpanded && (
           <div className="mt-1 space-y-1">
-            {kids.map((c: any) => renderNode(c, depth + 1))}
+            {kids.map((c) => renderNode(c, depth + 1))}
           </div>
         )}
       </div>
@@ -129,8 +165,8 @@ export default function ChartOfAccountsPage() {
   const roots = childrenOf(null)
 
   const handlePrint = () => {
-    const sorted = [...accounts].sort((a: any, b: any) => String(a.code).localeCompare(String(b.code)))
-    const rows = sorted.map((account: any) => [
+    const sorted = [...accounts].sort((a, b) => String(a.code).localeCompare(String(b.code)))
+    const rows = sorted.map((account) => [
       account.code,
       account.name,
       TYPE_LABELS[account.type] || account.type || '-',
@@ -139,8 +175,8 @@ export default function ChartOfAccountsPage() {
     const totalsByType = Object.keys(TYPE_LABELS).map((type) => ({
       type,
       total: sorted
-        .filter((account: any) => account.type === type)
-        .reduce((sum: number, account: any) => sum + (Number(account.balance) || 0), 0),
+        .filter((account) => account.type === type)
+        .reduce((sum: number, account) => sum + (Number(account.balance) || 0), 0),
     }))
 
     printReport({
@@ -193,7 +229,7 @@ export default function ChartOfAccountsPage() {
         {isLoading && <p className="text-sm text-gray-500">جاري التحميل...</p>}
         {!isLoading && accounts.length === 0 && <p className="text-sm text-gray-500">لا توجد حسابات. أضف حسابات أو استخدم التهيئة.</p>}
         <div className="space-y-2">
-          {roots.map((a: any) => renderNode(a, 0))}
+          {roots.map((a) => renderNode(a, 0))}
         </div>
       </Card>
 
@@ -223,7 +259,7 @@ export default function ChartOfAccountsPage() {
               <label className="block text-sm font-medium text-gray-700 mb-2 dark:text-gray-200">الحساب الأب</label>
               <select value={form.parent_id} onChange={(e) => setForm({ ...form, parent_id: e.target.value })} className="w-full px-4 py-2 border border-gray-300 rounded-lg dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100">
                 <option value="">بدون (جذر)</option>
-                {accounts.map((a: any) => <option key={a.id} value={a.id}>{a.code} - {a.name}</option>)}
+                {accounts.map((a) => <option key={a.id} value={a.id}>{a.code} - {a.name}</option>)}
               </select>
             </div>
             <Input label="الرصيد الافتتاحي" type="number" step="0.01" value={form.opening_balance} onChange={(e) => setForm({ ...form, opening_balance: Number(e.target.value) })} />

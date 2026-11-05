@@ -16,6 +16,32 @@ import {
 import Card from '../../components/common/cards/Card'
 import Button from '../../components/common/buttons/Button'
 
+interface KitchenItemStation {
+  station?: string
+  station_color?: string
+}
+
+interface KitchenItem {
+  id: number
+  product: string
+  quantity: number
+  kitchen_status: string
+  notes?: string
+  stations?: KitchenItemStation[]
+}
+
+interface KitchenOrder {
+  id: number
+  created_at: string
+  order_number: string
+  table?: string | number | null
+  type: string
+  status: string
+  can_mark_served?: boolean
+  stations?: { id: number; name: string; color?: string }[]
+  items?: KitchenItem[]
+}
+
 const STATUS_LABELS: Record<string, string> = {
   pending: 'قيد الانتظار',
   confirmed: 'مؤكد',
@@ -60,7 +86,7 @@ export default function KitchenPage() {
     queryFn: async () => {
       const res = await api.get('/kitchen/orders')
       setLastUpdated(new Date())
-      return res.data.orders || []
+      return (res.data.orders || []) as KitchenOrder[]
     },
     refetchInterval: 10000,
   })
@@ -89,14 +115,14 @@ export default function KitchenPage() {
     onError: () => toast.error('تعذر تحديث حالة الطلب'),
   })
 
-  const orders = kitchenOrders || []
-  const allItems = orders.flatMap((order: any) => order.items || [])
+  const orders = (kitchenOrders || []) as KitchenOrder[]
+  const allItems = orders.flatMap((order) => order.items || [])
   const counters = {
     orders: orders.length,
-    received: orders.filter((order: any) => ['pending', 'confirmed'].includes(order.status)).length,
-    pending: allItems.filter((item: any) => ['pending', 'confirmed'].includes(item.kitchen_status)).length,
-    preparing: allItems.filter((item: any) => item.kitchen_status === 'preparing').length,
-    ready: allItems.filter((item: any) => item.kitchen_status === 'ready').length,
+    received: orders.filter((order) => ['pending', 'confirmed'].includes(order.status)).length,
+    pending: allItems.filter((item) => ['pending', 'confirmed'].includes(item.kitchen_status)).length,
+    preparing: allItems.filter((item) => item.kitchen_status === 'preparing').length,
+    ready: allItems.filter((item) => item.kitchen_status === 'ready').length,
   }
 
   return (
@@ -190,12 +216,12 @@ export default function KitchenPage() {
         </Card>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-          {orders.map((order: any) => {
+          {orders.map((order) => {
             const minutes = elapsedMinutes(order.created_at)
             const urgent = minutes >= 20
             const allReady = order.can_mark_served ?? (
               (order.items || []).length > 0 &&
-              (order.items || []).every((item: any) => item.kitchen_status === 'ready')
+              (order.items || []).every((item) => item.kitchen_status === 'ready')
             )
 
             return (
@@ -223,9 +249,9 @@ export default function KitchenPage() {
                           ? 'توصيل'
                           : 'سفري'}
                     </p>
-                    {order.stations?.length > 0 && (
+                    {order.stations && order.stations.length > 0 && (
                       <div className="mt-2 flex flex-wrap gap-1">
-                        {order.stations.map((station: any) => (
+                        {order.stations.map((station) => (
                           <span
                             key={station.id}
                             className="rounded-full border px-2 py-0.5 text-[11px] font-medium"
@@ -266,7 +292,7 @@ export default function KitchenPage() {
                 </div>
 
                 <div className="space-y-3 py-3">
-                  {(order.items || []).map((item: any) => (
+                  {(order.items || []).map((item) => (
                     <div
                       key={item.id}
                       className="p-3 bg-gray-50 dark:bg-gray-800/60 rounded-lg border border-gray-100 dark:border-gray-700"
@@ -276,9 +302,9 @@ export default function KitchenPage() {
                           <p className="font-medium text-gray-900 dark:text-gray-100">
                             {item.product || 'صنف محذوف'} × {item.quantity}
                           </p>
-                          {item.stations?.length > 0 && (
+                          {item.stations && item.stations.length > 0 && (
                             <div className="flex flex-wrap gap-1 mt-1">
-                              {item.stations.map((station: any, index: number) => (
+                              {item.stations.map((station, index: number) => (
                                 <span
                                   key={`${item.id}-${index}`}
                                   className="text-[10px] px-2 py-0.5 rounded-full border"

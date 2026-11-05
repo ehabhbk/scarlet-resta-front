@@ -17,6 +17,38 @@ interface ReportDefinition {
   sections: string[]
 }
 
+interface ShiftCashier {
+  shift_id: number
+  user_name?: string
+  user?: { name?: string }
+  orders_count?: number
+  total?: number
+  by_payment_method?: Record<string, number>
+}
+
+interface ShiftOrder {
+  id: number
+  order_number?: string
+  created_at: string
+  type: string
+  table_name?: string
+  status: string
+  total_amount: number
+  amount_paid: number
+  payment_methods?: Record<string, number>
+  items?: { name?: string; quantity: number }[]
+}
+
+interface ShiftExpense {
+  id: number
+  expense_date: string
+  category?: string
+  description?: string
+  payment_method?: string
+  user_name?: string
+  amount: number
+}
+
 const REPORTS: ReportDefinition[] = [
   {
     id: 'sales',
@@ -270,9 +302,9 @@ export default function ReportsPage() {
 
   const shiftTotal = Number(shiftRevenueData?.total) || 0
   const shiftByPayment = shiftRevenueData?.by_payment_method || {}
-  const shiftCashiers = Array.isArray(shiftRevenueData?.cashiers) ? shiftRevenueData.cashiers : []
-  const shiftOrders = Array.isArray(shiftRevenueData?.orders) ? shiftRevenueData.orders : []
-  const shiftExpenses = Array.isArray(shiftRevenueData?.expenses) ? shiftRevenueData.expenses : []
+  const shiftCashiers = (Array.isArray(shiftRevenueData?.cashiers) ? shiftRevenueData.cashiers : []) as ShiftCashier[]
+  const shiftOrders = (Array.isArray(shiftRevenueData?.orders) ? shiftRevenueData.orders : []) as ShiftOrder[]
+  const shiftExpenses = (Array.isArray(shiftRevenueData?.expenses) ? shiftRevenueData.expenses : []) as ShiftExpense[]
   const shiftExpensesTotal = Number(shiftRevenueData?.expenses_total) || 0
   const shiftNetTotal = Number(shiftRevenueData?.net_total ?? shiftTotal - shiftExpensesTotal) || 0
   const shiftOpeningCash = Number(shiftRevenueData?.opening_cash) || 0
@@ -305,14 +337,14 @@ export default function ReportsPage() {
         let rows = raw
 
         if (key === 'methods') {
-          rows = raw.map((row: any) => ({
+          rows = raw.map((row) => ({
             ...row,
             payment_method_label: paymentLabel(row.payment_method),
           }))
         }
 
         if (key === 'shifts') {
-          rows = raw.map((row: any) => ({
+          rows = raw.map((row) => ({
             ...row,
             user_name: row.user?.name || row.user_name || '-',
             shift_date_formatted: formatDate(row.shift_date || row.created_at),
@@ -335,7 +367,7 @@ export default function ReportsPage() {
       key: string
       label: string
       columns: { key: string; label: string }[]
-      rows: any[]
+      rows: Record<string, unknown>[]
     }>
   }, [reportData, report.sections, paymentMethods])
 
@@ -457,7 +489,7 @@ export default function ReportsPage() {
       .join('')
 
     const cashierRowsHtml = shiftCashiers
-      .map((cashier: any) => {
+      .map((cashier) => {
         const methodCells = methodKeys
           .map((method) => `<td class="num">${money(cashier.by_payment_method?.[method] || 0)}</td>`)
           .join('')
@@ -483,9 +515,9 @@ export default function ReportsPage() {
       .join('')
 
     const orderRowsHtml = shiftOrders
-      .map((order: any, index: number) => {
+      .map((order, index: number) => {
         const items = (order.items || [])
-          .map((item: any) => `${item.name || '-'} × ${Number(item.quantity) || 0}`)
+          .map((item) => `${item.name || '-'} × ${Number(item.quantity) || 0}`)
           .join('، ')
         const methods = Object.entries(order.payment_methods || {})
           .map(([method, amount]) => `${paymentLabel(method)}: ${money(amount)}`)
@@ -507,7 +539,7 @@ export default function ReportsPage() {
       .join('')
 
     const expenseRowsHtml = shiftExpenses
-      .map((expense: any, index: number) => `<tr>
+      .map((expense, index: number) => `<tr>
         <td class="num">${index + 1}</td>
         <td class="nowrap">${escapeHtml(formatDate(expense.expense_date))}</td>
         <td>${escapeHtml(expense.category || '-')}</td>
@@ -632,7 +664,7 @@ export default function ReportsPage() {
               ? `<table>
                   <thead><tr><th>#</th><th>رقم الطلب</th><th>الوقت</th><th>النوع / الطاولة</th><th>الأصناف</th><th>الإجمالي</th><th>المدفوع</th><th>تفاصيل الدفع</th><th>الحالة</th></tr></thead>
                   <tbody>${orderRowsHtml}</tbody>
-                  <tfoot><tr><th colspan="5">الإجمالي (${shiftOrders.length} طلب)</th><th class="num">${money(shiftOrders.reduce((sum: number, order: any) => sum + (Number(order.total_amount) || 0), 0))}</th><th class="num">${money(shiftOrders.reduce((sum: number, order: any) => sum + (Number(order.amount_paid) || 0), 0))}</th><th colspan="2"></th></tr></tfoot>
+                  <tfoot><tr><th colspan="5">الإجمالي (${shiftOrders.length} طلب)</th><th class="num">${money(shiftOrders.reduce((sum: number, order) => sum + (Number(order.total_amount) || 0), 0))}</th><th class="num">${money(shiftOrders.reduce((sum: number, order) => sum + (Number(order.amount_paid) || 0), 0))}</th><th colspan="2"></th></tr></tfoot>
                 </table>`
               : '<div class="empty">لا توجد طلبات في هذه الوردية</div>'
           }
@@ -707,7 +739,7 @@ export default function ReportsPage() {
                 className="w-full px-4 py-2 border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100"
               >
                 <option value="">-- اختر --</option>
-                {(Array.isArray(shiftsData) ? shiftsData : []).map((s: any) => (
+                {(Array.isArray(shiftsData) ? shiftsData : []).map((s) => (
                   <option key={s.id} value={s.id}>
                     #{s.id} - {formatDate(s.shift_date)}
                   </option>
@@ -752,7 +784,7 @@ export default function ReportsPage() {
                         </tr>
                       </thead>
                       <tbody>
-                        {shiftCashiers.map((cashier: any) => (
+                        {shiftCashiers.map((cashier) => (
                           <tr key={cashier.shift_id} className="border-b border-gray-100 dark:border-gray-800">
                             <td className="px-3 py-2">{cashier.user_name || cashier.user?.name || '-'}</td>
                             <td className="px-3 py-2">{Number(cashier.orders_count || 0)}</td>
@@ -805,7 +837,7 @@ export default function ReportsPage() {
                             <td className="px-3 py-4 text-center text-gray-500" colSpan={8}>لا توجد طلبات في هذه الوردية</td>
                           </tr>
                         ) : (
-                          shiftOrders.map((order: any) => (
+                          shiftOrders.map((order) => (
                             <tr key={order.id} className="border-b border-gray-100 dark:border-gray-800">
                               <td className="px-3 py-2 whitespace-nowrap">{order.order_number || '-'}</td>
                               <td className="px-3 py-2 whitespace-nowrap">{formatTime(order.created_at)}</td>
@@ -814,7 +846,7 @@ export default function ReportsPage() {
                                 {order.table_name ? <span className="block text-xs text-gray-500">طاولة {order.table_name}</span> : null}
                               </td>
                               <td className="px-3 py-2 max-w-[220px] text-xs text-gray-600 dark:text-gray-300">
-                                {(order.items || []).map((item: any) => `${item.name} × ${item.quantity}`).join('، ') || '-'}
+                                {(order.items || []).map((item) => `${item.name} × ${item.quantity}`).join('، ') || '-'}
                               </td>
                               <td className="px-3 py-2 whitespace-nowrap">{formatMoney(Number(order.total_amount) || 0, symbol)}</td>
                               <td className="px-3 py-2 whitespace-nowrap">{formatMoney(Number(order.amount_paid) || 0, symbol)}</td>
@@ -851,7 +883,7 @@ export default function ReportsPage() {
                             <td className="px-3 py-4 text-center text-gray-500" colSpan={6}>لا توجد مصروفات مسجلة لهذه الوردية</td>
                           </tr>
                         ) : (
-                          shiftExpenses.map((expense: any) => (
+                          shiftExpenses.map((expense) => (
                             <tr key={expense.id} className="border-b border-gray-100 dark:border-gray-800">
                               <td className="px-3 py-2 whitespace-nowrap">{formatDate(expense.expense_date)}</td>
                               <td className="px-3 py-2">{expense.category || '-'}</td>
@@ -1023,7 +1055,7 @@ export default function ReportsPage() {
                     <tbody>
                       {section.rows.map((row, index) => (
                         <tr
-                          key={row.id || index}
+                          key={String(row.id ?? index)}
                           className="border-b border-gray-100 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-800/50"
                         >
                           {section.columns.map((column) => (

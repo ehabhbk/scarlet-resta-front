@@ -6,17 +6,38 @@ import { Plus, Search, Edit, Trash2, AlertTriangle } from 'lucide-react'
 import Button from '../../components/common/buttons/Button'
 import Input from '../../components/common/inputs/Input'
 import Card from '../../components/common/cards/Card'
-import DataTable from '../../components/common/tables/DataTable'
+import DataTable, { type Column } from '../../components/common/tables/DataTable'
 import Modal from '../../components/common/modals/Modal'
 import Badge from '../../components/common/data-display/Badge'
 import Pagination from '../../components/common/Pagination'
+
+interface InventoryItem {
+  id: number
+  name: string
+  sku?: string
+  category?: string
+  unit?: { abbreviation?: string }
+  unit_id?: number | string
+  supplier_id?: number | string
+  current_stock: number
+  min_stock: number
+  cost_per_unit: number
+}
+
+interface InventoryFormProps {
+  item: InventoryItem | null
+  units: { id: number; name: string; abbreviation?: string }[]
+  suppliers: { id: number; name: string }[]
+  onClose: () => void
+  onSuccess: () => void
+}
 
 export default function InventoryPage() {
   const { symbol } = useSettingsStore()
   const [search, setSearch] = useState('')
   const [page, setPage] = useState(1)
   const [showModal, setShowModal] = useState(false)
-  const [editingItem, setEditingItem] = useState<any>(null)
+  const [editingItem, setEditingItem] = useState<InventoryItem | null>(null)
   const queryClient = useQueryClient()
 
   const { data: itemsRes, isLoading } = useQuery({
@@ -26,14 +47,14 @@ export default function InventoryPage() {
       return res.data
     },
   })
-  const items = itemsRes?.data
+  const items = itemsRes?.data as InventoryItem[] | undefined
   const itemsMeta = itemsRes ? { current_page: itemsRes.current_page, last_page: itemsRes.last_page, total: itemsRes.total, per_page: itemsRes.per_page } : null
 
   const { data: units } = useQuery({
     queryKey: ['inventory-units'],
     queryFn: async () => {
       const res = await api.get('/inventory-units')
-      return res.data.units
+      return res.data.units as InventoryFormProps['units']
     },
   })
 
@@ -41,7 +62,7 @@ export default function InventoryPage() {
     queryKey: ['suppliers'],
     queryFn: async () => {
       const res = await api.get('/suppliers')
-      return res.data.suppliers
+      return res.data.suppliers as InventoryFormProps['suppliers']
     },
   })
 
@@ -54,25 +75,25 @@ export default function InventoryPage() {
     },
   })
 
-  const columns = [
+  const columns: Column<InventoryItem>[] = [
     { key: 'name', header: 'اسم الصنف' },
     { key: 'sku', header: 'SKU' },
-    { key: 'unit', header: 'الوحدة', render: (item: any) => item.unit?.abbreviation || '-' },
-    { key: 'current_stock', header: 'المخزون', render: (item: any) => (
+    { key: 'unit', header: 'الوحدة', render: (item) => item.unit?.abbreviation || '-' },
+    { key: 'current_stock', header: 'المخزون', render: (item) => (
       <span className={item.current_stock <= item.min_stock ? 'text-red-600 dark:text-red-400 font-bold' : ''}>
         {item.current_stock}
       </span>
     )},
     { key: 'min_stock', header: 'الحد الأدنى' },
-    { key: 'cost_per_unit', header: 'التكلفة/وحدة', render: (item: any) => formatMoney(item.cost_per_unit, symbol) },
-    { key: 'status', header: 'الحالة', render: (item: any) => (
+    { key: 'cost_per_unit', header: 'التكلفة/وحدة', render: (item) => formatMoney(item.cost_per_unit, symbol) },
+    { key: 'status', header: 'الحالة', render: (item) => (
       item.current_stock <= item.min_stock ? (
         <Badge variant="danger">منخفض</Badge>
       ) : (
         <Badge variant="success">متوفر</Badge>
       )
     )},
-    { key: 'actions', header: 'الإجراءات', render: (item: any) => (
+    { key: 'actions', header: 'الإجراءات', render: (item) => (
       <div className="flex gap-2">
         <button onClick={() => { setEditingItem(item); setShowModal(true) }} className="p-1 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-950/40 rounded">
           <Edit className="w-4 h-4" />
@@ -84,7 +105,7 @@ export default function InventoryPage() {
     )},
   ]
 
-  const lowStockCount = items?.filter((i: any) => i.current_stock <= i.min_stock).length || 0
+  const lowStockCount = items?.filter((i) => i.current_stock <= i.min_stock).length || 0
 
   return (
     <div className="space-y-6">
@@ -144,8 +165,17 @@ export default function InventoryPage() {
   )
 }
 
-function InventoryForm({ item, units, suppliers, onClose, onSuccess }: any) {
-  const [formData, setFormData] = useState({
+function InventoryForm({ item, units, suppliers, onClose, onSuccess }: InventoryFormProps) {
+  const [formData, setFormData] = useState<{
+    name: string
+    sku: string
+    category: string
+    unit_id: string | number
+    supplier_id: string | number
+    current_stock: number | string
+    min_stock: number | string
+    cost_per_unit: number | string
+  }>({
     name: item?.name || '',
     unit_id: item?.unit_id || '',
     supplier_id: item?.supplier_id || '',
@@ -157,7 +187,7 @@ function InventoryForm({ item, units, suppliers, onClose, onSuccess }: any) {
   })
 
   const mutation = useMutation({
-    mutationFn: async (data: any) => {
+    mutationFn: async (data: Record<string, unknown>) => {
       if (item) {
         await api.put(`/inventory-items/${item.id}`, data)
       } else {
@@ -191,7 +221,7 @@ function InventoryForm({ item, units, suppliers, onClose, onSuccess }: any) {
             required
           >
             <option value="">اختر الوحدة</option>
-            {units.map((u: any) => (
+            {units.map((u) => (
               <option key={u.id} value={u.id}>{u.name} ({u.abbreviation})</option>
             ))}
           </select>
@@ -204,7 +234,7 @@ function InventoryForm({ item, units, suppliers, onClose, onSuccess }: any) {
             className="w-full px-4 py-2 border border-gray-300 dark:border-gray-700 rounded-lg"
           >
             <option value="">اختر المورد</option>
-            {suppliers.map((s: any) => (
+            {suppliers.map((s) => (
               <option key={s.id} value={s.id}>{s.name}</option>
             ))}
           </select>

@@ -6,14 +6,32 @@ import { Plus, Search, Edit, Trash2 } from 'lucide-react'
 import Button from '../../components/common/buttons/Button'
 import Input from '../../components/common/inputs/Input'
 import Card from '../../components/common/cards/Card'
-import DataTable from '../../components/common/tables/DataTable'
+import DataTable, { type Column } from '../../components/common/tables/DataTable'
 import Modal from '../../components/common/modals/Modal'
+
+interface RecipeRecord {
+  id: number
+  name: string
+  product?: { name: string }
+  product_id: number | string
+  yield_qty: number
+  total_cost: number
+  instructions?: string
+  is_active: boolean
+}
+
+interface RecipeFormProps {
+  recipe: RecipeRecord | null
+  products: { id: number; name: string }[]
+  onClose: () => void
+  onSuccess: () => void
+}
 
 export default function RecipesPage() {
   const { symbol } = useSettingsStore()
   const [search, setSearch] = useState('')
   const [showModal, setShowModal] = useState(false)
-  const [editing, setEditing] = useState<any>(null)
+  const [editing, setEditing] = useState<RecipeRecord | null>(null)
   const queryClient = useQueryClient()
 
   const { data: recipes, isLoading } = useQuery({
@@ -28,7 +46,7 @@ export default function RecipesPage() {
     queryKey: ['products-all'],
     queryFn: async () => {
       const res = await api.get('/products?is_available=1')
-      return res.data.data || []
+      return (res.data.data || []) as RecipeFormProps['products']
     },
   })
 
@@ -37,13 +55,13 @@ export default function RecipesPage() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['recipes'] }),
   })
 
-  const columns = [
+  const columns: Column<RecipeRecord>[] = [
     { key: 'name', header: 'اسم الوصفة' },
-    { key: 'product', header: 'المنتج', render: (item: any) => item.product?.name || '-' },
+    { key: 'product', header: 'المنتج', render: (item) => item.product?.name || '-' },
     { key: 'yield_qty', header: 'الكمية المنتجة' },
-    { key: 'total_cost', header: 'التكلفة', render: (item: any) => formatMoney(item.total_cost, symbol) },
-    { key: 'is_active', header: 'الحالة', render: (item: any) => item.is_active ? 'نشط' : 'معطل' },
-    { key: 'actions', header: 'الإجراءات', render: (item: any) => (
+    { key: 'total_cost', header: 'التكلفة', render: (item) => formatMoney(item.total_cost, symbol) },
+    { key: 'is_active', header: 'الحالة', render: (item) => item.is_active ? 'نشط' : 'معطل' },
+    { key: 'actions', header: 'الإجراءات', render: (item) => (
       <div className="flex gap-2">
         <button onClick={() => { setEditing(item); setShowModal(true) }} className="p-1 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-950/40 rounded"><Edit className="w-4 h-4" /></button>
         <button onClick={() => deleteMutation.mutate(item.id)} className="p-1 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/40 rounded"><Trash2 className="w-4 h-4" /></button>
@@ -66,14 +84,20 @@ export default function RecipesPage() {
         </div>
       </Card>
       <Modal isOpen={showModal} onClose={() => setShowModal(false)} title={editing ? 'تعديل وصفة' : 'إضافة وصفة'}>
-        <RecipeForm recipe={editing} products={products || []} onClose={() => setShowModal(false)} onSuccess={() => { setShowModal(false); queryClient.invalidateQueries({ queryKey: ['recipes'] }) }} />
+        <RecipeForm recipe={editing} products={(products || []) as RecipeFormProps['products']} onClose={() => setShowModal(false)} onSuccess={() => { setShowModal(false); queryClient.invalidateQueries({ queryKey: ['recipes'] }) }} />
       </Modal>
     </div>
   )
 }
 
-function RecipeForm({ recipe, products, onClose, onSuccess }: any) {
-  const [formData, setFormData] = useState({
+function RecipeForm({ recipe, products, onClose, onSuccess }: RecipeFormProps) {
+  const [formData, setFormData] = useState<{
+    product_id: string | number
+    name: string
+    yield_qty: number | string
+    instructions: string
+    is_active: boolean
+  }>({
     product_id: recipe?.product_id || '',
     name: recipe?.name || '',
     yield_qty: recipe?.yield_qty || 1,
@@ -81,7 +105,7 @@ function RecipeForm({ recipe, products, onClose, onSuccess }: any) {
     is_active: recipe?.is_active ?? true,
   })
   const mutation = useMutation({
-    mutationFn: async (data: any) => {
+    mutationFn: async (data: { product_id: string | number; name: string; yield_qty: number | string; instructions: string; is_active: boolean }) => {
       if (recipe) await api.put(`/recipes/${recipe.id}`, data)
       else await api.post('/recipes', data)
     },
@@ -94,7 +118,7 @@ function RecipeForm({ recipe, products, onClose, onSuccess }: any) {
         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">المنتج</label>
         <select value={formData.product_id} onChange={(e) => setFormData({ ...formData, product_id: e.target.value })} className="w-full px-4 py-2 border border-gray-300 dark:border-gray-700 rounded-lg" required>
           <option value="">اختر المنتج</option>
-          {products.map((p: any) => <option key={p.id} value={p.id}>{p.name}</option>)}
+          {products.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
         </select>
       </div>
       <Input label="اسم الوصفة" value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} required />

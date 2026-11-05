@@ -5,9 +5,30 @@ import { Plus, Trash2 } from 'lucide-react'
 import Button from '../../components/common/buttons/Button'
 import Input from '../../components/common/inputs/Input'
 import Card from '../../components/common/cards/Card'
-import DataTable from '../../components/common/tables/DataTable'
+import DataTable, { type Column } from '../../components/common/tables/DataTable'
 import Modal from '../../components/common/modals/Modal'
 import Pagination from '../../components/common/Pagination'
+
+interface AttendanceEmployee {
+  id: number
+  name: string
+}
+
+interface AttendanceRecord {
+  id: number
+  employee?: AttendanceEmployee
+  work_date: string
+  check_in?: string | null
+  check_out?: string | null
+  work_hours?: number
+  status: string
+}
+
+interface AttendanceFormProps {
+  employees: AttendanceEmployee[]
+  onClose: () => void
+  onSuccess: () => void
+}
 
 export default function AttendancePage() {
   const [showModal, setShowModal] = useState(false)
@@ -28,7 +49,7 @@ export default function AttendancePage() {
     queryKey: ['employees-all'],
     queryFn: async () => {
       const res = await api.get('/employees')
-      return res.data.data || []
+      return (res.data.data || []) as AttendanceEmployee[]
     },
   })
 
@@ -37,14 +58,14 @@ export default function AttendancePage() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['attendances'] }),
   })
 
-  const columns = [
-    { key: 'employee', header: 'الموظف', render: (a: any) => a.employee?.name || '-' },
+  const columns: Column<AttendanceRecord>[] = [
+    { key: 'employee', header: 'الموظف', render: (a) => a.employee?.name || '-' },
     { key: 'work_date', header: 'التاريخ' },
-    { key: 'check_in', header: 'دخول', render: (a: any) => a.check_in || '-' },
-    { key: 'check_out', header: 'خروج', render: (a: any) => a.check_out || '-' },
-    { key: 'work_hours', header: 'ساعات', render: (a: any) => a.work_hours },
+    { key: 'check_in', header: 'دخول', render: (a) => a.check_in || '-' },
+    { key: 'check_out', header: 'خروج', render: (a) => a.check_out || '-' },
+    { key: 'work_hours', header: 'ساعات', render: (a) => a.work_hours },
     { key: 'status', header: 'الحالة' },
-    { key: 'actions', header: 'الإجراءات', render: (a: any) => (
+    { key: 'actions', header: 'الإجراءات', render: (a) => (
       <button onClick={() => deleteMutation.mutate(a.id)} className="p-1 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/40 rounded"><Trash2 className="w-4 h-4" /></button>
     )},
   ]
@@ -66,7 +87,7 @@ export default function AttendancePage() {
   )
 }
 
-function AttendanceForm({ employees, onClose, onSuccess }: any) {
+function AttendanceForm({ employees, onClose, onSuccess }: AttendanceFormProps) {
   const [formData, setFormData] = useState({
     employee_id: '',
     work_date: new Date().toISOString().split('T')[0],
@@ -75,7 +96,7 @@ function AttendanceForm({ employees, onClose, onSuccess }: any) {
     status: 'present',
   })
   const mutation = useMutation({
-    mutationFn: async (data: any) => { await api.post('/attendances', data) },
+    mutationFn: async (data: { employee_id: string; work_date: string; check_in: string; check_out: string; status: string }) => { await api.post('/attendances', data) },
     onSuccess,
   })
   const handleSubmit = (e: React.FormEvent) => { e.preventDefault(); mutation.mutate(formData) }
@@ -85,7 +106,7 @@ function AttendanceForm({ employees, onClose, onSuccess }: any) {
         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">الموظف</label>
         <select value={formData.employee_id} onChange={(e) => setFormData({ ...formData, employee_id: e.target.value })} className="w-full px-4 py-2 border border-gray-300 dark:border-gray-700 rounded-lg" required>
           <option value="">اختر الموظف</option>
-          {employees.map((emp: any) => <option key={emp.id} value={emp.id}>{emp.name}</option>)}
+          {employees.map((emp) => <option key={emp.id} value={emp.id}>{emp.name}</option>)}
         </select>
       </div>
       <Input label="التاريخ" type="date" value={formData.work_date} onChange={(e) => setFormData({ ...formData, work_date: e.target.value })} required />

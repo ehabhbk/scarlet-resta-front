@@ -5,9 +5,15 @@ import { Plus, Trash2 } from 'lucide-react'
 import Button from '../../components/common/buttons/Button'
 import Input from '../../components/common/inputs/Input'
 import Card from '../../components/common/cards/Card'
-import DataTable from '../../components/common/tables/DataTable'
+import DataTable, { type Column } from '../../components/common/tables/DataTable'
 import Modal from '../../components/common/modals/Modal'
 import { useAuthStore } from '../../store/authStore'
+
+interface RoleRecord {
+  id: number
+  name: string
+  permissions?: PermissionOption[]
+}
 
 interface PermissionOption {
   id: number
@@ -27,7 +33,7 @@ export default function RolesPage() {
     queryKey: ['admin-roles'],
     queryFn: async () => {
       const res = await api.get('/admin/roles')
-      return res.data.roles || res.data.data || res.data || []
+      return (res.data.roles || res.data.data || res.data || []) as RoleRecord[]
     },
   })
 
@@ -35,7 +41,7 @@ export default function RolesPage() {
     queryKey: ['admin-permissions'],
     queryFn: async () => {
       const res = await api.get('/admin/permissions')
-      return res.data.permissions || res.data.data || res.data || []
+      return (res.data.permissions || res.data.data || res.data || []) as PermissionOption[]
     },
   })
 
@@ -44,10 +50,10 @@ export default function RolesPage() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['admin-roles'] }),
   })
 
-  const columns = [
+  const columns: Column<RoleRecord>[] = [
     { key: 'name', header: 'اسم الدور' },
-    { key: 'permissions', header: 'الصلاحيات', render: (r: any) => (r.permissions || []).length },
-    ...(canDeleteRole ? [{ key: 'actions', header: 'الإجراءات', render: (r: any) => (
+    { key: 'permissions', header: 'الصلاحيات', render: (r) => (r.permissions || []).length },
+    ...(canDeleteRole ? [{ key: 'actions', header: 'الإجراءات', render: (r: RoleRecord) => (
       <button onClick={() => deleteMutation.mutate(r.id)} className="p-1 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/40 rounded"><Trash2 className="w-4 h-4" /></button>
     )}] : []),
   ]
@@ -84,7 +90,7 @@ function RoleForm({
     return groups
   }, {})
   const mutation = useMutation({
-    mutationFn: async (data: any) => { await api.post('/admin/roles', data) },
+    mutationFn: async (data: { name: string; permissions: string[] }) => { await api.post('/admin/roles', data) },
     onSuccess,
   })
   const handleSubmit = (e: React.FormEvent) => {

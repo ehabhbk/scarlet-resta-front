@@ -5,9 +5,23 @@ import { Plus, Trash2, Edit } from 'lucide-react'
 import Button from '../../components/common/buttons/Button'
 import Input from '../../components/common/inputs/Input'
 import Card from '../../components/common/cards/Card'
-import DataTable from '../../components/common/tables/DataTable'
+import DataTable, { type Column } from '../../components/common/tables/DataTable'
 import Modal from '../../components/common/modals/Modal'
 import { useAuthStore } from '../../store/authStore'
+
+interface CategoryItem {
+  id: number
+  name: string
+  color: string
+  sort_order: number
+  is_active: boolean
+}
+
+interface CategoryFormProps {
+  category: CategoryItem | null
+  onClose: () => void
+  onSuccess: () => void
+}
 
 export default function CategoriesPage() {
   const permissions = useAuthStore((state) => state.user?.permissions || [])
@@ -15,7 +29,7 @@ export default function CategoriesPage() {
   const canEdit = permissions.includes('edit_categories')
   const canDelete = permissions.includes('delete_categories')
   const [showModal, setShowModal] = useState(false)
-  const [editing, setEditing] = useState<any>(null)
+  const [editing, setEditing] = useState<CategoryItem | null>(null)
   const queryClient = useQueryClient()
 
   const { data: categories, isLoading } = useQuery({
@@ -31,12 +45,12 @@ export default function CategoriesPage() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['categories'] }),
   })
 
-  const columns = [
+  const columns: Column<CategoryItem>[] = [
     { key: 'name', header: 'الاسم' },
-    { key: 'color', header: 'اللون', render: (c: any) => <span className="inline-block w-4 h-4 rounded" style={{ background: c.color }} /> },
+    { key: 'color', header: 'اللون', render: (c) => <span className="inline-block w-4 h-4 rounded" style={{ background: c.color }} /> },
     { key: 'sort_order', header: 'الترتيب' },
-    { key: 'is_active', header: 'الحالة', render: (c: any) => c.is_active ? 'نشط' : 'معطل' },
-    ...(canEdit || canDelete ? [{ key: 'actions', header: 'الإجراءات', render: (c: any) => (
+    { key: 'is_active', header: 'الحالة', render: (c) => c.is_active ? 'نشط' : 'معطل' },
+    ...(canEdit || canDelete ? [{ key: 'actions', header: 'الإجراءات', render: (c: CategoryItem) => (
       <div className="flex gap-2">
         {canEdit && <button onClick={() => { setEditing(c); setShowModal(true) }} className="p-1 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-950/40 rounded"><Edit className="w-4 h-4" /></button>}
         {canDelete && <button onClick={() => deleteMutation.mutate(c.id)} className="p-1 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/40 rounded"><Trash2 className="w-4 h-4" /></button>}
@@ -60,7 +74,7 @@ export default function CategoriesPage() {
   )
 }
 
-function CategoryForm({ category, onClose, onSuccess }: any) {
+function CategoryForm({ category, onClose, onSuccess }: CategoryFormProps) {
   const [formData, setFormData] = useState({
     name: category?.name || '',
     color: category?.color || '#3b82f6',
@@ -68,7 +82,7 @@ function CategoryForm({ category, onClose, onSuccess }: any) {
     is_active: category?.is_active ?? true,
   })
   const mutation = useMutation({
-    mutationFn: async (data: any) => {
+    mutationFn: async (data: { name: string; color: string; sort_order: number; is_active: boolean; slug: string }) => {
       if (category) await api.put(`/categories/${category.id}`, data)
       else await api.post('/categories', data)
     },

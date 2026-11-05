@@ -9,6 +9,13 @@ import { useSettingsStore, formatMoney, mediaUrl } from '../../store/settingsSto
 import { printReport } from '../../utils/printReport'
 import { formatDate, formatNumber } from '../../utils/format'
 
+interface StatementRow {
+  id: number
+  code: string
+  name: string
+  amount: number
+}
+
 export default function IncomeStatementPage() {
   const { symbol, restaurant } = useSettingsStore()
   const [from, setFrom] = useState('')
@@ -18,7 +25,11 @@ export default function IncomeStatementPage() {
     queryKey: ['income-statement', from, to],
     queryFn: async () => {
       const res = await api.get('/accounting/income-statement', { params: { from: from || undefined, to: to || undefined } })
-      return res.data
+      return {
+        ...res.data,
+        revenue: res.data.revenue as StatementRow[],
+        expense: res.data.expense as StatementRow[],
+      }
     },
   })
 
@@ -26,8 +37,8 @@ export default function IncomeStatementPage() {
 
   const handlePrint = () => {
     if (!data) return
-    const revenueRows = (data.revenue || []).map((row: any) => [`${row.code} - ${row.name}`, formatMoney(row.amount, symbol)])
-    const expenseRows = (data.expense || []).map((row: any) => [`${row.code} - ${row.name}`, formatMoney(row.amount, symbol)])
+    const revenueRows = (data.revenue || []).map((row: StatementRow) => [`${row.code} - ${row.name}`, formatMoney(row.amount, symbol)])
+    const expenseRows = (data.expense || []).map((row: StatementRow) => [`${row.code} - ${row.name}`, formatMoney(row.amount, symbol)])
 
     printReport({
       title: 'قائمة الدخل',
@@ -93,7 +104,7 @@ export default function IncomeStatementPage() {
               <div className="overflow-x-auto">
                 <table className="w-full min-w-[320px] text-sm">
                   <tbody>
-                    {(data.revenue || []).map((r: any) => (
+                    {(data.revenue || []).map((r: StatementRow) => (
                       <tr key={r.id} className="border-b border-gray-100 dark:border-gray-800">
                         <td className="py-1">{r.code} - {r.name}</td>
                         <td className="whitespace-nowrap py-1 text-end">{formatMoney(r.amount, symbol)}</td>
@@ -112,7 +123,7 @@ export default function IncomeStatementPage() {
               <div className="overflow-x-auto">
                 <table className="w-full min-w-[320px] text-sm">
                   <tbody>
-                    {(data.expense || []).map((r: any) => (
+                    {(data.expense || []).map((r: StatementRow) => (
                       <tr key={r.id} className="border-b border-gray-100 dark:border-gray-800">
                         <td className="py-1">{r.code} - {r.name}</td>
                         <td className="whitespace-nowrap py-1 text-end">{formatMoney(r.amount, symbol)}</td>

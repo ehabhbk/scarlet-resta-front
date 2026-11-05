@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { isAxiosError } from 'axios'
 import { toast } from 'sonner'
 import { api } from '../../services/api'
 import { useAuthStore } from '../../store/authStore'
@@ -50,6 +51,154 @@ interface CartItem {
   modifiers: CartModifier[]
 }
 
+interface ProductSize {
+  id: number
+  name: string
+  price_modifier: number
+  is_default?: boolean
+}
+
+interface ProductModifierOption {
+  id: number
+  name: string
+  price_modifier: number
+  is_default?: boolean
+}
+
+interface ProductModifier {
+  id: number
+  name: string
+  is_required?: boolean
+  max_selection?: number
+  options: ProductModifierOption[]
+}
+
+interface POSProduct {
+  id: number
+  name: string
+  sale_price: number
+  image?: string
+  sku?: string
+  barcode?: string
+  category_id?: number
+  is_available?: boolean
+  sizes?: ProductSize[]
+  modifiers?: ProductModifier[]
+}
+
+interface OrderPayment {
+  amount: number
+  method?: string
+  method_name?: string
+}
+
+interface OrderItem {
+  id?: number
+  product_id: number | string
+  name?: string
+  quantity: number
+  size_id?: number | string
+  size?: { id?: number; name?: string }
+  product?: POSProduct
+  modifiers?: Array<{
+    modifier?: string | { id?: number; name?: string }
+    option?: string | { id?: number; name?: string }
+    name?: string
+    modifier_id?: number
+    modifier_option_id?: number
+    id?: number
+    price_modifier?: number
+  }>
+  modifier_options?: Array<{
+    modifier_id?: number
+    modifier_option_id?: number
+    id?: number
+    name?: string
+    modifier?: string | { id?: number; name?: string }
+    option?: string | { id?: number; name?: string }
+  }>
+  modifierOptions?: OrderItem['modifier_options']
+  total_price?: number
+  subtotal?: number
+  unit_price?: number
+}
+
+interface POSOrder {
+  id: number
+  order_number?: string
+  status: string
+  payment_status: string
+  payment_method?: string
+  type?: string
+  total_amount?: number
+  amount_paid?: number
+  change_due?: number
+  table_id?: number | null
+  customer_name?: string
+  customer_phone?: string
+  subtotal?: number
+  tax_amount?: number
+  discount_amount?: number
+  delivery_fee?: number
+  created_at?: string
+  notes?: string
+  customer?: { name?: string; phone?: string }
+  table?: { name?: string }
+  cashier?: { name?: string }
+  items?: OrderItem[]
+  order_items?: OrderItem[]
+  payments?: OrderPayment[]
+}
+
+interface OrderDraftModifier {
+  modifier_id?: number
+  modifier_option_id?: number
+  name: string
+}
+
+interface OrderDraftItem {
+  key: string
+  product_id: number | string
+  name: string
+  quantity: number
+  size_id: number | string
+  size_name: string
+  modifier_options: OrderDraftModifier[]
+}
+
+interface Shift {
+  id: number
+  shift_date?: string
+  start_time?: string
+  opening_cash?: number
+  user?: { id: number; name: string }
+}
+
+interface ShiftEmployee {
+  id: number
+  name: string
+  pay_type: string
+  pay_rate: number
+}
+
+interface OrderCreateData {
+  shift_id?: number
+  table_id?: number | null
+  type?: string
+  customer_name?: string
+  customer_phone?: string
+  items: Array<{
+    product_id: number
+    quantity: number
+    size_id?: number
+    modifier_options?: Array<{ modifier_id: number; modifier_option_id: number }>
+    notes?: string
+  }>
+  discount_amount?: number
+  payment_method?: string
+  payments?: Array<{ method: string; amount: number }>
+}
+
 interface Receipt {
   cart: CartItem[]
   subtotal: number
@@ -67,6 +216,15 @@ interface Receipt {
   currency: string
   date: string
   cashier: string
+}
+
+const getErrorMessage = (error: unknown, fallback: string) => {
+  if (isAxiosError<{ message?: unknown }>(error)) {
+    const message = error.response?.data?.message
+    if (typeof message === 'string') return message
+  }
+  if (error instanceof Error && error.message) return error.message
+  return fallback
 }
 
 const escapeHtml = (value: unknown) =>
@@ -94,7 +252,7 @@ export default function POSPage() {
   const [splitPayments, setSplitPayments] = useState<{ method: string; amount: number }[]>([])
   const [discount, setDiscount] = useState(0)
   const [tableId, setTableId] = useState<number | null>(null)
-  const [configuringProduct, setConfiguringProduct] = useState<any>(null)
+  const [configuringProduct, setConfiguringProduct] = useState<POSProduct | null>(null)
 
   const [selectedSizeId, setSelectedSizeId] = useState<number | null>(null)
   const [selectedModifierOptionIds, setSelectedModifierOptionIds] = useState<number[]>([])
@@ -105,17 +263,17 @@ export default function POSPage() {
   const [showCloseModal, setShowCloseModal] = useState(false)
   const [showEmployeeWagesModal, setShowEmployeeWagesModal] = useState(false)
   const [showOrdersModal, setShowOrdersModal] = useState(false)
-  const [selectedOrder, setSelectedOrder] = useState<any>(null)
-  const [editingOrder, setEditingOrder] = useState<any>(null)
-  const [orderDraftItems, setOrderDraftItems] = useState<any[]>([])
-  const [paymentEditOrder, setPaymentEditOrder] = useState<any>(null)
+  const [selectedOrder, setSelectedOrder] = useState<POSOrder | null>(null)
+  const [editingOrder, setEditingOrder] = useState<POSOrder | null>(null)
+  const [orderDraftItems, setOrderDraftItems] = useState<OrderDraftItem[]>([])
+  const [paymentEditOrder, setPaymentEditOrder] = useState<POSOrder | null>(null)
   const [paymentDraftRows, setPaymentDraftRows] = useState<{ method: string; amount: string }[]>([])
   const [actualCash, setActualCash] = useState(0)
   const [openingCash, setOpeningCash] = useState(0)
   const [shiftEmployeeIds, setShiftEmployeeIds] = useState<number[]>([])
   const [wagePaymentMethods, setWagePaymentMethods] = useState<Record<number, string>>({})
   const [shiftNow, setShiftNow] = useState(new Date())
-  const [refundOrderTarget, setRefundOrderTarget] = useState<any>(null)
+  const [refundOrderTarget, setRefundOrderTarget] = useState<POSOrder | null>(null)
   const [refundAmount, setRefundAmount] = useState(0)
   const [refundReason, setRefundReason] = useState('استرداد من نقطة البيع')
 
@@ -136,15 +294,9 @@ export default function POSPage() {
     return () => window.clearInterval(interval)
   }, [loadSettings])
 
-  useEffect(() => {
-    if (paymentMethods.length === 0) {
-      setPaymentMethod('')
-      return
-    }
-    if (!paymentMethods.some((method) => method.value === paymentMethod)) {
-      setPaymentMethod(paymentMethods[0].value)
-    }
-  }, [paymentMethods, paymentMethod])
+  const selectedPaymentMethod = paymentMethods.some((method) => method.value === paymentMethod)
+    ? paymentMethod
+    : paymentMethods[0]?.value || ''
 
   const { data: shiftData, isLoading: shiftsLoading } = useQuery({
     queryKey: ['shifts-current'],
@@ -173,7 +325,7 @@ export default function POSPage() {
     queryFn: async () => (await api.get('/shifts/options')).data,
     enabled: showShiftModal,
   })
-  const eligibleShiftEmployees = shiftOptions?.employees || []
+  const eligibleShiftEmployees = (shiftOptions?.employees || []) as ShiftEmployee[]
 
   const { data: latestShiftData } = useQuery({
     queryKey: ['shifts-latest'],
@@ -199,14 +351,14 @@ export default function POSPage() {
     return formatTime(value)
   }
 
-  const shiftTitle = (shift: any) =>
+  const shiftTitle = (shift: Shift | null | undefined) =>
     shift ? `وردية #${shift.id} - ${formatShiftDate(shift.shift_date)}` : ''
 
   const { data: ordersData, isLoading: ordersLoading, isError: ordersError, refetch: refetchOrders } = useQuery({
     queryKey: ['pos-orders', openShift?.id],
     queryFn: async () => {
       if (!openShift?.id) return []
-      const allOrders: any[] = []
+      const allOrders: POSOrder[] = []
       let page = 1
       let lastPage: number
       do {
@@ -232,8 +384,9 @@ export default function POSPage() {
   const { data: selectedOrderDetails, isLoading: orderDetailsLoading, isError: orderDetailsError } = useQuery({
     queryKey: ['pos-order', selectedOrder?.id],
     queryFn: async () => {
+      if (!selectedOrder) throw new Error('لا يوجد طلب محدد')
       const res = await api.get(`/orders/${selectedOrder.id}`)
-      return res.data?.order || res.data?.data?.order || res.data?.data || res.data
+      return (res.data?.order || res.data?.data?.order || res.data?.data || res.data) as POSOrder
     },
     enabled: !!selectedOrder?.id,
   })
@@ -243,13 +396,13 @@ export default function POSPage() {
     queryFn: async () => {
       const res = await api.get('/products/available')
       const payload = res.data
-      return Array.isArray(payload?.products)
+      return (Array.isArray(payload?.products)
           ? payload.products
           : Array.isArray(payload?.data)
             ? payload.data
           : Array.isArray(payload)
             ? payload
-            : []
+            : []) as POSProduct[]
     },
     enabled: showOrdersModal,
   })
@@ -266,8 +419,11 @@ export default function POSPage() {
 
   const userPermissions = (() => {
     const roleName = authUser?.roles?.[0]?.name
-    const role = (Array.isArray(rolesData) ? rolesData : []).find((r: any) => r.name === roleName)
-    return (role?.permissions || []).map((p: any) => p.name)
+    const role = (Array.isArray(rolesData) ? rolesData : []).find((r: {
+      name: string
+      permissions?: Array<{ name: string }>
+    }) => r.name === roleName)
+    return (role?.permissions || []).map((permission: { name: string }) => permission.name)
   })()
 
   const canCancel = userPermissions.includes('cancel_orders') || ['admin', 'Super Admin', 'Admin'].includes(authUser?.roles?.[0]?.name || '')
@@ -287,7 +443,7 @@ export default function POSPage() {
       queryClient.invalidateQueries({ queryKey: ['shifts-current'] })
       toast.success('تم إلغاء الطلب')
     },
-    onError: (e: any) => toast.error(e?.response?.data?.message || 'تعذر إلغاء الطلب'),
+    onError: (error) => toast.error(getErrorMessage(error, 'تعذر إلغاء الطلب')),
   })
 
   const refundOrderMutation = useMutation({
@@ -303,11 +459,11 @@ export default function POSPage() {
       setSelectedOrder(null)
       toast.success(data?.message || 'تم استرداد المبلغ')
     },
-    onError: (e: any) => toast.error(e?.response?.data?.message || 'تعذر استرداد المبلغ'),
+    onError: (error) => toast.error(getErrorMessage(error, 'تعذر استرداد المبلغ')),
   })
 
   const deleteOrderMutation = useMutation({
-    mutationFn: async (order: any) => {
+    mutationFn: async (order: POSOrder) => {
       const paid = Number(order.amount_paid || 0) - Number(order.change_due || 0)
       if (paid > 0) {
         await api.post(`/orders/${order.id}/refund`, {
@@ -324,7 +480,7 @@ export default function POSPage() {
       setSelectedOrder(null)
       toast.success('تم حذف الطلب واسترداد المبلغ إن وجد')
     },
-    onError: (e: any) => toast.error(e?.response?.data?.message || 'تعذر حذف الطلب'),
+    onError: (error) => toast.error(getErrorMessage(error, 'تعذر حذف الطلب')),
   })
 
   const updateOrderMutation = useMutation({
@@ -346,10 +502,10 @@ export default function POSPage() {
       setSelectedOrder(null)
       toast.success('تم تعديل الطلب')
     },
-    onError: (e: any) => {
+    onError: (error) => {
       refetchOrders()
       queryClient.invalidateQueries({ queryKey: ['shifts-current'] })
-      toast.error(e?.response?.data?.message || e?.message || 'تعذر تعديل الطلب')
+      toast.error(getErrorMessage(error, 'تعذر تعديل الطلب'))
     },
   })
 
@@ -366,21 +522,19 @@ export default function POSPage() {
       setSelectedOrder(null)
       toast.success('تم تحديث دفعات الطلب')
     },
-    onError: (e: any) => {
-      toast.error(e?.response?.data?.message || 'تعذر تحديث دفعات الطلب')
+    onError: (error) => {
+      toast.error(getErrorMessage(error, 'تعذر تحديث دفعات الطلب'))
     },
   })
 
-  const openPaymentEditor = async (order: any) => {
+  const openPaymentEditor = async (order: POSOrder) => {
     try {
       const res = await api.get(`/orders/${order.id}`)
-      const details = res.data?.order || res.data?.data?.order || res.data?.data || res.data
+      const details = (res.data?.order || res.data?.data?.order || res.data?.data || res.data) as POSOrder
       const defaultMethod = details?.payment_method || paymentMethods[0]?.value || ''
-      const payments = (details?.payments || []).filter(
-        (payment: any) => Number(payment.amount) > 0
-      )
+      const payments = (details?.payments || []).filter((payment) => Number(payment.amount) > 0)
       const rows = payments.length > 0
-        ? payments.map((payment: any) => ({
+        ? payments.map((payment) => ({
             method: payment.method || defaultMethod,
             amount: String(Number(payment.amount)),
           }))
@@ -389,36 +543,39 @@ export default function POSPage() {
           : [{ method: defaultMethod, amount: '' }]
       setPaymentDraftRows(rows)
       setPaymentEditOrder(details)
-    } catch (error: any) {
-      toast.error(error?.response?.data?.message || 'تعذر تحميل دفعات الطلب')
+    } catch (error) {
+      toast.error(getErrorMessage(error, 'تعذر تحميل دفعات الطلب'))
     }
   }
 
-  const openOrderEditor = (order: any) => {
+  const openOrderEditor = (order: POSOrder) => {
     const items = order.items || order.order_items || []
-    setOrderDraftItems(items.map((item: any, index: number) => ({
+    setOrderDraftItems(items.map((item, index) => ({
       key: `${item.id || item.product_id}-${index}`,
       product_id: item.product_id || item.product?.id || '',
       name: item.product?.name || item.name || '',
       quantity: Number(item.quantity) || 1,
       size_id: item.size_id || item.size?.id || '',
       size_name: item.size?.name || '',
-      modifier_options: (item.modifier_options || item.modifierOptions || item.modifiers || []).map((option: any) => ({
-        modifier_id: option.modifier_id || option.modifier?.id,
+      modifier_options: (item.modifier_options || item.modifierOptions || item.modifiers || []).map((option) => ({
+        modifier_id: option.modifier_id || (typeof option.modifier === 'object' ? option.modifier.id : undefined),
         modifier_option_id: option.modifier_option_id || option.id,
-        name: [option.modifier, option.option].filter(Boolean).join(': ') || option.name || '',
+        name: [
+          typeof option.modifier === 'string' ? option.modifier : option.modifier?.name,
+          typeof option.option === 'string' ? option.option : option.option?.name,
+        ].filter((value): value is string => Boolean(value)).join(': ') || option.name || '',
       })),
     })))
     setEditingOrder(order)
   }
 
-  const loadOrderForEditing = async (order: any) => {
+  const loadOrderForEditing = async (order: POSOrder) => {
     try {
       const res = await api.get(`/orders/${order.id}`)
-      const details = res.data?.order || res.data?.data?.order || res.data?.data || res.data
+      const details = (res.data?.order || res.data?.data?.order || res.data?.data || res.data) as POSOrder
       openOrderEditor(details)
-    } catch (error: any) {
-      toast.error(error?.response?.data?.message || 'تعذر تحميل تفاصيل الطلب للتعديل')
+    } catch (error) {
+      toast.error(getErrorMessage(error, 'تعذر تحميل تفاصيل الطلب للتعديل'))
     }
   }
 
@@ -466,9 +623,9 @@ export default function POSPage() {
         const currentResponse = await api.get('/shifts/current')
         currentShiftData = currentResponse.data
         queryClient.setQueryData(['shifts-current'], currentShiftData)
-      } catch (error: any) {
+      } catch (error) {
         await queryClient.invalidateQueries({ queryKey: ['shifts-current'] })
-        toast.error(error?.response?.data?.message || 'تم إرسال طلب فتح الوردية لكن تعذر التحقق من حالتها.')
+        toast.error(getErrorMessage(error, 'تم إرسال طلب فتح الوردية لكن تعذر التحقق من حالتها.'))
         return
       }
 
@@ -491,8 +648,8 @@ export default function POSPage() {
       setShiftEmployeeIds([])
       toast.success('تم فتح الوردية بنجاح')
     },
-    onError: (error: any) => {
-      toast.error(error?.response?.data?.message || 'تعذر فتح الوردية')
+    onError: (error) => {
+      toast.error(getErrorMessage(error, 'تعذر فتح الوردية'))
     },
   })
 
@@ -509,7 +666,7 @@ export default function POSPage() {
       await queryClient.invalidateQueries({ queryKey: ['shifts-current'] })
       toast.success(response?.message || 'تم دفع أجر الموظف')
     },
-    onError: (error: any) => toast.error(error?.response?.data?.message || 'تعذر دفع أجر الموظف'),
+    onError: (error) => toast.error(getErrorMessage(error, 'تعذر دفع أجر الموظف')),
   })
 
   const handleOpenShift = async () => {
@@ -551,12 +708,16 @@ export default function POSPage() {
       return res.data
     },
     onSuccess: async (response) => {
+      // Revenue must disappear immediately once the shift is closed.
+      queryClient.setQueryData(['shifts-current'], { shift: null, revenue: null, orders_count: null })
       await queryClient.invalidateQueries({ queryKey: ['shifts-current'] })
+      await queryClient.invalidateQueries({ queryKey: ['pos-orders'] })
+      await queryClient.invalidateQueries({ queryKey: ['employee-wages'] })
       setShowCloseModal(false)
       toast.success(response?.message || 'تم إغلاق الوردية')
     },
-    onError: (error: any) => {
-      toast.error(error?.response?.data?.message || error?.message || 'تعذر إغلاق الوردية')
+    onError: (error) => {
+      toast.error(getErrorMessage(error, 'تعذر إغلاق الوردية'))
     },
   })
 
@@ -564,7 +725,7 @@ export default function POSPage() {
     queryKey: ['categories'],
     queryFn: async () => {
       const res = await api.get('/categories')
-      return res.data.categories || res.data.data || []
+      return (res.data.categories || res.data.data || []) as Array<{ id: number; name: string }>
     },
   })
 
@@ -572,11 +733,11 @@ export default function POSPage() {
     queryKey: ['pos-products-available'],
     queryFn: async () => {
       const res = await api.get('/products/available')
-      return res.data.products || res.data.data || []
+      return (res.data.products || res.data.data || []) as POSProduct[]
     },
   })
 
-  const filteredProducts = products?.filter((product: any) => {
+  const filteredProducts = products?.filter((product: POSProduct) => {
     if (selectedCategory && Number(product.category_id) !== Number(selectedCategory)) return false
     if (!productSearch.trim()) return true
     const term = productSearch.trim().toLowerCase()
@@ -591,12 +752,12 @@ export default function POSPage() {
     queryKey: ['tables'],
     queryFn: async () => {
       const res = await api.get('/tables?status=available')
-      return res.data.data || []
+      return (res.data.data || []) as Array<{ id: number; name: string }>
     },
   })
 
   const createOrderMutation = useMutation({
-    mutationFn: async (payload: { orderData: any; payments: { method: string; amount: number }[] | null }) => {
+    mutationFn: async (payload: { orderData: OrderCreateData; payments: { method: string; amount: number }[] | null }) => {
       const res = await api.post('/orders', payload.orderData)
       const orderId = res?.data?.order?.id || res?.data?.id
       if (payload.payments && payload.payments.length > 1 && orderId) {
@@ -617,17 +778,17 @@ export default function POSPage() {
             .filter((p) => Number(p.amount) > 0)
             .map((p) => `${paymentMethods.find((m) => m.value === p.method)?.label || p.method} ${formatNumber(p.amount)}`)
             .join(' + ')
-        : paymentMethods.find((m) => m.value === paymentMethod)?.label || paymentMethod
+        : paymentMethods.find((m) => m.value === selectedPaymentMethod)?.label || selectedPaymentMethod
       const receipt: Receipt = {
         cart: [...cart],
         subtotal,
         tax,
         total,
         discount,
-        paymentMethod: splitPayment && splitPayments.length ? splitPayments[0].method : paymentMethod,
+        paymentMethod: splitPayment && splitPayments.length ? splitPayments[0].method : selectedPaymentMethod,
         paymentLabel: receiptPaymentLabel,
         tableId,
-        tableName: tables?.find((t: any) => Number(t.id) === Number(tableId))?.name,
+        tableName: tables?.find((t) => Number(t.id) === Number(tableId))?.name,
         orderType: tableId ? 'dine_in' : 'takeaway',
         orderNumber: res?.order?.order_number,
         customerName,
@@ -647,14 +808,14 @@ export default function POSPage() {
       queryClient.invalidateQueries({ queryKey: ['kitchen-orders'] })
       toast.success('تم إنشاء الطلب وطباعة الإيصال')
     },
-    onError: (error: any) => {
-      toast.error(error?.response?.data?.message || 'تعذر إنشاء الطلب')
+    onError: (error) => {
+      toast.error(getErrorMessage(error, 'تعذر إنشاء الطلب'))
     },
   })
 
-  const computePrice = (product: any, sizeId: number | null, modifierOptionIds: number[]) => {
+  const computePrice = (product: POSProduct, sizeId: number | null, modifierOptionIds: number[]) => {
     let price = Number(product.sale_price) || 0
-    const size = product.sizes?.find((s: any) => s.id === sizeId)
+    const size = product.sizes?.find((s) => s.id === sizeId)
     if (size) price += Number(size.price_modifier) || 0
     for (const mod of product.modifiers || []) {
       for (const opt of mod.options || []) {
@@ -664,8 +825,8 @@ export default function POSPage() {
     return price
   }
 
-  const addToCart = (product: any, sizeId: number | null = null, modifierOptionIds: number[] = []) => {
-    const size = product.sizes?.find((s: any) => s.id === sizeId)
+  const addToCart = (product: POSProduct, sizeId: number | null = null, modifierOptionIds: number[] = []) => {
+    const size = product.sizes?.find((s) => s.id === sizeId)
     const modifiers: CartModifier[] = []
     for (const mod of product.modifiers || []) {
       for (const opt of mod.options || []) {
@@ -707,22 +868,31 @@ export default function POSPage() {
     }
   }
 
-  const reprintOrder = (order: any) => {
+  const reprintOrder = (order: POSOrder) => {
     const receipt: Receipt = {
-      cart: (order.items || []).map((it: any, index: number) => ({
-        product_id: it.product_id || it.product?.id || index,
+      cart: (order.items || order.order_items || []).map((it, index) => ({
+        product_id: Number(it.product_id || it.product?.id || index),
         name: it.product?.name || it.name || 'منتج',
         image: it.product?.image,
         price: Number(it.unit_price) || 0,
         quantity: Number(it.quantity) || 1,
-        size_id: it.size_id || it.size?.id,
+        size_id: Number(it.size_id || it.size?.id) || undefined,
         size_name: it.size?.name,
-        modifiers: (it.modifiers || []).map((m: any) => ({
-          modifier_id: m.modifier_id || m.modifier?.id,
-          modifier_option_id: m.modifier_option_id || m.id,
-          name: [m.modifier, m.option].filter(Boolean).join(': ') || m.name || '',
-          price_modifier: Number(m.price_modifier) || 0,
-        })),
+        modifiers: (it.modifiers || []).flatMap((modifier) => {
+          const modifierId = modifier.modifier_id
+            || (typeof modifier.modifier === 'object' ? modifier.modifier.id : undefined)
+          const modifierOptionId = modifier.modifier_option_id || modifier.id
+          if (modifierId === undefined || modifierOptionId === undefined) return []
+          return [{
+            modifier_id: modifierId,
+            modifier_option_id: modifierOptionId,
+            name: [
+              typeof modifier.modifier === 'string' ? modifier.modifier : modifier.modifier?.name,
+              typeof modifier.option === 'string' ? modifier.option : modifier.option?.name,
+            ].filter((value): value is string => Boolean(value)).join(': ') || modifier.name || '',
+            price_modifier: Number(modifier.price_modifier) || 0,
+          }]
+        }),
       })),
       subtotal: Number(order.subtotal) || 0,
       tax: Number(order.tax_amount) || 0,
@@ -730,7 +900,7 @@ export default function POSPage() {
       discount: Number(order.discount_amount) || 0,
       paymentMethod: order.payment_method || paymentMethods[0]?.value || '',
       paymentLabel: (order.payments || []).length
-        ? (order.payments as any[]).map((p: any) => `${p.method || p.method_name || ''} ${formatNumber(p.amount)}`).join(' + ')
+        ? order.payments?.map((payment) => `${payment.method || payment.method_name || ''} ${formatNumber(payment.amount)}`).join(' + ') || ''
         : order.payment_method || '-',
       tableId: order.table_id || null,
       tableName: order.table?.name,
@@ -745,7 +915,7 @@ export default function POSPage() {
     printReceipt(receipt)
   }
 
-  const openConfigurator = (product: any) => {
+  const openConfigurator = (product: POSProduct) => {
     if (!openShift?.id) {
       toast.error('لا يمكنك إنشاء الطلب. قم بفتح الوردية أولاً.')
       return
@@ -758,7 +928,7 @@ export default function POSPage() {
     toast.success(`تم اختيار ${product.name}`, { duration: 1500 })
     if ((product.sizes && product.sizes.length > 0) || (product.modifiers && product.modifiers.length > 0)) {
       setConfiguringProduct(product)
-      const defaultSize = product.sizes?.find((s: any) => s.is_default)
+      const defaultSize = product.sizes?.find((s) => s.is_default)
       setSelectedSizeId(defaultSize?.id ?? product.sizes?.[0]?.id ?? null)
       const defaultOpts: number[] = []
       for (const mod of product.modifiers || []) {
@@ -793,13 +963,13 @@ export default function POSPage() {
     () =>
       orderDraftItems.reduce((sum, line) => {
         const product = (orderProducts || []).find(
-          (candidate: any) => Number(candidate.id) === Number(line.product_id)
+          (candidate: POSProduct) => Number(candidate.id) === Number(line.product_id)
         )
         let unitPrice = Number(product?.sale_price) || 0
-        const size = product?.sizes?.find((candidate: any) => Number(candidate.id) === Number(line.size_id))
+        const size = product?.sizes?.find((candidate) => Number(candidate.id) === Number(line.size_id))
         if (size) unitPrice += Number(size.price_modifier) || 0
         const selectedOptionIds = (line.modifier_options || [])
-          .map((option: any) => Number(option.modifier_option_id))
+          .map((option) => Number(option.modifier_option_id))
           .filter((id: number) => Number.isFinite(id))
         for (const modifier of product?.modifiers || []) {
           for (const option of modifier.options || []) {
@@ -893,14 +1063,14 @@ export default function POSPage() {
       toast.error('لا تملك صلاحية إنشاء الطلبات')
       return
     }
-    if (paymentMethods.length === 0 || !paymentMethod) {
+    if (paymentMethods.length === 0 || !selectedPaymentMethod) {
       toast.error('لا توجد طرق دفع مهيأة من الإعدادات')
       return
     }
 
     const payments = splitPayment
       ? splitPayments.filter((p) => Number(p.amount) > 0)
-      : [{ method: paymentMethod, amount: total }]
+      : [{ method: selectedPaymentMethod, amount: total }]
 
     if (payments.length === 0) {
       toast.error('أدخل طريقة دفع واحدة على الأقل')
@@ -978,7 +1148,7 @@ export default function POSPage() {
                   وقت الفتح: {formatShiftTime(openShift.start_time)}
                 </span>
                 <span className="text-xs text-green-700 dark:text-green-300">
-                  الكاشير: {user?.name || '-'}
+                  فتحها: {openShift.user?.name || user?.name || '-'}
                 </span>
               </div>
             ) : (
@@ -1106,7 +1276,7 @@ export default function POSPage() {
             >
               الكل
             </button>
-            {categories?.map((cat: any) => (
+            {categories?.map((cat) => (
               <button
                 key={cat.id}
                 onClick={() => setSelectedCategory(cat.id)}
@@ -1124,7 +1294,7 @@ export default function POSPage() {
           <div className="md:flex-1 md:overflow-y-auto">
             {filteredProducts?.length ? (
               <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 xl:grid-cols-4">
-                {filteredProducts.map((product: any) => (
+                {filteredProducts.map((product) => (
                   <button
                     key={product.id}
                     onClick={() => openConfigurator(product)}
@@ -1198,7 +1368,7 @@ export default function POSPage() {
               className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100"
             >
               <option value="">بدون طاولة (سفري)</option>
-              {tables?.map((table: any) => (
+              {tables?.map((table) => (
                 <option key={table.id} value={table.id}>
                   {table.name}
                 </option>
@@ -1306,7 +1476,7 @@ export default function POSPage() {
                 type="button"
                 onClick={() => {
                   if (!splitPayment) {
-                    setSplitPayments([{ method: paymentMethod, amount: total }])
+                    setSplitPayments([{ method: selectedPaymentMethod, amount: total }])
                   }
                   setSplitPayment((prev) => !prev)
                 }}
@@ -1319,11 +1489,11 @@ export default function POSPage() {
             {!splitPayment ? (
               <div className="relative">
                 <PaymentIcon
-                  method={paymentMethod}
+                  method={selectedPaymentMethod}
                   className="pointer-events-none absolute start-3 top-1/2 h-5 w-5 -translate-y-1/2 text-primary dark:text-blue-400"
                 />
                 <select
-                  value={paymentMethod}
+                  value={selectedPaymentMethod}
                   onChange={(e) => setPaymentMethod(e.target.value)}
                   className="w-full appearance-none rounded-lg border border-gray-300 bg-white py-2.5 pe-10 ps-10 text-gray-900 focus:outline-none focus:ring-2 focus:ring-primary dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
                 >
@@ -1413,13 +1583,13 @@ export default function POSPage() {
       >
         {configuringProduct && (
           <div className="space-y-4">
-            {configuringProduct.sizes?.length > 0 && (
+            {configuringProduct.sizes && configuringProduct.sizes.length > 0 && (
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">
                   الحجم
                 </label>
                 <div className="space-y-2">
-                  {configuringProduct.sizes.map((s: any) => (
+                  {configuringProduct.sizes?.map((s) => (
                     <label
                       key={s.id}
                       className="flex items-center gap-2 p-2 border border-gray-200 dark:border-gray-700 rounded-lg cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800"
@@ -1441,13 +1611,13 @@ export default function POSPage() {
               </div>
             )}
 
-            {configuringProduct.modifiers?.map((mod: any) => (
+            {configuringProduct.modifiers?.map((mod) => (
               <div key={mod.id}>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">
                   {mod.name} {mod.is_required && <span className="text-red-500">*</span>}
                 </label>
                 <div className="space-y-2">
-                  {mod.options?.map((opt: any) => (
+                  {mod.options?.map((opt) => (
                     <label
                       key={opt.id}
                       className="flex items-center gap-2 p-2 border border-gray-200 dark:border-gray-700 rounded-lg cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800"
@@ -1458,7 +1628,7 @@ export default function POSPage() {
                         checked={selectedModifierOptionIds.includes(opt.id)}
                         onChange={(e) => {
                           if (mod.max_selection === 1) {
-                            const otherIds = mod.options.map((o: any) => o.id)
+                            const otherIds = mod.options.map((option) => option.id)
                             setSelectedModifierOptionIds((prev) => [
                               ...prev.filter((id) => !otherIds.includes(id)),
                               ...(e.target.checked ? [opt.id] : []),
@@ -1544,7 +1714,7 @@ export default function POSPage() {
           {shiftOptions?.permissions?.manage_shift_employees && eligibleShiftEmployees.length > 0 && (
             <fieldset className="space-y-2 rounded-lg border border-gray-200 p-3 dark:border-gray-700">
               <legend className="px-1 text-sm font-medium text-gray-700 dark:text-gray-200">الموظفون العاملون في هذه الوردية</legend>
-              {eligibleShiftEmployees.map((employee: any) => (
+              {eligibleShiftEmployees.map((employee) => (
                 <label key={employee.id} className="flex items-center gap-2 rounded-lg p-2 text-sm hover:bg-gray-50 dark:hover:bg-gray-800">
                   <input
                     type="checkbox"
@@ -1656,7 +1826,14 @@ export default function POSPage() {
           {openShift && !employeeWagesLoading && !(employeeWagesData?.employees || []).length && (
             <p className="text-sm text-gray-500">لا توجد أجور غير مدفوعة لموظفي هذه الوردية.</p>
           )}
-          {(employeeWagesData?.employees || []).map((employee: any) => (
+          {(employeeWagesData?.employees || []).map((employee: {
+            id: number
+            name: string
+            pay_type: string
+            amount: number
+            pay_rate: number
+            payment_method?: string
+          }) => (
             <div key={employee.id} className="grid gap-3 rounded-lg border border-gray-200 p-3 sm:grid-cols-[1fr_auto_auto] sm:items-center dark:border-gray-700">
               <div>
                 <p className="font-medium">{employee.name}</p>
@@ -1708,7 +1885,7 @@ export default function POSPage() {
           {openShift && !ordersLoading && !ordersError && (ordersData || []).length === 0 && (
             <p className="py-6 text-center text-gray-500">لا توجد طلبات في هذه الوردية</p>
           )}
-          {(ordersData || []).map((order: any) => {
+          {(ordersData || []).map((order: POSOrder) => {
             const items = order.items || order.order_items || []
             return (
               <div key={order.id} className="rounded-lg border border-gray-200 p-3 dark:border-gray-700">
@@ -1789,7 +1966,7 @@ export default function POSPage() {
                 </div>
                 {items.length > 0 && (
                   <div className="mt-3 space-y-2 border-t border-gray-100 pt-3 dark:border-gray-800">
-                    {items.map((item: any, index: number) => {
+                    {items.map((item, index) => {
                       const itemModifiers = item.modifiers || []
                       return (
                         <div key={item.id || `${order.id}-${index}`} className="flex flex-wrap items-center justify-between gap-2 gap-3 text-sm">
@@ -1802,9 +1979,11 @@ export default function POSPage() {
                             {itemModifiers.length > 0 && (
                               <span className="text-xs text-gray-400">
                                 {itemModifiers
-                                  .map((modifier: any) =>
-                                    [modifier.modifier, modifier.option].filter(Boolean).join(': ') ||
-                                    modifier.name
+                                  .map((modifier) =>
+                                    [
+                                      typeof modifier.modifier === 'string' ? modifier.modifier : modifier.modifier?.name,
+                                      typeof modifier.option === 'string' ? modifier.option : modifier.option?.name,
+                                    ].filter((value): value is string => Boolean(value)).join(': ') || modifier.name
                                   )
                                   .join('، ')}
                               </span>
@@ -1860,8 +2039,8 @@ export default function POSPage() {
                   <p className="text-sm text-gray-500">لا توجد تفاصيل منتجات في بيانات الطلب</p>
                 ) : (
                   <div className="space-y-2">
-                    {items.map((item: any, index: number) => {
-                      const product = item.product || (orderProducts || []).find((p: any) => p.id === item.product_id)
+                    {items.map((item, index) => {
+                      const product = item.product || (orderProducts || []).find((p: POSProduct) => p.id === item.product_id)
                       return (
                         <div key={item.id || `${order.id}-detail-${index}`} className="flex items-center gap-3 rounded-lg bg-gray-50 p-3 dark:bg-gray-800">
                           {product?.image ? (
@@ -1873,10 +2052,13 @@ export default function POSPage() {
                           )}
                           <div className="min-w-0 flex-1">
                             <p className="font-medium">{product?.name || item.name || 'منتج'} × {item.quantity}</p>
-                            {item.modifiers?.length > 0 && (
+                            {item.modifiers && item.modifiers.length > 0 && (
                               <p className="text-xs text-gray-500">
-                                {item.modifiers.map((modifier: any) =>
-                                  [modifier.modifier, modifier.option].filter(Boolean).join(': ') || modifier.name
+                                {item.modifiers.map((modifier) =>
+                                  [
+                                    typeof modifier.modifier === 'string' ? modifier.modifier : modifier.modifier?.name,
+                                    typeof modifier.option === 'string' ? modifier.option : modifier.option?.name,
+                                  ].filter((value): value is string => Boolean(value)).join(': ') || modifier.name
                                 ).join('، ')}
                               </p>
                             )}
@@ -1937,7 +2119,7 @@ export default function POSPage() {
             <div className="max-h-[45vh] space-y-3 overflow-y-auto">
               {orderDraftItems.map((item, index) => {
                 const modifierNames = (item.modifier_options || [])
-                  .map((option: any) => option.name)
+                  .map((option) => option.name)
                   .filter(Boolean)
                 return (
                   <div key={item.key} className="space-y-1 rounded-lg border border-gray-100 p-2 dark:border-gray-800">
@@ -1952,7 +2134,7 @@ export default function POSPage() {
                         className="min-w-0 rounded-lg border border-gray-300 bg-white px-3 py-2 dark:border-gray-700 dark:bg-gray-900"
                       >
                         <option value="">اختر منتجاً</option>
-                        {(orderProducts || []).map((product: any) => (
+                        {(orderProducts || []).map((product: POSProduct) => (
                           <option key={product.id} value={product.id}>{product.name} — {formatMoney(product.sale_price, currencySymbol)}</option>
                         ))}
                       </select>
@@ -1988,8 +2170,10 @@ export default function POSPage() {
               onClick={() => setOrderDraftItems((current) => [...current, {
                 key: `new-${Date.now()}`,
                 product_id: '',
+                name: '',
                 quantity: 1,
                 size_id: '',
+                size_name: '',
                 modifier_options: [],
               }])}
             >

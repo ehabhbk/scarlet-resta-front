@@ -15,7 +15,25 @@ interface TableItem {
   capacity: number
   status: string
   area?: { id: number; name: string }
-  orders?: any[]
+  orders?: TableOrder[]
+}
+
+interface TableOrder {
+  id: number
+  created_at?: string
+  status: string
+  order_number?: string
+  total_amount?: number
+  payment_status?: string
+  items?: TableOrderItem[]
+}
+
+interface TableOrderItem {
+  id: number
+  kitchen_status?: string
+  product?: { name?: string }
+  quantity: number
+  total_price?: number
 }
 
 const STATUS_LABELS: Record<string, string> = {
@@ -35,13 +53,13 @@ const ORDER_STATUS_LABELS: Record<string, string> = {
   cancelled: 'ملغي',
 }
 
-const orderDisplayStatus = (order: any) => {
+const orderDisplayStatus = (order: TableOrder) => {
   if (order.status === 'served' || order.status === 'completed') return order.status
   const items = order.items || []
-  if (items.length > 0 && items.every((item: any) => item.kitchen_status === 'ready')) {
+  if (items.length > 0 && items.every((item) => item.kitchen_status === 'ready')) {
     return 'ready'
   }
-  if (items.some((item: any) => item.kitchen_status === 'preparing')) {
+  if (items.some((item) => item.kitchen_status === 'preparing')) {
     return 'preparing'
   }
   return order.status || 'pending'
@@ -151,7 +169,7 @@ export default function TablesPage() {
     queryKey: ['table-details', selectedTable?.id],
     queryFn: async () => {
       const res = await api.get(`/tables/${selectedTable!.id}`)
-      return res.data?.table || res.data?.data || res.data
+      return (res.data?.table || res.data?.data || res.data) as TableItem
     },
     enabled: !!selectedTable?.id,
   })
@@ -208,8 +226,8 @@ export default function TablesPage() {
               <p className="text-sm text-gray-500">لا توجد طلبات نشطة لهذه الطاولة.</p>
             )}
             {tableDetails?.status !== 'available' && [...(tableDetails?.orders || [])]
-              .sort((a: any, b: any) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime())
-              .map((order: any) => (
+              .sort((a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime())
+              .map((order) => (
               <div
                 key={order.id}
                 className="rounded-lg border border-gray-200 p-3 dark:border-gray-700"
@@ -232,7 +250,7 @@ export default function TablesPage() {
                 })()}
                 {(order.items || []).length > 0 && (
                   <div className="mt-2 space-y-1 border-t border-gray-100 pt-2 text-sm dark:border-gray-800">
-                    {(order.items || []).map((item: any, index: number) => (
+                    {(order.items || []).map((item, index: number) => (
                       <div key={item.id || index} className="flex justify-between gap-2">
                         <span>{item.product?.name || 'منتج'} × {item.quantity}</span>
                         <span>{formatMoney(item.total_price ?? 0, symbol)}</span>

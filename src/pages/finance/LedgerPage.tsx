@@ -9,6 +9,23 @@ import { useSettingsStore, formatMoney, mediaUrl } from '../../store/settingsSto
 import { printReport } from '../../utils/printReport'
 import { formatDate, formatNumber } from '../../utils/format'
 
+interface LedgerAccount {
+  id: number
+  code: string
+  name: string
+  type?: string
+}
+
+interface LedgerLine {
+  date: string
+  entry_number?: string
+  description?: string
+  reference?: string
+  debit: number
+  credit: number
+  balance: number
+}
+
 export default function LedgerPage() {
   const { symbol, restaurant } = useSettingsStore()
   const [accountId, setAccountId] = useState<number | null>(null)
@@ -18,7 +35,7 @@ export default function LedgerPage() {
 
   const { data: accounts } = useQuery({
     queryKey: ['chart-of-accounts'],
-    queryFn: async () => (await api.get('/accounting/chart-of-accounts')).data?.accounts || [],
+    queryFn: async () => ((await api.get('/accounting/chart-of-accounts')).data?.accounts || []) as LedgerAccount[],
   })
 
   const { data, isLoading } = useQuery({
@@ -32,7 +49,7 @@ export default function LedgerPage() {
     enabled: !!accountId,
   })
 
-  const lines = (data?.lines || []).filter((line: any) => {
+  const lines = ((data?.lines || []) as LedgerLine[]).filter((line) => {
     if (!search) return true
     const term = search.toLowerCase()
     return (
@@ -45,8 +62,8 @@ export default function LedgerPage() {
   const handlePrint = () => {
     if (!data?.account) return
     const rangeLabel = from && to ? `من ${from} إلى ${to}` : from ? `من ${from}` : to ? `حتى ${to}` : 'جميع الفترات'
-    const totalDebit = lines.reduce((sum: number, line: any) => sum + (Number(line.debit) || 0), 0)
-    const totalCredit = lines.reduce((sum: number, line: any) => sum + (Number(line.credit) || 0), 0)
+    const totalDebit = lines.reduce((sum: number, line) => sum + (Number(line.debit) || 0), 0)
+    const totalCredit = lines.reduce((sum: number, line) => sum + (Number(line.credit) || 0), 0)
 
     printReport({
       title: 'دفتر الأستاذ',
@@ -78,7 +95,7 @@ export default function LedgerPage() {
             { label: 'دائن', align: 'left', nowrap: true },
             { label: 'الرصيد', align: 'left', nowrap: true },
           ],
-          rows: lines.map((line: any) => [
+          rows: lines.map((line) => [
             formatDate(line.date),
             line.entry_number,
             line.description || '-',
@@ -120,7 +137,7 @@ export default function LedgerPage() {
               className="w-full rounded-lg border border-gray-300 bg-white px-4 py-2 text-gray-900 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
             >
               <option value="">اختر حساباً</option>
-              {(accounts || []).map((a: any) => (
+              {(accounts || []).map((a: LedgerAccount) => (
                 <option key={a.id} value={a.id}>
                   {a.code} - {a.name}
                 </option>
@@ -154,7 +171,7 @@ export default function LedgerPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {lines.map((l: any, i: number) => (
+                  {lines.map((l: LedgerLine, i: number) => (
                     <tr key={i} className="border-b border-gray-100 dark:border-gray-800">
                       <td className="whitespace-nowrap py-2">{formatDate(l.date)}</td>
                       <td className="whitespace-nowrap py-2 font-mono text-xs">{l.entry_number}</td>

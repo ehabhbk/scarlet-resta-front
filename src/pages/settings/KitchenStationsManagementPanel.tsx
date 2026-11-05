@@ -8,11 +8,18 @@ import Card from '../../components/common/cards/Card'
 import Modal from '../../components/common/modals/Modal'
 import { useAuthStore } from '../../store/authStore'
 
+interface ManagedKitchenStation {
+  id: number
+  name: string
+  color?: string
+  sort_order?: number
+}
+
 export default function KitchenStationsManagementPanel() {
   const queryClient = useQueryClient()
   const canManageStations = useAuthStore((state) => state.user?.permissions?.includes('update_kitchen_order') || false)
   const [showModal, setShowModal] = useState(false)
-  const [editing, setEditing] = useState<any>(null)
+  const [editing, setEditing] = useState<ManagedKitchenStation | null>(null)
   const [name, setName] = useState('')
   const [color, setColor] = useState('#3b82f6')
   const [sortOrder, setSortOrder] = useState(0)
@@ -21,12 +28,12 @@ export default function KitchenStationsManagementPanel() {
     queryKey: ['settings-kitchen-stations'],
     queryFn: async () => {
       const res = await api.get('/kitchen/stations')
-      return res.data?.stations || res.data?.data || []
+      return (res.data?.stations || res.data?.data || []) as ManagedKitchenStation[]
     },
   })
 
   const saveMutation = useMutation({
-    mutationFn: async (data: any) => {
+    mutationFn: async (data: { name: string; color: string; sort_order: number }) => {
       if (editing) await api.put(`/kitchen/stations/${editing.id}`, data)
       else await api.post('/kitchen/stations', data)
     },
@@ -49,7 +56,7 @@ export default function KitchenStationsManagementPanel() {
     },
   })
 
-  const openEdit = (s: any) => { setEditing(s); setName(s.name); setColor(s.color || '#3b82f6'); setSortOrder(s.sort_order || 0); setShowModal(true) }
+  const openEdit = (s: ManagedKitchenStation) => { setEditing(s); setName(s.name); setColor(s.color || '#3b82f6'); setSortOrder(s.sort_order || 0); setShowModal(true) }
   const openNew = () => { setEditing(null); setName(''); setColor('#3b82f6'); setSortOrder(0); setShowModal(true) }
 
   return (
@@ -67,7 +74,7 @@ export default function KitchenStationsManagementPanel() {
         {isLoading && <p className="text-sm text-gray-500">جاري التحميل...</p>}
         {!isLoading && (!stations || stations.length === 0) && <p className="text-sm text-gray-500">لا توجد محطات.</p>}
         <div className="space-y-2">
-          {(stations || []).map((s: any) => (
+          {(stations || []).map((s) => (
             <div key={s.id} className="flex flex-wrap items-center justify-between gap-2 gap-3 rounded-xl border border-gray-200 bg-white p-3 dark:border-gray-700 dark:bg-gray-900">
               <div className="flex items-center gap-3">
                 <span className="flex h-10 w-10 items-center justify-center rounded-lg text-white" style={{ backgroundColor: s.color || '#3b82f6' }}>

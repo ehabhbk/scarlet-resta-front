@@ -8,6 +8,14 @@ import Card from '../../components/common/cards/Card'
 import DataTable from '../../components/common/tables/DataTable'
 import Modal from '../../components/common/modals/Modal'
 
+interface KitchenStation {
+  id: number
+  name: string
+  color: string
+  sort_order: number
+  is_active: boolean
+}
+
 export default function KitchenStationsPage() {
   const [showModal, setShowModal] = useState(false)
   const queryClient = useQueryClient()
@@ -16,7 +24,7 @@ export default function KitchenStationsPage() {
     queryKey: ['kitchen-stations'],
     queryFn: async () => {
       const res = await api.get('/kitchen/stations')
-      return res.data.stations || []
+      return (res.data.stations || []) as KitchenStation[]
     },
   })
 
@@ -27,10 +35,10 @@ export default function KitchenStationsPage() {
 
   const columns = [
     { key: 'name', header: 'اسم المحطة' },
-    { key: 'color', header: 'اللون', render: (s: any) => <span className="inline-block w-4 h-4 rounded" style={{ background: s.color }} /> },
+    { key: 'color', header: 'اللون', render: (s: KitchenStation) => <span className="inline-block w-4 h-4 rounded" style={{ background: s.color }} /> },
     { key: 'sort_order', header: 'الترتيب' },
-    { key: 'is_active', header: 'الحالة', render: (s: any) => s.is_active ? 'نشط' : 'معطل' },
-    { key: 'actions', header: 'الإجراءات', render: (s: any) => (
+    { key: 'is_active', header: 'الحالة', render: (s: KitchenStation) => s.is_active ? 'نشط' : 'معطل' },
+    { key: 'actions', header: 'الإجراءات', render: (s: KitchenStation) => (
       <button onClick={() => deleteMutation.mutate(s.id)} className="p-1 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/40 rounded"><Trash2 className="w-4 h-4" /></button>
     )},
   ]
@@ -51,10 +59,10 @@ export default function KitchenStationsPage() {
   )
 }
 
-function StationForm({ onClose, onSuccess }: any) {
+function StationForm({ onClose, onSuccess }: { onClose: () => void; onSuccess: () => void }) {
   const [formData, setFormData] = useState({ name: '', color: '#3b82f6', sort_order: 0 })
   const mutation = useMutation({
-    mutationFn: async (data: any) => { await api.post('/kitchen/stations', data) },
+    mutationFn: async (data: { name: string; color: string; sort_order: number }) => { await api.post('/kitchen/stations', data) },
     onSuccess,
   })
   const handleSubmit = (e: React.FormEvent) => { e.preventDefault(); mutation.mutate(formData) }

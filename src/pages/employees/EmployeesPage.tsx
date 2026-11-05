@@ -7,10 +7,39 @@ import { Plus, Search, Edit, Trash2, DollarSign } from 'lucide-react'
 import Button from '../../components/common/buttons/Button'
 import Input from '../../components/common/inputs/Input'
 import Card from '../../components/common/cards/Card'
-import DataTable from '../../components/common/tables/DataTable'
+import DataTable, { type Column } from '../../components/common/tables/DataTable'
 import Modal from '../../components/common/modals/Modal'
 import Badge from '../../components/common/data-display/Badge'
 import Pagination from '../../components/common/Pagination'
+import { getApiErrorMessage } from '../../utils/apiError'
+
+interface EmployeeRecord {
+  id: number
+  user_id?: number
+  employee_id: string
+  name: string
+  job_title: string
+  phone?: string
+  email?: string
+  hire_date: string
+  salary: number
+  pay_type: string
+  pay_rate: number
+  pay_day: number
+  pay_account_id?: number
+  pay_auto: boolean
+  status: string
+  user?: { pay_account_id?: number; pay_account?: { name: string } }
+  pay_account?: { name: string }
+}
+
+interface EmployeeFormProps {
+  employee: EmployeeRecord | null
+  accounts: { id: number; code: string; name: string; type: string; is_active: boolean }[]
+  users: { id: number; name: string; username?: string }[]
+  onClose: () => void
+  onSuccess: () => void
+}
 
 export default function EmployeesPage() {
   const { symbol, paymentMethods } = useSettingsStore()
@@ -18,7 +47,7 @@ export default function EmployeesPage() {
   const [search, setSearch] = useState('')
   const [page, setPage] = useState(1)
   const [showModal, setShowModal] = useState(false)
-  const [editingEmployee, setEditingEmployee] = useState<any>(null)
+  const [editingEmployee, setEditingEmployee] = useState<EmployeeRecord | null>(null)
   const queryClient = useQueryClient()
 
   const { data: employeesRes, isLoading } = useQuery({
@@ -69,10 +98,7 @@ export default function EmployeesPage() {
       queryClient.invalidateQueries({ queryKey: ['chart-of-accounts'] })
       alert(data?.message || 'تم دفع الراتب')
     },
-    onError: (e: any) => {
-      const firstError = Object.values(e?.response?.data?.errors || {})[0]
-      alert((Array.isArray(firstError) ? firstError[0] : firstError) || e?.response?.data?.message || 'تعذر دفع الراتب')
-    },
+    onError: (error) => alert(getApiErrorMessage(error, 'تعذر دفع الراتب')),
   })
 
   const statusColors: Record<string, 'success' | 'warning' | 'danger'> = {
@@ -81,17 +107,17 @@ export default function EmployeesPage() {
     terminated: 'danger',
   }
 
-  const columns = [
+  const columns: Column<EmployeeRecord>[] = [
     { key: 'employee_id', header: 'رقم الموظف' },
     { key: 'name', header: 'اسم الموظف' },
     { key: 'job_title', header: 'الوظيفة' },
     { key: 'phone', header: 'الهاتف' },
-    { key: 'salary', header: 'الراتب', render: (item: any) => formatMoney(item.salary, symbol) },
-    { key: 'pay_account', header: 'حساب الأجر', render: (item: any) => item.pay_account?.name || item.user?.pay_account?.name || '-' },
-    { key: 'status', header: 'الحالة', render: (item: any) => (
+    { key: 'salary', header: 'الراتب', render: (item) => formatMoney(item.salary, symbol) },
+    { key: 'pay_account', header: 'حساب الأجر', render: (item) => item.pay_account?.name || item.user?.pay_account?.name || '-' },
+    { key: 'status', header: 'الحالة', render: (item) => (
       <Badge variant={statusColors[item.status] || 'default'}>{item.status}</Badge>
     )},
-    { key: 'actions', header: 'الإجراءات', render: (item: any) => (
+    { key: 'actions', header: 'الإجراءات', render: (item) => (
       <div className="flex gap-2">
         {canPayEmployeeWages && item.pay_type === 'monthly' && (
           <button onClick={() => paySalaryMutation.mutate(item.id)} className="p-1 text-green-600 dark:text-green-400 hover:bg-green-50 dark:hover:bg-green-950/40 rounded" title="دفع الراتب">
@@ -144,7 +170,7 @@ export default function EmployeesPage() {
       >
         <EmployeeForm
           employee={editingEmployee}
-          accounts={(accountsList || []).filter((account: any) => account.type === 'expense' && account.is_active)}
+          accounts={(accountsList || []).filter((account: EmployeeFormProps['accounts'][number]) => account.type === 'expense' && account.is_active)}
           users={users}
           onClose={() => setShowModal(false)}
           onSuccess={() => {
@@ -157,8 +183,23 @@ export default function EmployeesPage() {
   )
 }
 
-function EmployeeForm({ employee, accounts, users, onClose, onSuccess }: any) {
-  const [formData, setFormData] = useState({
+function EmployeeForm({ employee, accounts, users, onClose, onSuccess }: EmployeeFormProps) {
+  const [formData, setFormData] = useState<{
+    user_id: string | number
+    employee_id: string
+    name: string
+    job_title: string
+    phone: string
+    email: string
+    hire_date: string
+    salary: number | string
+    pay_type: string
+    pay_rate: number | string
+    pay_day: number | string
+    pay_account_id: string | number
+    pay_auto: boolean
+    status: string
+  }>({
     user_id: employee?.user_id || '',
     employee_id: employee?.employee_id || '',
     name: employee?.name || '',
@@ -176,7 +217,7 @@ function EmployeeForm({ employee, accounts, users, onClose, onSuccess }: any) {
   })
 
   const mutation = useMutation({
-    mutationFn: async (data: any) => {
+    mutationFn: async (data: Record<string, unknown>) => {
       if (employee) {
         await api.put(`/employees/${employee.id}`, data)
       } else {
@@ -223,7 +264,7 @@ function EmployeeForm({ employee, accounts, users, onClose, onSuccess }: any) {
           className="w-full px-4 py-2 border border-gray-300 dark:border-gray-700 rounded-lg"
         >
           <option value="">بدون مستخدم</option>
-          {users.map((user: any) => (
+          {users.map((user) => (
             <option key={user.id} value={user.id}>{user.name} (@{user.username})</option>
           ))}
         </select>
@@ -308,7 +349,7 @@ function EmployeeForm({ employee, accounts, users, onClose, onSuccess }: any) {
           className="w-full px-4 py-2 border border-gray-300 dark:border-gray-700 rounded-lg"
         >
           <option value="">الحساب الافتراضي</option>
-          {(accounts || []).map((a: any) => (
+          {(accounts || []).map((a) => (
             <option key={a.id} value={a.id}>{a.code} - {a.name}</option>
           ))}
         </select>

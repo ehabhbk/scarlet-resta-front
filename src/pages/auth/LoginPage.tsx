@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { isAxiosError } from 'axios'
 import { useAuthStore } from '../../store/authStore'
 import { Utensils, Lock, User, Eye, EyeOff } from 'lucide-react'
 import Button from '../../components/common/buttons/Button'
@@ -21,8 +22,9 @@ export default function LoginPage() {
     try {
       await login(username, password)
       navigate('/dashboard')
-    } catch (err: any) {
-      setError(err.response?.data?.message || 'حدث خطأ في تسجيل الدخول')
+    } catch (error: unknown) {
+      const message = isAxiosError<{ message?: string }>(error) ? error.response?.data?.message : undefined
+      setError(message || 'حدث خطأ في تسجيل الدخول')
     } finally {
       setLoading(false)
     }

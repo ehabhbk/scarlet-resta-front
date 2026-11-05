@@ -9,6 +9,13 @@ import { useSettingsStore, formatMoney, mediaUrl } from '../../store/settingsSto
 import { printReport } from '../../utils/printReport'
 import { formatDate } from '../../utils/format'
 
+interface BalanceSheetRow {
+  id: number
+  code: string
+  name: string
+  amount: number
+}
+
 export default function BalanceSheetPage() {
   const { symbol, restaurant } = useSettingsStore()
   const [asOf, setAsOf] = useState(new Date().toISOString().slice(0, 10))
@@ -21,13 +28,13 @@ export default function BalanceSheetPage() {
     },
   })
 
-  const renderSection = (title: string, rows: any[], total: number, color: string) => (
+  const renderSection = (title: string, rows: BalanceSheetRow[], total: number, color: string) => (
     <div>
       <h2 className={`mb-2 text-lg font-semibold ${color}`}>{title}</h2>
       <div className="overflow-x-auto">
         <table className="w-full min-w-[320px] text-sm">
           <tbody>
-            {(rows || []).map((r: any) => (
+            {(rows || []).map((r) => (
               <tr key={r.id} className="border-b border-gray-100 dark:border-gray-800">
                 <td className="py-1">{r.code} - {r.name}</td>
                 <td className="whitespace-nowrap py-1 text-end">{formatMoney(r.amount, symbol)}</td>
@@ -45,7 +52,7 @@ export default function BalanceSheetPage() {
 
   const handlePrint = () => {
     if (!data) return
-    const toRows = (rows: any[]) => (rows || []).map((row: any) => [`${row.code} - ${row.name}`, formatMoney(row.amount, symbol)])
+    const toRows = (rows: BalanceSheetRow[]) => rows.map((row) => [`${row.code} - ${row.name}`, formatMoney(row.amount, symbol)])
 
     printReport({
       title: 'الميزانية العمومية',
