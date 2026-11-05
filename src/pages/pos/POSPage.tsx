@@ -1318,7 +1318,7 @@ export default function POSPage() {
         )}
       </div>
 
-      {can('view_pos') && openShift && cashiers.length > 1 && (
+      {can('view_pos') && openShift && cashiers.length > 0 && (
         <div className="border-b border-gray-200 bg-white px-3 py-3 dark:border-gray-800 dark:bg-gray-900 sm:px-4">
           <h2 className="mb-2 text-sm font-semibold text-gray-700 dark:text-gray-200">إيرادات الكاشيرين</h2>
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
