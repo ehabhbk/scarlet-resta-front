@@ -36,6 +36,9 @@ export default function Topbar() {
       const res = await api.get('/admin/roles')
       return (res.data.roles || res.data.data || res.data) as TopbarRole[]
     },
+    enabled: ['admin', 'Super Admin', 'Admin'].includes(user?.roles?.[0]?.name || '')
+      || (user?.permissions || []).includes('roles')
+      || (user?.permissions || []).includes('view_roles'),
   })
 
   const { data: notifData, refetch: refetchNotifs } = useQuery({
@@ -56,7 +59,7 @@ export default function Topbar() {
   const userPerms = (userRole?.permissions || []).map((p) => p.name)
   const isAdmin = ['admin', 'Super Admin', 'Admin'].includes(userRoleName || '')
 
-  const can = (perm: string) => isAdmin || userPerms.includes(perm)
+  const can = (perm: string) => isAdmin || userPerms.includes(perm) || (user?.permissions || []).includes(perm)
   const canSettings = can('edit_settings') || isAdmin
   const canReports = can('view_reports') || isAdmin
   const canUsers = can('view_users') || can('create_users') || isAdmin

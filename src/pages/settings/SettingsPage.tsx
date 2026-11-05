@@ -95,6 +95,26 @@ const GROUPS: Record<string, SettingField[]> = {
     { key: 'print_logo', label: 'طباعة الشعار على الإيصال', type: 'boolean', defaultValue: 'true' },
     { key: 'print_kitchen_copy', label: 'طباعة نسخة للمطبخ', type: 'boolean', defaultValue: 'true' },
   ],
+
+  reports: [
+    { key: 'report_logo_position', label: 'موقع اللوقو', type: 'select', defaultValue: 'top', options: [
+      { value: 'top', label: 'أعلى' },
+      { value: 'left', label: 'يسار' },
+      { value: 'right', label: 'يمين' },
+      { value: 'center', label: 'وسط' },
+    ] },
+    { key: 'report_logo_method', label: 'طريقة عرض اللوقو', type: 'select', defaultValue: 'contain', options: [
+      { value: 'contain', label: 'احتواء' },
+      { value: 'cover', label: 'تغطية' },
+      { value: 'fill', label: 'ملء' },
+    ] },
+    { key: 'report_logo_size', label: 'حجم اللوقو', type: 'select', defaultValue: 'medium', options: [
+      { value: 'small', label: 'صغير' },
+      { value: 'medium', label: 'متوسط' },
+      { value: 'large', label: 'كبير' },
+    ] },
+    { key: 'report_show_logo', label: 'عرض اللوقو', type: 'boolean', defaultValue: 'true' },
+  ],
   pos: [
     { key: 'require_shift', label: 'إجبار فتح وردية قبل البيع', type: 'boolean', defaultValue: 'true', disabled: true, hint: 'مفعّل دائماً لضمان ربط المبيعات بالوردية والكاشير' },
     { key: 'enable_customer_name', label: 'السماح بإدخال اسم العميل', type: 'boolean', defaultValue: 'true' },
@@ -130,6 +150,7 @@ const TABS = [
   { id: 'payments', label: 'طرق الدفع', icon: CreditCard },
   { id: 'invoice', label: 'الفواتير', icon: FileText },
   { id: 'printing', label: 'الطباعة', icon: Printer },
+  { id: 'reports', label: 'التقارير', icon: FileText },
   { id: 'pos', label: 'نقطة البيع', icon: ShoppingCart },
   { id: 'users', label: 'المستخدمون', icon: Users },
   { id: 'roles', label: 'الأدوار والصلاحيات', icon: Shield },
@@ -888,7 +909,8 @@ export default function SettingsPage() {
         activeTab === 'printing' ||
         activeTab === 'pos' ||
         activeTab === 'users' ||
-        activeTab === 'tables') && (
+        activeTab === 'tables' ||
+        activeTab === 'reports') && (
         <Card>
           <div className="space-y-4">
             <h2 className="text-lg font-semibold dark:text-gray-100">
