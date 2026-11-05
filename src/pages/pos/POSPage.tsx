@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { isAxiosError } from 'axios'
 import { toast } from 'sonner'
@@ -174,6 +174,20 @@ interface Shift {
   user?: { id: number; name: string }
 }
 
+interface ShiftBalance {
+  user_id: number
+  user_name?: string
+  opening_cash: number
+  opening_cash_set: boolean
+  revenue: number
+  cash_revenue: number
+  expected_cash: number
+  actual_cash: number | null
+  difference: number | null
+  orders_count: number
+  closed_at?: string | null
+}
+
 interface ShiftEmployee {
   id: number
   name: string
@@ -270,6 +284,10 @@ export default function POSPage() {
   const [paymentDraftRows, setPaymentDraftRows] = useState<{ method: string; amount: string }[]>([])
   const [actualCash, setActualCash] = useState(0)
   const [openingCash, setOpeningCash] = useState(0)
+  const [myOpeningCash, setMyOpeningCash] = useState(0)
+  const [cashierActuals, setCashierActuals] = useState<Record<number, number>>({})
+  const [showOpeningCashModal, setShowOpeningCashModal] = useState(false)
+  const promptedOpeningCashShift = useRef<number | null>(null)
   const [shiftEmployeeIds, setShiftEmployeeIds] = useState<number[]>([])
   const [wagePaymentMethods, setWagePaymentMethods] = useState<Record<number, string>>({})
   const [shiftNow, setShiftNow] = useState(new Date())
@@ -309,6 +327,11 @@ export default function POSPage() {
 
   const openShift = shiftData?.shift
   const can = (permission: string) => user?.permissions?.includes(permission) ?? false
+  const myBalance = shiftData?.balance as ShiftBalance | undefined
+  const cashiers = (shiftData?.cashiers || []) as ShiftBalance[]
+  const canCloseShift = Boolean(shiftData?.can_close_shift)
+  const openingCashAmount = Number(myBalance?.opening_cash ?? openShift?.opening_cash ?? 0)
+  const needsOpeningCash = Boolean(openShift && shiftData?.needs_opening_cash && can('create_orders'))
   const { data: employeeWagesData, isLoading: employeeWagesLoading } = useQuery({
     queryKey: ['employee-wages', openShift?.id],
     queryFn: async () => (await api.get(`/shifts/${openShift.id}/employee-wages`)).data,
@@ -597,9 +620,31 @@ export default function POSPage() {
 
   const cashMethod = paymentMethods.find((method) => ['cash', 'نقد', 'نقدي', 'cashbox'].includes(method.value.toLowerCase()))?.value
   const cashRevenue = cashMethod ? Number(shiftRevenue.byPayment[cashMethod]) || 0 : 0
-  const expectedCash = Number(openShift?.opening_cash || 0) + cashRevenue
+  const expectedCash = Number(myBalance?.expected_cash ?? (openingCashAmount + cashRevenue))
+
+  // Prompt each cashier to set their own opening cash when entering the shared shift.
+  useEffect(() => {
+    if (!openShift?.id || !needsOpeningCash) return
+    if (promptedOpeningCashShift.current === openShift.id) return
+    promptedOpeningCashShift.current = openShift.id
+    setMyOpeningCash(Number(myBalance?.opening_cash ?? 0))
+    setShowOpeningCashModal(true)
+  }, [openShift?.id, needsOpeningCash])
 
   // Shift modal is opened manually via the "فتح وردية" button.
+  const setOpeningCashMutation = useMutation({
+    mutationFn: async (cash: number) => {
+      if (!openShift?.id) throw new Error('لا توجد وردية مفتوحة')
+      return (await api.post(`/shifts/${openShift.id}/opening-cash`, { opening_cash: cash })).data
+    },
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['shifts-current'] })
+      setShowOpeningCashModal(false)
+      toast.success('تم حفظ النقد الافتتاحي')
+    },
+    onError: (error) => toast.error(getErrorMessage(error, 'تعذر حفظ النقد الافتتاحي')),
+  })
+
   const openShiftMutation = useMutation({
     mutationFn: async ({ cash, employeeIds }: {
       cash: number
@@ -688,6 +733,13 @@ export default function POSPage() {
 
   const handleShiftButton = () => {
     if (openShift) {
+      if (cashiers.length > 0) {
+        const initial: Record<number, number> = {}
+        cashiers.forEach((cashier) => {
+          initial[cashier.user_id] = Number(cashier.actual_cash ?? cashier.expected_cash ?? 0)
+        })
+        setCashierActuals(initial)
+      }
       setActualCash(expectedCash)
       setShowCloseModal(true)
       return
@@ -699,12 +751,12 @@ export default function POSPage() {
   }
 
   const closeShiftMutation = useMutation({
-    mutationFn: async (cash: number) => {
+    mutationFn: async ({ cash, cashierValues }: { cash: number; cashierValues: Array<{ user_id: number; actual_cash: number }> }) => {
       if (!openShift?.id) return
-      const res = await api.put(`/shifts/${openShift.id}`, {
-        status: 'closed',
-        actual_cash: cash,
-      })
+      const payload: Record<string, unknown> = { status: 'closed' }
+      if (cashierValues.length > 0) payload.cashiers = cashierValues
+      else payload.actual_cash = cash
+      const res = await api.put(`/shifts/${openShift.id}`, payload)
       return res.data
     },
     onSuccess: async (response) => {
@@ -1190,7 +1242,7 @@ export default function POSPage() {
                 أجر الموظفين
               </Button>
             )}
-            {((openShift && can('close_shift')) || (!openShift && can('open_shift'))) && (
+            {((openShift && canCloseShift) || (!openShift && can('open_shift'))) && (
               <button
                 type="button"
                 onClick={handleShiftButton}
@@ -1213,11 +1265,23 @@ export default function POSPage() {
               <div className="flex items-center gap-2">
                 <DollarSign className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
                 <span className="font-semibold text-gray-900 dark:text-gray-100">
-                  {openShift ? 'إيرادات الوردية' : 'إيرادات اليوم'}
+                  {canCloseShift ? 'إيرادات الوردية (أنت)' : 'إيراداتي في الوردية'}
                 </span>
                 <span className="text-xs text-gray-500 dark:text-gray-400">
                   ({shiftData?.orders_count || 0} طلب)
                 </span>
+                {needsOpeningCash && (
+                  <button
+                    type="button"
+                    className="text-xs text-amber-700 dark:text-amber-300 underline"
+                    onClick={() => {
+                      setMyOpeningCash(Number(myBalance?.opening_cash ?? 0))
+                      setShowOpeningCashModal(true)
+                    }}
+                  >
+                    تحديد النقد الافتتاحي
+                  </button>
+                )}
               </div>
               <div className="text-2xl font-bold text-emerald-600 dark:text-emerald-400">
                 {formatMoney(shiftRevenue.total, currencySymbol)}
@@ -1236,6 +1300,18 @@ export default function POSPage() {
                   </span>
                 </div>
               ))}
+              <div className="flex items-center gap-2 px-3 py-1.5 bg-white/70 dark:bg-gray-900/60 rounded-lg">
+                <span className="text-gray-600 dark:text-gray-300">الافتتاحي:</span>
+                <span className="font-semibold text-gray-900 dark:text-gray-100">
+                  {formatMoney(openingCashAmount, currencySymbol)}
+                </span>
+              </div>
+              <div className="flex items-center gap-2 px-3 py-1.5 bg-white/70 dark:bg-gray-900/60 rounded-lg">
+                <span className="text-gray-600 dark:text-gray-300">المتوقع:</span>
+                <span className="font-semibold text-gray-900 dark:text-gray-100">
+                  {formatMoney(expectedCash, currencySymbol)}
+                </span>
+              </div>
             </div>
           </div>
         )}
@@ -1687,7 +1763,7 @@ export default function POSPage() {
               <p className="font-semibold text-gray-900 dark:text-gray-100">#{nextShiftNumber}</p>
             </div>
             <div className="rounded-lg bg-gray-50 p-3 dark:bg-gray-800">
-              <p className="text-gray-500">الكاشير</p>
+              <p className="text-gray-500">من يفتح الوردية</p>
               <p className="font-semibold text-gray-900 dark:text-gray-100">{user?.name || '-'}</p>
             </div>
             <div className="rounded-lg bg-gray-50 p-3 dark:bg-gray-800">
@@ -1758,7 +1834,34 @@ export default function POSPage() {
         </div>
       </Modal>
 
-      <Modal isOpen={showCloseModal} onClose={() => setShowCloseModal(false)} title="إغلاق الوردية">
+            <Modal isOpen={showOpeningCashModal} onClose={() => setShowOpeningCashModal(false)} title="النقد الافتتاحي الخاص بك">
+        <div className="space-y-4">
+          <p className="text-sm text-gray-600 dark:text-gray-300">
+            أدخل مبلغ النقد présent dans votre tiroir avant de commencer à créer des commandes. Ce montant servira de solde d'ouverture pour le calcul de vos revenus.
+          </p>
+          <Input
+            label="النقد الافتتاحي"
+            type="number"
+            min={0}
+            step="0.01"
+            value={myOpeningCash}
+            onChange={(e) => setMyOpeningCash(Number(e.target.value) || 0)}
+          />
+          <div className="flex justify-end gap-3 pt-4">
+            <Button variant="secondary" onClick={() => setShowOpeningCashModal(false)}>
+              لاحقاً
+            </Button>
+            <Button
+              onClick={() => setOpeningCashMutation.mutate(myOpeningCash)}
+              loading={setOpeningCashMutation.isPending}
+            >
+              حفظ
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
+<Modal isOpen={showCloseModal} onClose={() => setShowCloseModal(false)} title="إغلاق الوردية">
         <div className="space-y-4">
           {can('view_pos') && <div className="rounded-lg border border-blue-100 bg-blue-50 p-3 text-sm dark:border-blue-900 dark:bg-blue-950/30">
             <p className="font-semibold text-blue-900 dark:text-blue-200">
@@ -1776,36 +1879,80 @@ export default function POSPage() {
               })}
             </div>
           </div>}
-          <div className="grid grid-cols-2 gap-3 text-sm">
-            <div className="p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
-              <p className="text-gray-500">النقد الافتتاحي</p>
-              <p className="font-semibold">{formatMoney(openShift?.opening_cash || 0, currencySymbol)}</p>
+          {cashiers.length > 0 ? (
+            <div className="space-y-3">
+              {cashiers.map((cashier) => (
+                <div key={cashier.user_id} className="rounded-lg border border-gray-200 p-3 dark:border-gray-700">
+                  <div className="flex items-center justify-between">
+                    <p className="font-semibold text-gray-900 dark:text-gray-100">{cashier.user_name || 'كاشير'}</p>
+                    <span className="text-xs text-gray-500">{cashier.orders_count} طلب</span>
+                  </div>
+                  <div className="mt-2 grid grid-cols-3 gap-2 text-sm">
+                    <div>
+                      <p className="text-gray-500">الافتتاحي</p>
+                      <p className="font-semibold">{formatMoney(cashier.opening_cash, currencySymbol)}</p>
+                    </div>
+                    <div>
+                      <p className="text-gray-500">المبيعات</p>
+                      <p className="font-semibold">{formatMoney(cashier.revenue, currencySymbol)}</p>
+                    </div>
+                    <div>
+                      <p className="text-gray-500">المتوقع</p>
+                      <p className="font-bold text-primary dark:text-blue-400">{formatMoney(cashier.expected_cash, currencySymbol)}</p>
+                    </div>
+                  </div>
+                  <Input
+                    label="النقد الفعلي"
+                    type="number"
+                    step="0.01"
+                    value={cashierActuals[cashier.user_id] ?? cashier.expected_cash}
+                    onChange={(e) => setCashierActuals((current) => ({ ...current, [cashier.user_id]: Number(e.target.value) }))}
+                  />
+                </div>
+              ))}
             </div>
-            {can('view_pos') && <div className="p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
-              <p className="text-gray-500">مبيعات نقدية</p>
-              <p className="font-semibold">{formatMoney(cashRevenue, currencySymbol)}</p>
-            </div>}
-            {can('view_pos') && <div className="p-3 bg-gray-50 dark:bg-gray-800 rounded-lg col-span-2">
-              <p className="text-gray-500">النقد المتوقع في الدرج</p>
-              <p className="font-bold text-primary dark:text-blue-400 text-lg">
-                {formatMoney(expectedCash, currencySymbol)}
-              </p>
-            </div>}
-          </div>
-          <Input
-            label="النقد الفعلي في الدرج"
-            type="number"
-            step="0.01"
-            value={actualCash}
-            onChange={(e) => setActualCash(Number(e.target.value))}
-          />
+          ) : (
+            <div className="grid grid-cols-2 gap-3 text-sm">
+              <div className="p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                <p className="text-gray-500">النقد الافتتاحي</p>
+                <p className="font-semibold">{formatMoney(openingCashAmount, currencySymbol)}</p>
+              </div>
+              {can('view_pos') && <div className="p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                <p className="text-gray-500">مبيعات نقدية</p>
+                <p className="font-semibold">{formatMoney(cashRevenue, currencySymbol)}</p>
+              </div>}
+              {can('view_pos') && <div className="p-3 bg-gray-50 dark:bg-gray-800 rounded-lg col-span-2">
+                <p className="text-gray-500">النقد المتوقع في الدرج</p>
+                <p className="font-bold text-primary dark:text-blue-400 text-lg">
+                  {formatMoney(expectedCash, currencySymbol)}
+                </p>
+              </div>}
+            </div>
+          )}
+          {cashiers.length === 0 && (
+            <Input
+              label="النقد الفعلي في الدرج"
+              type="number"
+              step="0.01"
+              value={actualCash}
+              onChange={(e) => setActualCash(Number(e.target.value))}
+            />
+          )}
           <div className="flex justify-end gap-3 pt-4">
             <Button variant="secondary" onClick={() => setShowCloseModal(false)}>
               إلغاء
             </Button>
             <Button
               variant="danger"
-              onClick={() => closeShiftMutation.mutate(actualCash)}
+              onClick={() => closeShiftMutation.mutate({
+                cash: actualCash,
+                cashierValues: cashiers.length > 0
+                  ? cashiers.map((cashier) => ({
+                      user_id: cashier.user_id,
+                      actual_cash: Number(cashierActuals[cashier.user_id] ?? cashier.expected_cash ?? 0),
+                    }))
+                  : [],
+              })}
               loading={closeShiftMutation.isPending}
             >
               إغلاق الوردية
