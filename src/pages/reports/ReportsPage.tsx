@@ -753,7 +753,7 @@ export default function ReportsPage() {
                 <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
                   <Card padding="sm">
                     <p className="text-sm text-gray-500">عدد الكاشيرين</p>
-                    <p className="text-lg font-bold">{shiftCashiers.length}</p>
+                    <p className="text-lg font-bold">{new Set(shiftOrders.map((o) => o.cashier_name || o.cashier?.name || o.id)).size || shiftCashiers.filter((c) => (c.orders_count || 0) > 0).length}</p>
                   </Card>
                   <Card padding="sm">
                     <p className="text-sm text-gray-500">إجمالي الوردية</p>
@@ -787,7 +787,7 @@ export default function ReportsPage() {
                         </tr>
                       </thead>
                       <tbody>
-                        {shiftCashiers.map((cashier) => (
+                        {shiftCashiers.filter((cashier) => (cashier.orders_count || 0) > 0).map((cashier) => (
                           <tr key={cashier.shift_id} className="border-b border-gray-100 dark:border-gray-800">
                             <td className="px-3 py-2">{cashier.user_name || cashier.user?.name || '-'}</td>
                             <td className="px-3 py-2">{Number(cashier.orders_count || 0)}</td>

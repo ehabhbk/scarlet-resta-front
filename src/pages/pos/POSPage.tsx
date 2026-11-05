@@ -1213,7 +1213,7 @@ export default function POSPage() {
             )}
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            {can('view_pos') && can('view_all_shifts') && (
+            {can('view_pos') && can('view_all_shifts') && openShift && (
               <Button
                 variant="success"
                 size="sm"
@@ -1223,7 +1223,7 @@ export default function POSPage() {
                 إيرادات الكاشيرين
               </Button>
             )}
-            {can('view_pos') && (
+            {can('view_pos') && openShift && (
               <Button
                 variant="secondary"
                 size="sm"
@@ -1235,7 +1235,7 @@ export default function POSPage() {
                 تحديث
               </Button>
             )}
-            {can('view_orders') && (
+            {can('view_orders') && openShift && (
               <Button
                 variant="info"
                 size="sm"
@@ -1876,8 +1876,8 @@ export default function POSPage() {
 
       <Modal isOpen={showCashiersModal} onClose={() => setShowCashiersModal(false)} title="إيرادات الكاشيرين" size="lg">
         <div className="space-y-3">
-          {cashiers.length === 0 && <p className="text-sm text-gray-500">لا توجد بيانات.</p>}
-          {cashiers.map((cashier) => (
+          {cashiers.filter((cashier) => cashier.user_id !== (user?.id ?? -1)).length === 0 && <p className="text-sm text-gray-500">لا توجد إيرادات للكاشيرين الآخرين.</p>}
+          {cashiers.filter((cashier) => cashier.user_id !== (user?.id ?? -1)).map((cashier) => (
             <div key={cashier.user_id} className="rounded-lg border border-gray-200 p-3 dark:border-gray-700">
               <div className="flex items-center justify-between">
                 <p className="font-semibold text-gray-900 dark:text-gray-100">{cashier.user_name || 'كاشير'}</p>
