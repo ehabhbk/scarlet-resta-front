@@ -84,7 +84,7 @@ export default function KitchenPage() {
   const [lastUpdated, setLastUpdated] = useState<Date>(new Date())
   const [showProducts, setShowProducts] = useState(false)
   const [productSearch, setProductSearch] = useState('')
-  const canManageProducts = permissions.includes('edit_products') || permissions.includes('update_kitchen_order')
+  const canManageProducts = permissions.includes('manage_kitchen_products')
 
   const { data: kitchenOrders, isLoading, isFetching, refetch } = useQuery({
     queryKey: ['kitchen-orders'],
