@@ -437,7 +437,7 @@ export default function POSPage() {
       const res = await api.get('/admin/roles')
       return res.data.roles || res.data.data || res.data
     },
-    enabled: showOrdersModal,
+    enabled: showOrdersModal && can('roles'),
   })
 
   const userPermissions = (() => {
@@ -449,13 +449,13 @@ export default function POSPage() {
     return (role?.permissions || []).map((permission: { name: string }) => permission.name)
   })()
 
-  const canCancel = userPermissions.includes('cancel_orders') || ['admin', 'Super Admin', 'Admin'].includes(authUser?.roles?.[0]?.name || '')
-  const canRefund = userPermissions.includes('delete_orders') || userPermissions.includes('edit_orders') || ['admin', 'Super Admin', 'Admin'].includes(authUser?.roles?.[0]?.name || '')
-  const canEditOrders = userPermissions.includes('edit_orders') || ['admin', 'Super Admin', 'Admin'].includes(authUser?.roles?.[0]?.name || '')
+  const canCancel = can('cancel_orders') || ['admin', 'Super Admin', 'Admin'].includes(authUser?.roles?.[0]?.name || '')
+  const canRefund = (can('delete_orders') || can('edit_orders')) || ['admin', 'Super Admin', 'Admin'].includes(authUser?.roles?.[0]?.name || '')
+  const canEditOrders = can('edit_orders') || ['admin', 'Super Admin', 'Admin'].includes(authUser?.roles?.[0]?.name || '')
   const canEditOrderPayment = user?.permissions?.includes('edit_order_payment')
     || userPermissions.includes('edit_order_payment')
     || ['admin', 'Super Admin', 'Admin'].includes(authUser?.roles?.[0]?.name || '')
-  const canDeleteOrders = userPermissions.includes('delete_orders') || ['admin', 'Super Admin', 'Admin'].includes(authUser?.roles?.[0]?.name || '')
+  const canDeleteOrders = can('delete_orders') || ['admin', 'Super Admin', 'Admin'].includes(authUser?.roles?.[0]?.name || '')
 
   const cancelOrderMutation = useMutation({
     mutationFn: async (id: number) => {
