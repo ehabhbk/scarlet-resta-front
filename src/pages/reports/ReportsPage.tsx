@@ -665,7 +665,7 @@ export default function ReportsPage() {
           ${
             orderRowsHtml
               ? `<table>
-                  <thead><tr><th>#</th><th>رقم الطلب</th><th>الوقت</th><th>النوع / الطاولة</th><th>الأصناف</th><th>الإجمالي</th><th>المدفوع</th><th>تفاصيل الدفع</th><th>الحالة</th></tr></thead>
+                  <thead><tr><th>#</th><th>رقم الطلب</th><th>الوقت</th><th>النوع / الطاولة</th><th>الأصناف</th><th>الإجمالي</th><th>المدفوع</th><th>تفاصيل الدفع</th><th>المستخدم</th></tr></thead>
                   <tbody>${orderRowsHtml}</tbody>
                   <tfoot><tr><th colspan="5">الإجمالي (${shiftOrders.length} طلب)</th><th class="num">${money(shiftOrders.reduce((sum: number, order) => sum + (Number(order.total_amount) || 0), 0))}</th><th class="num">${money(shiftOrders.reduce((sum: number, order) => sum + (Number(order.amount_paid) || 0), 0))}</th><th colspan="2"></th></tr></tfoot>
                 </table>`
