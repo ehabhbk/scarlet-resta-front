@@ -180,6 +180,7 @@ interface ShiftBalance {
   opening_cash: number
   opening_cash_set: boolean
   revenue: number
+  by_payment_method?: Record<string, number>
   cash_revenue: number
   expected_cash: number
   actual_cash: number | null
@@ -1317,6 +1318,32 @@ export default function POSPage() {
         )}
       </div>
 
+      {can('view_pos') && openShift && cashiers.length > 1 && (
+        <div className="border-b border-gray-200 bg-white px-3 py-3 dark:border-gray-800 dark:bg-gray-900 sm:px-4">
+          <h2 className="mb-2 text-sm font-semibold text-gray-700 dark:text-gray-200">إيرادات الكاشيرين</h2>
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {cashiers.map((cashier) => (
+              <div key={cashier.user_id} className="rounded-lg border border-gray-200 p-3 dark:border-gray-700">
+                <div className="flex items-center justify-between">
+                  <p className="font-semibold text-gray-900 dark:text-gray-100">{cashier.user_name || 'كاشير'}</p>
+                  <span className="text-xs text-gray-500">{cashier.orders_count} طلب</span>
+                </div>
+                <p className="mt-1 text-lg font-bold text-emerald-600 dark:text-emerald-400">
+                  {formatMoney(cashier.revenue, currencySymbol)}
+                </p>
+                <div className="mt-2 flex flex-wrap gap-2 text-xs">
+                  {Object.entries(cashier.by_payment_method || {}).map(([method, amount]) => (
+                    <span key={method} className="rounded bg-gray-100 px-2 py-1 dark:bg-gray-800">
+                      {method}: {formatMoney(amount, currencySymbol)}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       <div className="flex min-h-0 flex-1 flex-col md:flex-row md:overflow-hidden">
         <div className="flex min-w-0 flex-col p-3 sm:p-4 md:min-h-0 md:flex-1">
           <div className="mb-4">
@@ -2040,7 +2067,7 @@ export default function POSPage() {
                   <button className="text-right" onClick={() => setSelectedOrder(order)}>
                     <p className="font-semibold text-gray-900 dark:text-gray-100">{order.order_number}</p>
                     <p className="text-xs text-gray-500">
-                      {order.status} • {formatMoney(order.total_amount, currencySymbol)} • {order.payment_status}
+                      {order.cashier?.name || 'كاشير'} • {formatMoney(order.total_amount, currencySymbol)} • {order.payment_status}
                     </p>
                     <p className="text-xs text-gray-500">
                       {order.created_at ? formatDateTime(order.created_at) : ''}
