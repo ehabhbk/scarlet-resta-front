@@ -32,6 +32,8 @@ interface ShiftOrder {
   created_at: string
   type: string
   table_name?: string
+  cashier_name?: string
+  cashier?: { name?: string }
   status: string
   total_amount: number
   amount_paid: number
@@ -781,6 +783,7 @@ export default function ReportsPage() {
                           <th className="px-3 py-2 text-start">الكاشير</th>
                           <th className="px-3 py-2 text-start">عدد الطلبات</th>
                           <th className="px-3 py-2 text-start">الإيراد</th>
+                          <th className="px-3 py-2 text-start">طرق الدفع</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -789,6 +792,11 @@ export default function ReportsPage() {
                             <td className="px-3 py-2">{cashier.user_name || cashier.user?.name || '-'}</td>
                             <td className="px-3 py-2">{Number(cashier.orders_count || 0)}</td>
                             <td className="px-3 py-2">{formatMoney(Number(cashier.total || 0), symbol)}</td>
+                            <td className="px-3 py-2 text-xs">
+                              {Object.entries(cashier.by_payment_method || {})
+                                .map(([method, amount]) => `${method}: ${formatMoney(Number(amount) || 0, symbol)}`)
+                                .join(' | ') || '-'}
+                            </td>
                           </tr>
                         ))}
                         <tr className="font-semibold bg-gray-50 dark:bg-gray-800">
@@ -855,7 +863,7 @@ export default function ReportsPage() {
                                   .map(([method, amount]) => `${paymentLabel(method)}: ${formatMoney(Number(amount) || 0, symbol)}`)
                                   .join(' | ') || '-'}
                               </td>
-                              <td className="px-3 py-2">{STATUS_LABELS[order.status] || order.status || '-'}</td>
+                              <td className="px-3 py-2">{order.cashier_name || order.cashier?.name || '-'}</td>
                             </tr>
                           ))
                         )}

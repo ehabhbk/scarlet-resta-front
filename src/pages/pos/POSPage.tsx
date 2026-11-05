@@ -276,6 +276,7 @@ export default function POSPage() {
   const [customerPhone, setCustomerPhone] = useState('')
   const [showShiftModal, setShowShiftModal] = useState(false)
   const [showCloseModal, setShowCloseModal] = useState(false)
+  const [showCashiersModal, setShowCashiersModal] = useState(false)
   const [showEmployeeWagesModal, setShowEmployeeWagesModal] = useState(false)
   const [showOrdersModal, setShowOrdersModal] = useState(false)
   const [selectedOrder, setSelectedOrder] = useState<POSOrder | null>(null)
@@ -1212,16 +1213,26 @@ export default function POSPage() {
             )}
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            {can('view_pos') && (
+            {can('view_pos') && can('view_all_shifts') && (
               <Button
                 variant="success"
+                size="sm"
+                onClick={() => setShowCashiersModal(true)}
+              >
+                <DollarSign className="w-4 h-4" />
+                إيرادات الكاشيرين
+              </Button>
+            )}
+            {can('view_pos') && (
+              <Button
+                variant="secondary"
                 size="sm"
                 onClick={() => {
                   queryClient.invalidateQueries({ queryKey: ['shifts-current'] })
                 }}
               >
                 <RefreshCw className="w-4 h-4" />
-                تحديث الإيراد
+                تحديث
               </Button>
             )}
             {can('view_orders') && (
@@ -1318,31 +1329,6 @@ export default function POSPage() {
         )}
       </div>
 
-      {can('view_pos') && openShift && cashiers.length > 0 && (
-        <div className="border-b border-gray-200 bg-white px-3 py-3 dark:border-gray-800 dark:bg-gray-900 sm:px-4">
-          <h2 className="mb-2 text-sm font-semibold text-gray-700 dark:text-gray-200">إيرادات الكاشيرين</h2>
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {cashiers.map((cashier) => (
-              <div key={cashier.user_id} className="rounded-lg border border-gray-200 p-3 dark:border-gray-700">
-                <div className="flex items-center justify-between">
-                  <p className="font-semibold text-gray-900 dark:text-gray-100">{cashier.user_name || 'كاشير'}</p>
-                  <span className="text-xs text-gray-500">{cashier.orders_count} طلب</span>
-                </div>
-                <p className="mt-1 text-lg font-bold text-emerald-600 dark:text-emerald-400">
-                  {formatMoney(cashier.revenue, currencySymbol)}
-                </p>
-                <div className="mt-2 flex flex-wrap gap-2 text-xs">
-                  {Object.entries(cashier.by_payment_method || {}).map(([method, amount]) => (
-                    <span key={method} className="rounded bg-gray-100 px-2 py-1 dark:bg-gray-800">
-                      {method}: {formatMoney(amount, currencySymbol)}
-                    </span>
-                  ))}
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
 
       <div className="flex min-h-0 flex-1 flex-col md:flex-row md:overflow-hidden">
         <div className="flex min-w-0 flex-col p-3 sm:p-4 md:min-h-0 md:flex-1">
@@ -1885,6 +1871,30 @@ export default function POSPage() {
               حفظ
             </Button>
           </div>
+        </div>
+      </Modal>
+
+      <Modal isOpen={showCashiersModal} onClose={() => setShowCashiersModal(false)} title="إيرادات الكاشيرين" size="lg">
+        <div className="space-y-3">
+          {cashiers.length === 0 && <p className="text-sm text-gray-500">لا توجد بيانات.</p>}
+          {cashiers.map((cashier) => (
+            <div key={cashier.user_id} className="rounded-lg border border-gray-200 p-3 dark:border-gray-700">
+              <div className="flex items-center justify-between">
+                <p className="font-semibold text-gray-900 dark:text-gray-100">{cashier.user_name || 'كاشير'}</p>
+                <span className="text-xs text-gray-500">{cashier.orders_count} طلب</span>
+              </div>
+              <p className="mt-1 text-lg font-bold text-emerald-600 dark:text-emerald-400">
+                {formatMoney(cashier.revenue, currencySymbol)}
+              </p>
+              <div className="mt-2 flex flex-wrap gap-2 text-xs">
+                {Object.entries(cashier.by_payment_method || {}).map(([method, amount]) => (
+                  <span key={method} className="rounded bg-gray-100 px-2 py-1 dark:bg-gray-800">
+                    {method}: {formatMoney(amount, currencySymbol)}
+                  </span>
+                ))}
+              </div>
+            </div>
+          ))}
         </div>
       </Modal>
 
