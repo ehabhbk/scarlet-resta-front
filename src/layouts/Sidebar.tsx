@@ -120,6 +120,7 @@ export default function Sidebar({ open, mobileOpen, onClose }: SidebarProps) {
       children: [
         { label: 'شجرة الحسابات', path: '/finance/chart-of-accounts', icon: List, permissions: ['view_finance'] },
         { label: 'ميزان المراجعة', path: '/finance/trial-balance', icon: List, permissions: ['view_finance'] },
+        { label: 'كشف حساب', path: '/finance/account-statement', icon: Book, permissions: ['view_finance'] },
         { label: 'قيود اليومية', path: '/finance/journal-entries', icon: FileText, permissions: ['view_finance'] },
         { label: 'دفتر الأستاذ', path: '/finance/ledger', icon: Book, permissions: ['view_finance'] },
         { label: 'قائمة الدخل', path: '/finance/income-statement', icon: TrendingUp, permissions: ['view_finance'] },

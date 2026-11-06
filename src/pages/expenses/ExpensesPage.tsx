@@ -1,8 +1,8 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '../../services/api'
-import { useSettingsStore, formatMoney } from '../../store/settingsStore'
-import { Plus, Trash2 } from 'lucide-react'
+import { useSettingsStore, formatMoney, mediaUrl } from '../../store/settingsStore'
+import { Plus, Trash2, Printer } from 'lucide-react'
 import Button from '../../components/common/buttons/Button'
 import Input from '../../components/common/inputs/Input'
 import Card from '../../components/common/cards/Card'
@@ -12,6 +12,7 @@ import Pagination from '../../components/common/Pagination'
 import { useAuthStore } from '../../store/authStore'
 import { formatDate } from '../../utils/format'
 import { getApiErrorMessage } from '../../utils/apiError'
+import { printReport } from '../../utils/printReport'
 
 interface ExpenseFormProps {
   accounts: { id: number; code: string; name: string; type: string; is_active: boolean }[]
@@ -37,12 +38,21 @@ export default function ExpensesPage() {
   const canDelete = permissions.includes('delete_expenses')
   const [showModal, setShowModal] = useState(false)
   const [page, setPage] = useState(1)
+  const [search, setSearch] = useState('')
+  const [fromDate, setFromDate] = useState('')
+  const [toDate, setToDate] = useState('')
   const queryClient = useQueryClient()
+  const { restaurant } = useSettingsStore()
 
   const { data: expensesRes, isLoading } = useQuery({
-    queryKey: ['expenses', page],
+    queryKey: ['expenses', page, search, fromDate, toDate],
     queryFn: async () => {
-      const res = await api.get(`/expenses?page=${page}`)
+      const params = new URLSearchParams()
+      params.set('page', String(page))
+      if (search) params.set('search', search)
+      if (fromDate) params.set('from', fromDate)
+      if (toDate) params.set('to', toDate)
+      const res = await api.get(`/expenses?${params.toString()}`)
       return res.data
     },
   })
@@ -52,6 +62,39 @@ export default function ExpensesPage() {
     queryKey: ['accounts-list'],
     queryFn: async () => (await api.get('/accounts')).data?.accounts || [],
   })
+
+  const handlePrint = () => {
+    const rows = (expenses || []).map((e: ExpenseRecord) => [
+      e.category,
+      formatMoney(e.amount, symbol),
+      e.account?.name || '-',
+      formatDate(e.expense_date),
+      e.description || '-',
+      e.is_approved ? 'نعم' : 'لا',
+    ])
+    printReport({
+      title: 'تقرير المصروفات',
+      restaurant,
+      logo: mediaUrl(restaurant?.logo),
+      meta: [
+        { label: 'الفترة', value: `${fromDate || 'البداية'} — ${toDate || 'اليوم'}` },
+        { label: 'البحث', value: search || 'الكل' },
+      ],
+      sections: [{
+        title: 'المصروفات',
+        columns: [
+          { label: 'الفئة' },
+          { label: 'المبلغ' },
+          { label: 'الحساب' },
+          { label: 'التاريخ' },
+          { label: 'الوصف' },
+          { label: 'معتمد' },
+        ],
+        rows,
+      }],
+      generatedAt: new Date(),
+    })
+  }
 
   const deleteMutation = useMutation({
     mutationFn: async (id: number) => { await api.delete(`/expenses/${id}`) },
@@ -74,9 +117,17 @@ export default function ExpensesPage() {
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">المصروفات</h1>
-        {canCreate && <Button onClick={() => setShowModal(true)}><Plus className="w-4 h-4" /> إضافة مصروف</Button>}
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={handlePrint}><Printer className="w-4 h-4" /> طباعة / PDF</Button>
+          {canCreate && <Button onClick={() => setShowModal(true)}><Plus className="w-4 h-4" /> إضافة مصروف</Button>}
+        </div>
       </div>
       <Card>
+        <div className="mb-4 grid grid-cols-1 gap-3 md:grid-cols-3">
+          <Input label="بحث بالوصف/الفئة" value={search} onChange={(e) => { setSearch(e.target.value); setPage(1) }} />
+          <Input label="من تاريخ" type="date" value={fromDate} onChange={(e) => { setFromDate(e.target.value); setPage(1) }} />
+          <Input label="إلى تاريخ" type="date" value={toDate} onChange={(e) => { setToDate(e.target.value); setPage(1) }} />
+        </div>
         <DataTable data={expenses || []} columns={columns} loading={isLoading} emptyMessage="لا توجد مصروفات" />
         <Pagination meta={expensesMeta} onPageChange={setPage} />
       </Card>
