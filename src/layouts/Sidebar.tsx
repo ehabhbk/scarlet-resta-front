@@ -107,6 +107,9 @@ export default function Sidebar({ open, mobileOpen, onClose }: SidebarProps) {
       children: [
         { label: 'حركات المخزون', path: '/stock-movements', icon: Activity, permissions: ['view_inventory'] },
         { label: 'المشتريات', path: '/purchases', icon: Truck, permissions: ['view_purchases'] },
+        { label: 'الموردون', path: '/suppliers', icon: Truck, permissions: ['view_suppliers'] },
+        { label: 'وحدات القياس', path: '/inventory-units', icon: List, permissions: ['view_inventory'] },
+        { label: 'جرد المخزون', path: '/inventory', icon: Package, permissions: ['view_inventory'] },
       ],
     },
     {
@@ -116,6 +119,7 @@ export default function Sidebar({ open, mobileOpen, onClose }: SidebarProps) {
       permissions: ['view_finance'],
       children: [
         { label: 'شجرة الحسابات', path: '/finance/chart-of-accounts', icon: List, permissions: ['view_finance'] },
+        { label: 'ميزان المراجعة', path: '/finance/trial-balance', icon: List, permissions: ['view_finance'] },
         { label: 'قيود اليومية', path: '/finance/journal-entries', icon: FileText, permissions: ['view_finance'] },
         { label: 'دفتر الأستاذ', path: '/finance/ledger', icon: Book, permissions: ['view_finance'] },
         { label: 'قائمة الدخل', path: '/finance/income-statement', icon: TrendingUp, permissions: ['view_finance'] },

@@ -19,6 +19,9 @@ import CustomersPage from './pages/customers/CustomersPage'
 import EmployeesPage from './pages/employees/EmployeesPage'
 import FinancePage from './pages/finance/FinancePage'
 import ChartOfAccountsPage from './pages/finance/ChartOfAccountsPage'
+import TrialBalancePage from './pages/finance/TrialBalancePage'
+import SuppliersPage from './pages/suppliers/SuppliersPage'
+import InventoryUnitsPage from './pages/inventory-units/InventoryUnitsPage'
 import IncomeStatementPage from './pages/finance/IncomeStatementPage'
 import BalanceSheetPage from './pages/finance/BalanceSheetPage'
 import LedgerPage from './pages/finance/LedgerPage'
@@ -158,6 +161,24 @@ function App() {
               <Navigate to="/login" />
             )
           } />
+          <Route path="/suppliers" element={
+            isAuthenticated ? (
+              <MainLayout>
+                <SuppliersPage />
+              </MainLayout>
+            ) : (
+              <Navigate to="/login" />
+            )
+          } />
+          <Route path="/inventory-units" element={
+            isAuthenticated ? (
+              <MainLayout>
+                <InventoryUnitsPage />
+              </MainLayout>
+            ) : (
+              <Navigate to="/login" />
+            )
+          } />
           <Route path="/customers" element={
             isAuthenticated ? (
               <MainLayout>
@@ -186,6 +207,7 @@ function App() {
             )
           } />
           <Route path="/finance/chart-of-accounts" element={isAuthenticated ? (<MainLayout><ChartOfAccountsPage /></MainLayout>) : (<Navigate to="/login" />)} />
+          <Route path="/finance/trial-balance" element={isAuthenticated ? (<MainLayout><TrialBalancePage /></MainLayout>) : (<Navigate to="/login" />)} />
           <Route path="/finance/income-statement" element={isAuthenticated ? (<MainLayout><IncomeStatementPage /></MainLayout>) : (<Navigate to="/login" />)} />
           <Route path="/finance/balance-sheet" element={isAuthenticated ? (<MainLayout><BalanceSheetPage /></MainLayout>) : (<Navigate to="/login" />)} />
           <Route path="/finance/ledger" element={isAuthenticated ? (<MainLayout><LedgerPage /></MainLayout>) : (<Navigate to="/login" />)} />
