@@ -235,11 +235,12 @@ export default function DashboardPage() {
   })
 
   const { data: staffPerformance } = useQuery({
-    queryKey: ['dashboard', 'staff-performance'],
+    queryKey: ['dashboard', 'staff-performance', rangeKey],
     queryFn: async () => {
-      const res = await api.get('/dashboard/staff-performance')
+      const res = await api.get(`/dashboard/staff-performance?from=${from}&to=${to}`)
       return res.data
     },
+    enabled: Boolean(from && to),
   })
 
   const { data: inventoryAlerts } = useQuery({
