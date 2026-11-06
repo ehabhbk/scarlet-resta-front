@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { api } from '../../services/api'
 import { useSettingsStore, formatMoney, mediaUrl } from '../../store/settingsStore'
@@ -20,18 +20,29 @@ export default function FinancePage() {
   const { symbol, paymentMethods, restaurant } = useSettingsStore()
   const [period, setPeriod] = useState('month')
 
+  const range = useMemo(() => {
+    const now = new Date()
+    let start = new Date(now)
+    if (period === 'today') start = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+    if (period === 'week') start = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 6)
+    if (period === 'month') start = new Date(now.getFullYear(), now.getMonth(), 1)
+    if (period === 'year') start = new Date(now.getFullYear(), 0, 1)
+    const fmt = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+    return { from: fmt(start), to: fmt(now) }
+  }, [period])
+
   const { data: profitLoss } = useQuery({
     queryKey: ['profit-loss', period],
     queryFn: async () => {
-      const res = await api.get('/reports/profit-loss')
+      const res = await api.get(`/reports/profit-loss?from=${range.from}&to=${range.to}`)
       return res.data
     },
   })
 
   const { data: paymentMethodStats } = useQuery({
-    queryKey: ['payment-methods'],
+    queryKey: ['payment-methods', period],
     queryFn: async () => {
-      const res = await api.get('/reports/payment-methods')
+      const res = await api.get(`/reports/payment-methods?from=${range.from}&to=${range.to}`)
       return res.data.methods as PaymentMethodStat[]
     },
   })

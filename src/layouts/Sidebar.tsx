@@ -109,7 +109,7 @@ export default function Sidebar({ open, mobileOpen, onClose }: SidebarProps) {
         { label: 'المشتريات', path: '/purchases', icon: Truck, permissions: ['view_purchases'] },
         { label: 'الموردون', path: '/suppliers', icon: Truck, permissions: ['view_suppliers'] },
         { label: 'وحدات القياس', path: '/inventory-units', icon: List, permissions: ['view_inventory'] },
-        { label: 'جرد المخزون', path: '/inventory', icon: Package, permissions: ['view_inventory'] },
+        { label: 'جرد المخزون', path: '/stocktaking', icon: Package, permissions: ['view_inventory'] },
       ],
     },
     {

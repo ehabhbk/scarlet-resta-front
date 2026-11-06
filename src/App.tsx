@@ -23,6 +23,7 @@ import TrialBalancePage from './pages/finance/TrialBalancePage'
 import AccountStatementPage from './pages/finance/AccountStatementPage'
 import SuppliersPage from './pages/suppliers/SuppliersPage'
 import InventoryUnitsPage from './pages/inventory-units/InventoryUnitsPage'
+import StocktakingPage from './pages/stocktaking/StocktakingPage'
 import IncomeStatementPage from './pages/finance/IncomeStatementPage'
 import BalanceSheetPage from './pages/finance/BalanceSheetPage'
 import LedgerPage from './pages/finance/LedgerPage'
@@ -175,6 +176,15 @@ function App() {
             isAuthenticated ? (
               <MainLayout>
                 <InventoryUnitsPage />
+              </MainLayout>
+            ) : (
+              <Navigate to="/login" />
+            )
+          } />
+          <Route path="/stocktaking" element={
+            isAuthenticated ? (
+              <MainLayout>
+                <StocktakingPage />
               </MainLayout>
             ) : (
               <Navigate to="/login" />

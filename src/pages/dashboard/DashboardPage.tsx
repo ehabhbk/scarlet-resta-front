@@ -438,66 +438,6 @@ export default function DashboardPage() {
       </Card>
 
       <section className="space-y-3">
-        <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">ملخص اليوم</h2>
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
-          <StatCard
-            label="مبيعات اليوم"
-            value={money(stats?.today_revenue)}
-            icon={<DollarSign className="h-6 w-6 text-white" />}
-            color="bg-green-500"
-          />
-          <StatCard
-            label="مشتريات اليوم"
-            value={money(stats?.today_purchases)}
-            icon={<Package className="h-6 w-6 text-white" />}
-            color="bg-amber-500"
-          />
-          <StatCard
-            label="مصروفات اليوم"
-            value={money(stats?.today_expenses)}
-            icon={<Receipt className="h-6 w-6 text-white" />}
-            color="bg-red-500"
-          />
-          <StatCard
-            label="صافي ربح اليوم"
-            value={money(stats?.today_profit)}
-            icon={<PiggyBank className="h-6 w-6 text-white" />}
-            color="bg-emerald-500"
-          />
-        </div>
-      </section>
-
-      <section className="space-y-3">
-        <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">ملخص الشهر الحالي</h2>
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
-          <StatCard
-            label="مبيعات الشهر"
-            value={money(stats?.month_revenue)}
-            icon={<TrendingUp className="h-6 w-6 text-white" />}
-            color="bg-blue-500"
-          />
-          <StatCard
-            label="مشتريات الشهر"
-            value={money(stats?.month_purchases)}
-            icon={<Package className="h-6 w-6 text-white" />}
-            color="bg-orange-500"
-          />
-          <StatCard
-            label="مصروفات الشهر"
-            value={money(stats?.month_expenses)}
-            icon={<Receipt className="h-6 w-6 text-white" />}
-            color="bg-rose-500"
-          />
-          <StatCard
-            label="صافي ربح الشهر"
-            value={money(stats?.month_profit)}
-            icon={<PiggyBank className="h-6 w-6 text-white" />}
-            color="bg-teal-500"
-          />
-        </div>
-      </section>
-
-      <section className="space-y-3">
         <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
           ملخص الفترة المحددة
         </h2>
