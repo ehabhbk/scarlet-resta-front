@@ -1895,7 +1895,7 @@ export default function POSPage() {
         <div className="space-y-4">
           {can('view_pos') && <div className="rounded-lg border border-blue-100 bg-blue-50 p-3 text-sm dark:border-blue-900 dark:bg-blue-950/30">
             <p className="font-semibold text-blue-900 dark:text-blue-200">
-              حساب التوريد: {user?.vault_account?.name || 'الخزنة الفرعية للكاشير'}
+              حساب الإيراد: {user?.revenue_account?.name || 'حساب إيراد المبيعات'}
             </p>
             <div className="mt-2 space-y-1 text-blue-800 dark:text-blue-300">
               {revenueBreakdown.filter((method) => method.amount !== 0).map((method) => {

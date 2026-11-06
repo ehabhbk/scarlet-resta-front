@@ -16,7 +16,7 @@ export interface User {
   is_active: boolean
   permissions?: string[]
   pay_account_id?: number | null
-  vault_account_id?: number | null
+  revenue_account_id?: number | null
   kitchen_station_id?: number | null
   kitchen_station?: {
     id: number
@@ -28,7 +28,7 @@ export interface User {
     name: string
     type?: string
   }
-  vault_account?: {
+  revenue_account?: {
     id: number
     code: string
     name: string

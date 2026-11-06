@@ -51,6 +51,17 @@ interface ShiftExpense {
   amount: number
 }
 
+interface ShiftWage {
+  employee_id: number
+  employee_name?: string
+  pay_type?: string
+  pay_rate?: number
+  amount: number
+  payment_method?: string
+  paid?: boolean
+  paid_at?: string | null
+}
+
 const REPORTS: ReportDefinition[] = [
   {
     id: 'sales',
@@ -308,7 +319,9 @@ export default function ReportsPage() {
   const shiftOrders = (Array.isArray(shiftRevenueData?.orders) ? shiftRevenueData.orders : []) as ShiftOrder[]
   const shiftExpenses = (Array.isArray(shiftRevenueData?.expenses) ? shiftRevenueData.expenses : []) as ShiftExpense[]
   const shiftExpensesTotal = Number(shiftRevenueData?.expenses_total) || 0
-  const shiftNetTotal = Number(shiftRevenueData?.net_total ?? shiftTotal - shiftExpensesTotal) || 0
+  const shiftWages = (Array.isArray(shiftRevenueData?.wages) ? shiftRevenueData.wages : []) as ShiftWage[]
+  const shiftWagesTotal = Number(shiftRevenueData?.wages_total) || 0
+  const shiftNetTotal = Number(shiftRevenueData?.net_total ?? shiftTotal - shiftExpensesTotal - shiftWagesTotal) || 0
   const shiftOpeningCash = Number(shiftRevenueData?.opening_cash) || 0
   const shiftExpectedCash = Number(shiftRevenueData?.expected_cash) || 0
   const shiftActualCash = Number(shiftRevenueData?.actual_cash) || 0
@@ -553,10 +566,25 @@ export default function ReportsPage() {
       </tr>`)
       .join('')
 
+    const wageTypeLabel = (type?: string) =>
+      type === 'daily' ? 'أجر يومي' : type === 'percentage' ? 'نسبة من المبيعات' : (type || '-')
+
+    const wageRowsHtml = shiftWages
+      .map((wage, index: number) => `<tr>
+        <td class="num">${index + 1}</td>
+        <td>${escapeHtml(wage.employee_name || '-')}</td>
+        <td>${escapeHtml(wageTypeLabel(wage.pay_type))}</td>
+        <td class="num">${wage.pay_type === 'percentage' ? `${formatNumber(Number(wage.pay_rate) || 0, { maximumFractionDigits: 2 })}%` : money(wage.pay_rate)}</td>
+        <td>${escapeHtml(paymentLabel(wage.payment_method || 'cash'))}</td>
+        <td class="num">${money(wage.amount)}</td>
+      </tr>`)
+      .join('')
+
     const summaryRows = [
       ['رصيد افتتاحي للوردية', shiftOpeningCash],
       ['إجمالي المتحصلات / المبيعات', shiftTotal],
       ['إجمالي المصروفات', shiftExpensesTotal],
+      ['إجمالي أجور الموظفين', shiftWagesTotal],
       ['صافي دخل الوردية', shiftNetTotal],
       ['النقدية المتوقعة', shiftExpectedCash],
       ['النقدية الفعلية', shiftActualCash],
@@ -634,6 +662,7 @@ export default function ReportsPage() {
           <div class="kpi green"><span class="label">إجمالي المبيعات</span><span class="value">${money(shiftTotal)}</span></div>
           <div class="kpi"><span class="label">عدد الطلبات</span><span class="value">${Number(shiftRevenueData?.orders_count || 0)}</span></div>
           <div class="kpi red"><span class="label">إجمالي المصروفات</span><span class="value">${money(shiftExpensesTotal)}</span></div>
+          <div class="kpi red"><span class="label">إجمالي الأجور</span><span class="value">${money(shiftWagesTotal)}</span></div>
           <div class="kpi ${shiftNetTotal >= 0 ? 'green' : 'red'}"><span class="label">صافي الوردية</span><span class="value">${money(shiftNetTotal)}</span></div>
         </section>
 
@@ -681,6 +710,17 @@ export default function ReportsPage() {
                  <tbody>${expenseRowsHtml}</tbody>
                  <tfoot><tr><th colspan="6">إجمالي المصروفات</th><th class="num">${money(shiftExpensesTotal)}</th></tr></tfoot></table>`
               : '<div class="empty">لا توجد مصروفات مسجلة لهذه الوردية</div>'
+          }
+        </section>
+
+        <section>
+          <h2>أجور الموظفين المحتسبة على الوردية</h2>
+          ${
+            wageRowsHtml
+              ? `<table><thead><tr><th>#</th><th>الموظف</th><th>نوع الأجر</th><th>القيمة</th><th>طريقة الدفع</th><th>المبلغ</th></tr></thead>
+                 <tbody>${wageRowsHtml}</tbody>
+                 <tfoot><tr><th colspan="5">إجمالي الأجور</th><th class="num">${money(shiftWagesTotal)}</th></tr></tfoot></table>`
+              : '<div class="empty">لا توجد أجور مستحقة لهذه الوردية</div>'
           }
         </section>
 
@@ -751,7 +791,7 @@ export default function ReportsPage() {
             </div>
             {shiftDetail && selectedShiftId && (
               <div className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-3 xl:grid-cols-6 gap-4">
                   <Card padding="sm">
                     <p className="text-sm text-gray-500">عدد الكاشيرين</p>
                     <p className="text-lg font-bold">{new Set(shiftOrders.map((o) => o.cashier_name || o.cashier?.name || o.id)).size || shiftCashiers.filter((c) => (c.orders_count || 0) > 0).length}</p>
@@ -767,6 +807,10 @@ export default function ReportsPage() {
                   <Card padding="sm">
                     <p className="text-sm text-gray-500">إجمالي المصروفات</p>
                     <p className="text-lg font-bold text-red-600 dark:text-red-400">{formatMoney(shiftExpensesTotal, symbol)}</p>
+                  </Card>
+                  <Card padding="sm">
+                    <p className="text-sm text-gray-500">إجمالي الأجور</p>
+                    <p className="text-lg font-bold text-red-600 dark:text-red-400">{formatMoney(shiftWagesTotal, symbol)}</p>
                   </Card>
                   <Card padding="sm">
                     <p className="text-sm text-gray-500">صافي الوردية</p>
@@ -916,12 +960,60 @@ export default function ReportsPage() {
                   </div>
                 </div>
                 <div>
+                  <h2 className="text-lg font-semibold mb-2">أجور الموظفين المحتسبة على الوردية</h2>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead className="bg-gray-50 dark:bg-gray-800">
+                        <tr>
+                          <th className="px-3 py-2 text-start">الموظف</th>
+                          <th className="px-3 py-2 text-start">نوع الأجر</th>
+                          <th className="px-3 py-2 text-start">القيمة</th>
+                          <th className="px-3 py-2 text-start">طريقة الدفع</th>
+                          <th className="px-3 py-2 text-start">المبلغ</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {shiftWages.length === 0 ? (
+                          <tr>
+                            <td className="px-3 py-4 text-center text-gray-500" colSpan={5}>لا توجد أجور مستحقة لهذه الوردية</td>
+                          </tr>
+                        ) : (
+                          shiftWages.map((wage) => (
+                            <tr key={wage.employee_id} className="border-b border-gray-100 dark:border-gray-800">
+                              <td className="px-3 py-2">{wage.employee_name || '-'}</td>
+                              <td className="px-3 py-2">
+                                {wage.pay_type === 'daily' ? 'أجر يومي' : wage.pay_type === 'percentage' ? 'نسبة من المبيعات' : (wage.pay_type || '-')}
+                              </td>
+                              <td className="px-3 py-2">
+                                {wage.pay_type === 'percentage'
+                                  ? `${formatNumber(Number(wage.pay_rate) || 0, { maximumFractionDigits: 2 })}%`
+                                  : formatMoney(Number(wage.pay_rate) || 0, symbol)}
+                              </td>
+                              <td className="px-3 py-2">{paymentLabel(wage.payment_method || 'cash')}</td>
+                              <td className="px-3 py-2 whitespace-nowrap">{formatMoney(Number(wage.amount) || 0, symbol)}</td>
+                            </tr>
+                          ))
+                        )}
+                      </tbody>
+                      {shiftWages.length > 0 && (
+                        <tfoot>
+                          <tr className="font-semibold bg-gray-50 dark:bg-gray-800">
+                            <td className="px-3 py-2" colSpan={4}>إجمالي الأجور</td>
+                            <td className="px-3 py-2 whitespace-nowrap">{formatMoney(shiftWagesTotal, symbol)}</td>
+                          </tr>
+                        </tfoot>
+                      )}
+                    </table>
+                  </div>
+                </div>
+                <div>
                   <h2 className="text-lg font-semibold mb-2">الملخص المالي النهائي للوردية</h2>
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
                     {[
                       ['رصيد افتتاحي', shiftOpeningCash],
                       ['إجمالي المتحصلات', shiftTotal],
                       ['إجمالي المصروفات', shiftExpensesTotal],
+                      ['إجمالي الأجور', shiftWagesTotal],
                       ['صافي الوردية', shiftNetTotal],
                       ['النقدية المتوقعة', shiftExpectedCash],
                       ['النقدية الفعلية', shiftActualCash],

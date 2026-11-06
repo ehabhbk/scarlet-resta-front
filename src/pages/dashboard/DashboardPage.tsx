@@ -62,9 +62,9 @@ const FALLBACK_PAYMENT_LABELS: Record<string, string> = {
   bank: 'تحويل بنكي',
 }
 
-type Slice = { name: string; value: number }
-type DashboardSliceRow = { name: string; value: number | string }
-type TopProduct = { id: number; name: string; revenue: number; sales_count: number }
+type Slice = { name: string; value: number; count: number }
+type DashboardSliceRow = { name: string; value: number | string; count?: number | string }
+type TopProduct = { id: number; name: string; revenue: number; sales_count: number; orders_count?: number }
 type LowStockItem = { id: number; name: string; current_stock: number }
 
 const toInputDate = (date: Date) =>
@@ -89,12 +89,16 @@ function ChartTooltip({
   if (!active || !payload || payload.length === 0) return null
   const point = payload[0]
   const label = point.name ?? point.payload?.name ?? ''
+  const count = Number(point.payload?.count) || 0
   return (
     <div className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm shadow-lg dark:border-gray-700 dark:bg-gray-900">
       <p className="mb-1 font-medium text-gray-700 dark:text-gray-200">{label}</p>
       <p className="text-gray-900 dark:text-gray-100">
         {formatMoney(Number(point.value) || 0, symbol)}
       </p>
+      {count > 0 && (
+        <p className="text-xs text-gray-500 dark:text-gray-400">{formatNumber(count)} سجل</p>
+      )}
     </div>
   )
 }
@@ -104,11 +108,13 @@ function PieCard({
   icon,
   data,
   symbol,
+  countLabel = 'عدد',
 }: {
   title: string
   icon: ReactNode
   data: Slice[]
   symbol: string
+  countLabel?: string
 }) {
   const total = data.reduce((sum, item) => sum + Number(item.value || 0), 0)
 
@@ -155,7 +161,7 @@ function PieCard({
                   <span className="shrink-0 font-medium text-gray-900 dark:text-gray-100">
                     {formatMoney(item.value, symbol)}{' '}
                     <span className="text-gray-400 dark:text-gray-500">
-                      ({formatNumber(percent)}%)
+                      ({formatNumber(percent)}% · {formatNumber(Number(item.count) || 0)} {countLabel})
                     </span>
                   </span>
                 </li>
@@ -257,6 +263,7 @@ export default function DashboardPage() {
       (breakdowns?.sales || []).map((row: DashboardSliceRow) => ({
         name: SALE_TYPE_LABELS[row.name] || row.name,
         value: Number(row.value) || 0,
+        count: Number(row.count) || 0,
       })),
     [breakdowns]
   )
@@ -266,6 +273,7 @@ export default function DashboardPage() {
       (breakdowns?.purchases || []).map((row: DashboardSliceRow) => ({
         name: row.name,
         value: Number(row.value) || 0,
+        count: Number(row.count) || 0,
       })),
     [breakdowns]
   )
@@ -275,6 +283,7 @@ export default function DashboardPage() {
       (breakdowns?.expenses || []).map((row: DashboardSliceRow) => ({
         name: row.name,
         value: Number(row.value) || 0,
+        count: Number(row.count) || 0,
       })),
     [breakdowns]
   )
@@ -284,6 +293,7 @@ export default function DashboardPage() {
       (breakdowns?.products || []).map((row: DashboardSliceRow) => ({
         name: row.name,
         value: Number(row.value) || 0,
+        count: Number(row.count) || 0,
       })),
     [breakdowns]
   )
@@ -293,6 +303,7 @@ export default function DashboardPage() {
       (breakdowns?.categories || []).map((row: DashboardSliceRow) => ({
         name: row.name,
         value: Number(row.value) || 0,
+        count: Number(row.count) || 0,
       })),
     [breakdowns]
   )
@@ -302,6 +313,7 @@ export default function DashboardPage() {
       (breakdowns?.employees || []).map((row: DashboardSliceRow) => ({
         name: row.name,
         value: Number(row.value) || 0,
+        count: Number(row.count) || 0,
       })),
     [breakdowns]
   )
@@ -311,6 +323,7 @@ export default function DashboardPage() {
       (breakdowns?.payment_methods || []).map((row: DashboardSliceRow) => ({
         name: paymentLabel(row.name),
         value: Number(row.value) || 0,
+        count: Number(row.count) || 0,
       })),
     // paymentLabel is derived from paymentMethods.
     [breakdowns, paymentMethods]
@@ -325,6 +338,14 @@ export default function DashboardPage() {
     [salesChart]
   )
 
+  const topProductsTotal = useMemo(
+    () =>
+      (topProducts?.products || []).reduce(
+        (sum: number, product: TopProduct) => sum + (Number(product.revenue) || 0),
+        0,
+      ),
+    [topProducts],
+  )
   const period = stats?.period
   const bestCashier = staffPerformance?.staff?.[0]
   const lowStockAlerts = Array.isArray(inventoryAlerts?.low_stock) ? inventoryAlerts.low_stock : []
@@ -549,42 +570,49 @@ export default function DashboardPage() {
             icon={<TrendingUp className="h-5 w-5" />}
             data={salesSlices}
             symbol={symbol}
+            countLabel="طلب"
           />
           <PieCard
             title="طرق الدفع"
             icon={<Wallet className="h-5 w-5" />}
             data={paymentSlices}
             symbol={symbol}
+            countLabel="عملية"
           />
           <PieCard
             title="المشتريات حسب المورد"
             icon={<Package className="h-5 w-5" />}
             data={purchaseSlices}
             symbol={symbol}
+            countLabel="عملية شراء"
           />
           <PieCard
             title="المصروفات حسب الفئة"
             icon={<Receipt className="h-5 w-5" />}
             data={expenseSlices}
             symbol={symbol}
+            countLabel="مصروف"
           />
           <PieCard
             title="المنتجات الأكثر مبيعاً"
             icon={<Boxes className="h-5 w-5" />}
             data={productSlices}
             symbol={symbol}
+            countLabel="قطعة"
           />
           <PieCard
             title="المبيعات حسب الصنف"
             icon={<Tags className="h-5 w-5" />}
             data={categorySlices}
             symbol={symbol}
+            countLabel="قطعة"
           />
           <PieCard
             title="الموظفون حسب المبيعات"
             icon={<Users className="h-5 w-5" />}
             data={employeeSlices}
             symbol={symbol}
+            countLabel="طلب"
           />
         </div>
       </section>
@@ -616,12 +644,15 @@ export default function DashboardPage() {
                         {product.name}
                       </p>
                       <p className="text-xs text-gray-500 dark:text-gray-400">
-                        {money(product.revenue)}
+                        {money(product.revenue)}{' '}
+                        <span className="text-gray-400 dark:text-gray-500">
+                          ({formatNumber(topProductsTotal > 0 ? (Number(product.revenue) / topProductsTotal) * 100 : 0)}%)
+                        </span>
                       </p>
                     </div>
                   </div>
                   <span className="whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
-                    {formatNumber(product.sales_count)} مبيعة
+                    {formatNumber(product.sales_count)} قطعة · {formatNumber(Number(product.orders_count) || 0)} طلب
                   </span>
                 </div>
               ))

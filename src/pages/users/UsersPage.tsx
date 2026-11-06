@@ -29,7 +29,7 @@ interface UserFormValues {
   role: string
   is_active: boolean
   pay_account_id: string
-  vault_account_id: string
+  revenue_account_id: string
   kitchen_station_id: string
 }
 
@@ -138,12 +138,12 @@ export default function UsersPage() {
       render: (u: User) => {
         const cashier = (u.roles || []).some((role) => isCashierRole(role.name || ''))
         const payAccount = u.pay_account?.name || accounts?.find((account) => Number(account.id) === Number(u.pay_account_id))?.name
-        const vaultAccount = u.vault_account?.name || accounts?.find((account) => Number(account.id) === Number(u.vault_account_id))?.name
+        const revenueAccount = u.revenue_account?.name || accounts?.find((account) => Number(account.id) === Number(u.revenue_account_id))?.name
         if (!cashier) return payAccount || '-'
         return (
           <div className="space-y-1 text-xs">
             <p>مصروف الأجر: {payAccount || 'غير مربوط'}</p>
-            <p>الخزنة: {vaultAccount || 'غير مربوطة'}</p>
+            <p>حساب الإيراد: {revenueAccount || 'غير مربوط'}</p>
           </div>
         )
       },
@@ -295,7 +295,7 @@ function CashierAccountsNotice() {
   return (
     <div className="space-y-4 rounded-xl border border-blue-100 bg-blue-50/60 p-4 dark:border-blue-900 dark:bg-blue-950/20">
       <p className="text-sm font-semibold text-gray-800 dark:text-gray-100">
-        اختر حساب مصروف الأجر وخزينة فرعية موجودة، أو اترك الخزينة على الإنشاء التلقائي ليُنشئ النظام خزنة فرعية باسم المستخدم ويربطها به عند الحفظ.
+        اختر حساب مصروف الأجر وحساب إيراد المبيعات، أو اترك حساب الإيراد على الإنشاء التلقائي ليُنشئ النظام حساب إيراد فرعياً باسم المستخدم تحت حساب إيرادات المبيعات ويربطه به عند الحفظ.
       </p>
     </div>
   )
@@ -308,8 +308,8 @@ function UserAccountFields({ accounts, cashier, formData, setFormData }: {
   setFormData: React.Dispatch<React.SetStateAction<UserFormValues>>
 }) {
   const expenseAccounts = accounts.filter((account) => account.type === 'expense' && account.is_active)
-  const vaultAccounts = accounts.filter((account) =>
-    account.type === 'asset' && account.is_active && account.parent_id
+  const revenueAccounts = accounts.filter((account) =>
+    account.type === 'revenue' && account.is_active && account.parent_id
   )
 
   return (
@@ -329,14 +329,14 @@ function UserAccountFields({ accounts, cashier, formData, setFormData }: {
       </div>
       {cashier && (
         <div>
-          <label className="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-200">الخزينة الفرعية للكاشير</label>
+          <label className="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-200">حساب إيراد المبيعات</label>
           <select
-            value={formData.vault_account_id}
-            onChange={(event) => setFormData({ ...formData, vault_account_id: event.target.value })}
+            value={formData.revenue_account_id}
+            onChange={(event) => setFormData({ ...formData, revenue_account_id: event.target.value })}
             className="w-full rounded-lg border border-gray-300 bg-white px-4 py-2 dark:border-gray-700 dark:bg-gray-900"
           >
-            <option value="">إنشاء خزينة فرعية باسم المستخدم تلقائيًا</option>
-            {vaultAccounts.map((account: Account) => (
+            <option value="">إنشاء حساب إيراد فرعي باسم المستخدم تلقائيًا</option>
+            {revenueAccounts.map((account: Account) => (
               <option key={account.id} value={account.id}>{account.code} - {account.name}</option>
             ))}
           </select>
@@ -350,7 +350,7 @@ function CashierAccountSummary({ user }: { user: User }) {
   return (
     <div className="space-y-1 rounded-xl border border-blue-100 bg-blue-50/60 p-4 text-sm dark:border-blue-900 dark:bg-blue-950/20">
       <p>حساب مصروف الأجر: {user.pay_account?.name || 'غير مربوط'}</p>
-      <p>الخزنة الفرعية: {user.vault_account?.name || 'غير مربوطة'}</p>
+      <p>حساب إيراد المبيعات: {user.revenue_account?.name || 'غير مربوط'}</p>
     </div>
   )
 }
@@ -363,7 +363,7 @@ function UserForm({ roles, accounts, kitchenStations, onClose, onSuccess }: User
     role: '',
     is_active: true,
     pay_account_id: '',
-    vault_account_id: '',
+    revenue_account_id: '',
     kitchen_station_id: '',
   })
   const [imageFile, setImageFile] = useState<File | null>(null)
@@ -403,7 +403,7 @@ function UserForm({ roles, accounts, kitchenStations, onClose, onSuccess }: User
       ...formData,
       username: formData.username.trim().toLowerCase(),
       pay_account_id: formData.pay_account_id ? Number(formData.pay_account_id) : null,
-      vault_account_id: formData.vault_account_id ? Number(formData.vault_account_id) : null,
+      revenue_account_id: formData.revenue_account_id ? Number(formData.revenue_account_id) : null,
       kitchen_station_id: isChefRole(formData.role) && formData.kitchen_station_id
         ? Number(formData.kitchen_station_id)
         : null,
@@ -511,7 +511,7 @@ function EditUserForm({ user, roles, accounts, kitchenStations, onClose, onSucce
     role: (user.roles && user.roles[0]?.name) || '',
     is_active: user.is_active ?? true,
     pay_account_id: user.pay_account_id ? String(user.pay_account_id) : '',
-    vault_account_id: user.vault_account_id ? String(user.vault_account_id) : '',
+    revenue_account_id: user.revenue_account_id ? String(user.revenue_account_id) : '',
     kitchen_station_id: user.kitchen_station_id ? String(user.kitchen_station_id) : '',
   })
   const [imageFile, setImageFile] = useState<File | null>(null)
@@ -556,7 +556,7 @@ function EditUserForm({ user, roles, accounts, kitchenStations, onClose, onSucce
       role: string
       is_active: boolean
       pay_account_id: number | null
-      vault_account_id: number | null
+      revenue_account_id: number | null
       kitchen_station_id: number | null
       password?: string
     } = {
@@ -565,7 +565,7 @@ function EditUserForm({ user, roles, accounts, kitchenStations, onClose, onSucce
       role: formData.role,
       is_active: formData.is_active,
       pay_account_id: formData.pay_account_id ? Number(formData.pay_account_id) : null,
-      vault_account_id: formData.vault_account_id ? Number(formData.vault_account_id) : null,
+      revenue_account_id: formData.revenue_account_id ? Number(formData.revenue_account_id) : null,
       kitchen_station_id: isChefRole(formData.role) && formData.kitchen_station_id
         ? Number(formData.kitchen_station_id)
         : null,
