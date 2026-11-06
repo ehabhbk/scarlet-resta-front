@@ -1,8 +1,12 @@
 import { useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { api } from '../../services/api'
+import { Printer } from 'lucide-react'
+import { useSettingsStore, formatMoney, mediaUrl } from '../../store/settingsStore'
+import { formatDate } from '../../utils/format'
+import Button from '../../components/common/buttons/Button'
 import Card from '../../components/common/cards/Card'
-import { useSettingsStore, formatMoney } from '../../store/settingsStore'
+import { printReport } from '../../utils/printReport'
 
 interface Account {
   id: number
@@ -24,7 +28,7 @@ const TYPE_LABELS: Record<string, string> = {
 }
 
 export default function TrialBalancePage() {
-  const { symbol } = useSettingsStore()
+  const { symbol, restaurant } = useSettingsStore()
   const { data, isLoading } = useQuery({
     queryKey: ['chart-of-accounts'],
     queryFn: async () => {
@@ -44,10 +48,31 @@ export default function TrialBalancePage() {
     return { totalDebit: d, totalCredit: c }
   }, [accounts])
 
+  const handlePrint = () => {
+    const rows = accounts.map((a) => {
+      const b = Number(a.balance) || 0
+      return [a.code, a.name, TYPE_LABELS[a.type] || a.type, b >= 0 ? formatMoney(b, symbol) : '-', b < 0 ? formatMoney(-b, symbol) : '-']
+    })
+    printReport({
+      title: 'ميزان المراجعة',
+      restaurant,
+      logo: mediaUrl(restaurant?.logo),
+      meta: [{ label: 'تاريخ الإصدار', value: formatDate(new Date()) }],
+      sections: [{
+        title: 'الحسابات',
+        columns: [{ label: 'الكود' }, { label: 'اسم الحساب' }, { label: 'النوع' }, { label: 'مدين' }, { label: 'دائن' }],
+        rows,
+        footer: ['', 'الإجمالي', '', formatMoney(totalDebit, symbol), formatMoney(totalCredit, symbol)],
+      }],
+      generatedAt: new Date(),
+    })
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">ميزان المراجعة</h1>
+        <Button variant="outline" onClick={handlePrint}><Printer className="w-4 h-4" /> طباعة / PDF</Button>
       </div>
       <Card>
         {isLoading ? (
